@@ -37,6 +37,49 @@ test("inventory manager can create a floor", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Ground" })).toBeVisible();
 });
 
+test("inventory manager can archive an empty floor and is blocked when units remain", async ({
+  page,
+}) => {
+  await signIn(page, inventoryEmail, inventoryPassword);
+  await page.goto("/structure");
+  await expect(page.getByRole("columnheader", { name: "Level" })).toBeVisible();
+
+  const stamp = Date.now();
+  const emptyBlockName = `E2E empty ${stamp}`;
+  const emptyFloorName = `Archive empty ${stamp}`;
+
+  await page.getByRole("button", { name: "New block" }).click();
+  await page.getByLabel("Name").fill(emptyBlockName);
+  await page.getByRole("button", { name: "Save block" }).click();
+  await expect(page.getByRole("link", { name: emptyBlockName })).toBeVisible();
+  await page.getByRole("link", { name: emptyBlockName }).click();
+  await expect(page.getByText(`Floors · ${emptyBlockName}`)).toBeVisible();
+
+  await page.getByRole("button", { name: "New floor" }).click();
+  await page.getByLabel("Level").fill("0");
+  await page.getByLabel("Label").fill(emptyFloorName);
+  await page.getByRole("button", { name: "Save floor" }).click();
+  await expect(page.getByRole("button", { name: emptyFloorName })).toBeVisible();
+
+  await page.getByRole("button", { name: emptyFloorName }).click();
+  await page.getByRole("button", { name: "Archive floor" }).click();
+  await expect(page.getByRole("button", { name: emptyFloorName })).toHaveCount(0);
+  await expect(page.getByText("No floors in this block.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Main" }).click();
+  await expect(page.getByText("Floors · Main")).toBeVisible();
+  await page.getByRole("button", { name: "Ground" }).click();
+  await page.getByRole("button", { name: "Archive floor" }).click();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: /Cannot archive this floor: \d+ active units? still exists?/,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Edit floor" })).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("button", { name: "Ground" })).toBeVisible();
+});
+
 test("sales cannot create a floor", async ({ page }) => {
   await signIn(page, salesEmail, salesPassword);
   await page.goto("/structure");

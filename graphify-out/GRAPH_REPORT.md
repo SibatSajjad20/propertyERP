@@ -1,22 +1,22 @@
 # Graph Report - PropertyERP  (2026-10-30)
 
 ## Corpus Check
-- 144 files · ~46,567 words
+- 144 files · ~46,895 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 856 nodes · 1563 edges · 138 communities (65 shown, 73 thin omitted)
+- 858 nodes · 1566 edges · 126 communities (52 shown, 74 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 6 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `12866674`
+- Built from commit: `5abf57bd`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- units.ts
-- units/actions.ts
+- enums.ts
+- jobs.ts
 - dashboard/page.tsx
 - Agent instructions
 - compilerOptions
@@ -40,7 +40,7 @@
 - Decisions
 - Design
 - drizzle-orm
-- eslint
+- class-variance-authority
 - eslint.config.mjs
 - eslint-config-next
 - eslint-config-prettier
@@ -118,26 +118,14 @@
 - Web Interface Guidelines
 - Import rules
 - Roadmap
-- unit-form.tsx
+- units/schema.ts
 - PERMISSIONS.md
 - @playwright/test
 - @testing-library/dom
-- InventoryScreen
+- drizzle-kit
 - units/queries.ts
-- units/schema.ts
-- inventory-screen.tsx
-- lib/auth.ts
-- permissions.ts
-- status.test.ts
-- structure-panel.tsx
-- db/index.ts
-- button.tsx
-- errors.ts
-- UserRole
-- enums.ts
-- units.test.ts
-- users/page.tsx
-- clsx
+- getSession
+- units/actions.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `requireSession()` - 42 edges
@@ -155,30 +143,26 @@
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/status.test.ts → src/lib/auth.ts
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
-  tests/unit/units.test.ts → src/lib/auth.ts
-- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/structure.test.ts → src/lib/auth.ts
-- `getDashboardStats()` --calls--> `sql`  [EXTRACTED]
-  src/features/dashboard/queries.ts → src/db/index.ts
+- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
+  tests/unit/units.test.ts → src/lib/auth.ts
 - `StatusCell()` --calls--> `cn()`  [EXTRACTED]
   src/features/units/components/inventory-table.tsx → src/lib/cn.ts
+- `DashboardPage()` --calls--> `formatPkr()`  [EXTRACTED]
+  src/app/(app)/dashboard/page.tsx → src/lib/money.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (138 total, 73 thin omitted)
+## Communities (126 total, 74 thin omitted)
 
-### Community 0 - "units.ts"
-Cohesion: 0.15
-Nodes (19): UnitStatus, blocks, categories, floors, properties, rateHistory, unitPricing, DEFAULT_CATEGORIES (+11 more)
-
-### Community 1 - "units/actions.ts"
-Cohesion: 0.23
-Nodes (15): archiveUnit(), asAuditJson(), assertUniqueCode(), changeUnitStatus(), createUnit(), loadCategory(), loadFloorProperty(), revalidateUnits() (+7 more)
+### Community 0 - "enums.ts"
+Cohesion: 0.05
+Nodes (48): ImportPage(), instant, metadata, instant, instant, metadata, UsersPage(), AppShell() (+40 more)
 
 ### Community 2 - "dashboard/page.tsx"
-Cohesion: 0.19
-Nodes (10): DashboardPage(), instant, metadata, loadDashboard(), margin, OccupancyChart(), OccupancyChartProps, OccupancyPoint (+2 more)
+Cohesion: 0.18
+Nodes (11): DashboardPage(), instant, metadata, sql, loadDashboard(), margin, OccupancyChart(), OccupancyChartProps (+3 more)
 
 ### Community 3 - "Agent instructions"
 Cohesion: 0.20
@@ -189,8 +173,8 @@ Cohesion: 0.06
 Nodes (30): dom, dom.iterable, esnext, **/*.mts, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node_modules (+22 more)
 
 ### Community 5 - "unit-status-actions.tsx"
-Cohesion: 0.14
-Nodes (15): DataTable(), DataTableProps, helper, inventoryColumns, InventoryRow, inventoryTableFeatures, numericAccessors, Badge() (+7 more)
+Cohesion: 0.07
+Nodes (42): instant, metadata, UnitDetailPage(), loginSchema, LoginValues, TopBarProps, DataTable(), DataTableProps (+34 more)
 
 ### Community 6 - "scripts"
 Cohesion: 0.11
@@ -201,12 +185,12 @@ Cohesion: 0.22
 Nodes (7): Calibrating `stroke-dasharray` for your path, CSS, HTML usage, JavaScript orchestration, Success check, Tunable variables, When to use
 
 ### Community 8 - "structure/actions.ts"
-Cohesion: 0.09
-Nodes (53): previewImport(), importPreviewSchema, archiveBlock(), archiveFloor(), archiveProperty(), asAuditJson(), AuditAction, countActiveUnitsOnBlock() (+45 more)
+Cohesion: 0.07
+Nodes (67): AuditPage(), instant, metadata, InventoryRoute(), instant, metadata, StructurePage(), loadAuditLog() (+59 more)
 
 ### Community 9 - "dependencies"
 Cohesion: 0.15
-Nodes (13): class-variance-authority, dependencies, class-variance-authority, pg-boss, @radix-ui/react-checkbox, @radix-ui/react-popover, @radix-ui/react-scroll-area, @radix-ui/react-tooltip (+5 more)
+Nodes (13): clsx, dependencies, clsx, pg-boss, @radix-ui/react-checkbox, @radix-ui/react-popover, @radix-ui/react-scroll-area, @radix-ui/react-tooltip (+5 more)
 
 ### Community 10 - "Avatar group hover"
 Cohesion: 0.22
@@ -218,7 +202,7 @@ Nodes (5): geistMono, geistSans, metadata, newsreader, Toaster()
 
 ### Community 12 - "devDependencies"
 Cohesion: 0.29
-Nodes (7): dotenv, drizzle-kit, devDependencies, dotenv, drizzle-kit, @testing-library/jest-dom, @testing-library/jest-dom
+Nodes (7): dotenv, eslint, devDependencies, dotenv, eslint, @testing-library/jest-dom, @testing-library/jest-dom
 
 ### Community 19 - "Error state shake"
 Cohesion: 0.22
@@ -304,89 +288,41 @@ Nodes (4): Cleaning, Import rules, Money, Re-import (diff mode)
 Cohesion: 0.50
 Nodes (3): MVP (this scaffold), Next, Roadmap
 
-### Community 115 - "unit-form.tsx"
-Cohesion: 0.14
-Nodes (26): soldOnColumn, StatusHistory(), StatusHistoryProps, statusLabel(), toDefaults(), UnitForm(), UnitFormProps, UnitRead() (+18 more)
-
-### Community 120 - "InventoryScreen"
-Cohesion: 0.54
-Nodes (8): hrefFor(), InventoryScreen(), handleArchive(), handleSort(), handleSubmit(), push(), run(), inventoryQueryString()
+### Community 115 - "units/schema.ts"
+Cohesion: 0.07
+Nodes (49): soldOnColumn, StatusHistory(), StatusHistoryProps, statusLabel(), toDefaults(), UnitForm(), UnitFormProps, UnitRead() (+41 more)
 
 ### Community 121 - "units/queries.ts"
-Cohesion: 0.10
-Nodes (28): instant, InventoryRoute(), metadata, instant, metadata, UnitDetailPage(), CommandMenu(), routes (+20 more)
+Cohesion: 0.07
+Nodes (46): instant, metadata, CommandMenu(), routes, units, searchUnits(), hrefFor(), InventoryScreen() (+38 more)
 
-### Community 124 - "units/schema.ts"
-Cohesion: 0.09
-Nodes (21): unitStatuses, ArchiveUnitInput, archiveUnitSchema, areaSchema, ChangeUnitStatusInput, changeUnitStatusSchema, DECIMAL_PATTERN, defaultInventoryQuery (+13 more)
-
-### Community 125 - "inventory-screen.tsx"
-Cohesion: 0.13
-Nodes (18): InventoryScreenProps, coreColumns, helper, InventoryTable(), inventoryTableFeatures, InventoryTableProps, numericAccessors, sortByColumn (+10 more)
-
-### Community 126 - "lib/auth.ts"
-Cohesion: 0.13
-Nodes (14): { GET, POST }, AppGroupLayout(), LoginForm(), instant, LoginPage(), metadata, HomePage(), instant (+6 more)
-
-### Community 127 - "permissions.ts"
-Cohesion: 0.18
-Nodes (13): AuditPage(), instant, metadata, instant, metadata, StructurePage(), loadAuditLog(), listAuditLog() (+5 more)
-
-### Community 128 - "status.test.ts"
-Cohesion: 0.18
-Nodes (14): unitStatusHistory, assertTransition(), BOOKING_REF_REQUIRED_MESSAGE, canTransition(), NOT_SELLABLE_MESSAGE, REVERSE_REASON_MESSAGE, REVERSE_REASON_MIN, STATUS_TRANSITIONS (+6 more)
-
-### Community 129 - "structure-panel.tsx"
-Cohesion: 0.21
-Nodes (14): initialLevel(), initialName(), panelKey(), StructurePanel(), StructurePanelForm(), handleArchive(), handleSubmit(), StructurePanelProps (+6 more)
-
-### Community 130 - "db/index.ts"
-Cohesion: 0.19
-Nodes (9): ImportPage(), instant, metadata, Database, db, globalForDb, sql, importBatches (+1 more)
-
-### Community 131 - "button.tsx"
-Cohesion: 0.24
-Nodes (7): loginSchema, LoginValues, TopBarProps, Button, ButtonProps, buttonVariants, authClient
-
-### Community 132 - "errors.ts"
+### Community 126 - "getSession"
 Cohesion: 0.22
-Nodes (6): AppError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
+Nodes (8): AppGroupLayout(), LoginForm(), instant, LoginPage(), metadata, HomePage(), instant, getSession()
 
-### Community 133 - "UserRole"
-Cohesion: 0.23
-Nodes (8): instant, AppShell(), AppShellProps, items, Sidebar(), SidebarProps, TopBar(), UserRole
-
-### Community 134 - "enums.ts"
-Cohesion: 0.23
-Nodes (9): account, session, user, verification, AuditAction, auditActionEnum, auditActions, unitStatusEnum (+1 more)
-
-### Community 135 - "units.test.ts"
-Cohesion: 0.20
-Nodes (10): auditLog, createUnitSchema, STALE_UNIT_MESSAGE, unitCodeSchema, updateUnitSchema, baseFields, currentUnit(), mockSession() (+2 more)
-
-### Community 136 - "users/page.tsx"
-Cohesion: 0.47
-Nodes (4): instant, metadata, UsersPage(), listUsers()
+### Community 128 - "units/actions.ts"
+Cohesion: 0.06
+Nodes (50): { GET, POST }, Database, db, globalForDb, auditLog, rateHistory, archiveUnit(), asAuditJson() (+42 more)
 
 ## Knowledge Gaps
 - **351 isolated node(s):** `eslintConfig`, `lintStagedConfig`, `nextConfig`, `sentryEnabled`, `name` (+346 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **73 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **74 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `dependencies` to `scripts`, `clsx`, `better-auth`, `@better-auth/drizzle-adapter`, `@radix-ui/react-select`, `cmdk`, `drizzle-orm`, `exceljs`, `@hookform/resolvers`, `motion`, `next`, `@phosphor-icons/react`, `pino`, `postgres`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-separator`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-visually-hidden`, `react`, `react-dom`, `react-hook-form`, `@sentry/nextjs`, `server-only`, `sonner`, `tailwind-merge`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@visx/axis`, `@visx/event`, `@visx/grid`, `@visx/group`, `@visx/legend`, `@visx/responsive`, `@visx/scale`, `@visx/shape`, `@visx/tooltip`, `xlsx`, `zod`?**
+- **Why does `dependencies` connect `dependencies` to `scripts`, `better-auth`, `@better-auth/drizzle-adapter`, `@radix-ui/react-select`, `cmdk`, `drizzle-orm`, `class-variance-authority`, `exceljs`, `@hookform/resolvers`, `motion`, `next`, `@phosphor-icons/react`, `pino`, `postgres`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-separator`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-visually-hidden`, `react`, `react-dom`, `react-hook-form`, `@sentry/nextjs`, `server-only`, `sonner`, `tailwind-merge`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@visx/axis`, `@visx/event`, `@visx/grid`, `@visx/group`, `@visx/legend`, `@visx/responsive`, `@visx/scale`, `@visx/shape`, `@visx/tooltip`, `xlsx`, `zod`?**
   _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `devDependencies` connect `devDependencies` to `scripts`, `eslint`, `eslint-config-next`, `eslint-config-prettier`, `husky`, `jsdom`, `lint-staged`, `pino-pretty`, `prettier`, `prettier-plugin-tailwindcss`, `tailwindcss`, `@tailwindcss/turbopack`, `@testing-library/react`, `@testing-library/user-event`, `tsx`, `@types/node`, `@types/react`, `@types/react-dom`, `typescript`, `@vitejs/plugin-react`, `vitest`, `@playwright/test`, `@testing-library/dom`?**
+- **Why does `devDependencies` connect `devDependencies` to `scripts`, `eslint-config-next`, `eslint-config-prettier`, `husky`, `jsdom`, `lint-staged`, `pino-pretty`, `prettier`, `prettier-plugin-tailwindcss`, `tailwindcss`, `@tailwindcss/turbopack`, `@testing-library/react`, `@testing-library/user-event`, `tsx`, `@types/node`, `@types/react`, `@types/react-dom`, `typescript`, `@vitejs/plugin-react`, `vitest`, `@playwright/test`, `@testing-library/dom`, `drizzle-kit`?**
   _High betweenness centrality (0.019) - this node is a cross-community bridge._
-- **Why does `requireSession()` connect `structure/actions.ts` to `status.test.ts`, `units/actions.ts`, `dashboard/page.tsx`, `units.test.ts`, `users/page.tsx`, `units/queries.ts`, `lib/auth.ts`, `permissions.ts`?**
+- **Why does `requireSession()` connect `structure/actions.ts` to `enums.ts`, `units/actions.ts`, `dashboard/page.tsx`, `unit-status-actions.tsx`, `units/queries.ts`, `getSession`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `requireSession()` (e.g. with `mockSession()` and `mockSession()`) actually correct?**
   _`requireSession()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `eslintConfig`, `lintStagedConfig`, `nextConfig` to the rest of the system?**
   _351 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `units.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.14666666666666667 - nodes in this community are weakly interconnected._
+- **Should `enums.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.052403846153846155 - nodes in this community are weakly interconnected._
 - **Should `compilerOptions` be split into smaller, more focused modules?**
   _Cohesion score 0.06451612903225806 - nodes in this community are weakly interconnected._

@@ -19,8 +19,16 @@ import {
   updateFloor,
   updateProperty,
 } from "../actions";
+import type { ArchiveResult } from "../archive-guard";
 import type { StructureScreenData } from "../queries";
 import { StructurePanel, type StructurePanelState } from "./structure-panel";
+
+function isArchiveResult(value: unknown): value is ArchiveResult {
+  if (!value || typeof value !== "object" || !("ok" in value)) {
+    return false;
+  }
+  return value.ok === true || value.ok === false;
+}
 
 type StructureScreenProps = StructureScreenData & {
   canManage: boolean;
@@ -47,7 +55,10 @@ export function StructureScreen({
 
   async function run(task: () => Promise<unknown>) {
     try {
-      await task();
+      const result = await task();
+      if (isArchiveResult(result) && !result.ok) {
+        throw new Error(result.error);
+      }
       setPanel(null);
       router.refresh();
     } catch (error) {

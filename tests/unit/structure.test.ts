@@ -8,7 +8,7 @@ import {
   normaliseFloorLabel,
   SARDARS_MALL_FLOORS,
 } from "@/features/structure/floor-labels";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { ForbiddenError } from "@/lib/errors";
 import { assertCan, can } from "@/lib/permissions";
 import type { UserRole } from "@/db/schema/enums";
 
@@ -61,19 +61,24 @@ describe("structure permissions", () => {
 
 describe("archive guard", () => {
   it("allows archive when no active units remain", () => {
-    expect(() => assertNoActiveUnits("floor", 0)).not.toThrow();
-    expect(() => assertNoActiveUnits("block", 0)).not.toThrow();
+    expect(assertNoActiveUnits("floor", 0)).toEqual({ ok: true });
+    expect(assertNoActiveUnits("block", 0)).toEqual({ ok: true });
   });
 
   it("blocks archiving a floor that still has active units", () => {
-    expect(() => assertNoActiveUnits("floor", 1)).toThrow(ValidationError);
-    expect(() => assertNoActiveUnits("floor", 1)).toThrow(
-      /Cannot archive this floor: 1 active unit still exists/,
-    );
+    expect(assertNoActiveUnits("floor", 1)).toEqual({
+      ok: false,
+      error:
+        "Cannot archive this floor: 1 active unit still exists. Archive or move them first.",
+    });
   });
 
   it("blocks archiving a block that still has active units", () => {
-    expect(() => assertNoActiveUnits("block", 12)).toThrow(ValidationError);
+    expect(assertNoActiveUnits("block", 12)).toEqual({
+      ok: false,
+      error:
+        "Cannot archive this block: 12 active units still exist. Archive or move them first.",
+    });
     expect(activeUnitsArchiveMessage("block", 12)).toBe(
       "Cannot archive this block: 12 active units still exist. Archive or move them first.",
     );

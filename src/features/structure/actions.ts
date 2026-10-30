@@ -10,7 +10,11 @@ import { requireSession } from "@/lib/auth";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { assertCan } from "@/lib/permissions";
-import { assertNoActiveUnits, type ArchiveKind } from "./archive-guard";
+import {
+  assertNoActiveUnits,
+  type ArchiveKind,
+  type ArchiveResult,
+} from "./archive-guard";
 import { floorLabelForLevel, normaliseFloorLabel } from "./floor-labels";
 import {
   archiveBlockSchema,
@@ -180,12 +184,12 @@ export async function updateProperty(input: unknown) {
   return updated;
 }
 
-export async function archiveProperty(input: unknown) {
+export async function archiveProperty(input: unknown): Promise<ArchiveResult> {
   const parsed = archivePropertySchema.parse(input);
   const session = await requireSession();
   assertCan(session.user.role, "structure.manage");
 
-  const archived = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx): Promise<ArchiveResult> => {
     const [current] = await tx
       .select()
       .from(properties)
@@ -195,7 +199,13 @@ export async function archiveProperty(input: unknown) {
       throw new NotFoundError("Property not found");
     }
 
-    assertNoActiveUnits("property", await countActiveUnitsOnProperty(tx, current.id));
+    const blocked = assertNoActiveUnits(
+      "property",
+      await countActiveUnitsOnProperty(tx, current.id),
+    );
+    if (!blocked.ok) {
+      return blocked;
+    }
 
     const [row] = await tx
       .update(properties)
@@ -214,12 +224,16 @@ export async function archiveProperty(input: unknown) {
       before: current,
       after: row,
     });
-    return row;
+    return { ok: true };
   });
 
-  logger.info({ propertyId: archived.id, actorId: session.user.id }, "property archived");
+  if (!result.ok) {
+    return result;
+  }
+
+  logger.info({ propertyId: parsed.id, actorId: session.user.id }, "property archived");
   revalidateStructure();
-  return archived;
+  return result;
 }
 
 export async function createBlock(input: unknown) {
@@ -332,12 +346,12 @@ export async function updateBlock(input: unknown) {
   return updated;
 }
 
-export async function archiveBlock(input: unknown) {
+export async function archiveBlock(input: unknown): Promise<ArchiveResult> {
   const parsed = archiveBlockSchema.parse(input);
   const session = await requireSession();
   assertCan(session.user.role, "structure.manage");
 
-  const archived = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx): Promise<ArchiveResult> => {
     const [current] = await tx
       .select()
       .from(blocks)
@@ -347,7 +361,13 @@ export async function archiveBlock(input: unknown) {
       throw new NotFoundError("Block not found");
     }
 
-    assertNoActiveUnits("block", await countActiveUnitsOnBlock(tx, current.id));
+    const blocked = assertNoActiveUnits(
+      "block",
+      await countActiveUnitsOnBlock(tx, current.id),
+    );
+    if (!blocked.ok) {
+      return blocked;
+    }
 
     const [row] = await tx
       .update(blocks)
@@ -366,12 +386,16 @@ export async function archiveBlock(input: unknown) {
       before: current,
       after: row,
     });
-    return row;
+    return { ok: true };
   });
 
-  logger.info({ blockId: archived.id, actorId: session.user.id }, "block archived");
+  if (!result.ok) {
+    return result;
+  }
+
+  logger.info({ blockId: parsed.id, actorId: session.user.id }, "block archived");
   revalidateStructure();
-  return archived;
+  return result;
 }
 
 export async function createFloor(input: unknown) {
@@ -525,12 +549,12 @@ export async function updateFloor(input: unknown) {
   return updated;
 }
 
-export async function archiveFloor(input: unknown) {
+export async function archiveFloor(input: unknown): Promise<ArchiveResult> {
   const parsed = archiveFloorSchema.parse(input);
   const session = await requireSession();
   assertCan(session.user.role, "structure.manage");
 
-  const archived = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx): Promise<ArchiveResult> => {
     const [current] = await tx
       .select()
       .from(floors)
@@ -540,7 +564,13 @@ export async function archiveFloor(input: unknown) {
       throw new NotFoundError("Floor not found");
     }
 
-    assertNoActiveUnits("floor", await countActiveUnitsOnFloor(tx, current.id));
+    const blocked = assertNoActiveUnits(
+      "floor",
+      await countActiveUnitsOnFloor(tx, current.id),
+    );
+    if (!blocked.ok) {
+      return blocked;
+    }
 
     const [row] = await tx
       .update(floors)
@@ -559,10 +589,14 @@ export async function archiveFloor(input: unknown) {
       before: current,
       after: row,
     });
-    return row;
+    return { ok: true };
   });
 
-  logger.info({ floorId: archived.id, actorId: session.user.id }, "floor archived");
+  if (!result.ok) {
+    return result;
+  }
+
+  logger.info({ floorId: parsed.id, actorId: session.user.id }, "floor archived");
   revalidateStructure();
-  return archived;
+  return result;
 }
