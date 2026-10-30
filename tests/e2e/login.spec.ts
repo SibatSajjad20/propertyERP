@@ -8,6 +8,15 @@ test.beforeAll(() => {
   guardEnvironment();
 });
 
+test("unauthenticated visitor to / or /inventory is redirected to /login", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  await page.goto("/inventory");
+  await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+});
+
 test("admin can sign in and reach inventory", async ({ page }) => {
   page.on("pageerror", (err) => console.error("PAGE ERROR:", err));
   page.on("console", (msg) => console.log("BROWSER CONSOLE:", msg.type(), msg.text()));

@@ -6,7 +6,7 @@ import type { ValidatedImportRow } from "@/features/import/types";
 
 export async function POST(req: Request) {
   try {
-    const session = await requireSession();
+    const session = await requireSession({ redirect: false });
     assertCan(session.user.role, "units.import");
 
     const body = (await req.json()) as {

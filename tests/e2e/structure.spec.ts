@@ -89,6 +89,7 @@ test("inventory manager can archive an empty floor and is blocked when units rem
 
   await page.getByRole("button", { name: emptyFloorName }).click();
   await page.getByRole("button", { name: "Archive floor" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: emptyFloorName })).toHaveCount(0);
   await expect(page.getByText("No floors in this block.")).toBeVisible();
 

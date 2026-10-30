@@ -31,23 +31,22 @@ test("inventory manager creates a unit and sees the computed total", async ({ pa
   await page.goto("/inventory");
   await expect(page.getByRole("columnheader", { name: "Unit code" })).toBeVisible();
 
-  await page.getByRole("button", { name: "New unit" }).click();
-  const panel = page.getByRole("dialog");
+  await page.getByRole("link", { name: "New unit" }).click();
+  await expect(page).toHaveURL(/\/units\/new/, { timeout: 15_000 });
   const code = `E2E-${Date.now()}`;
-  await panel.getByLabel("Unit code").fill(code);
-  await panel.getByLabel("Unit number").fill("E1");
-  await panel.locator("#unit-floor").selectOption({ index: 0 });
-  await panel.getByLabel("Category").selectOption({ label: "Shop" });
-  await panel.getByLabel("Net area (sq ft)").fill("100.00");
-  await panel.getByLabel("Rate per sq ft (PKR)").fill("25000.00");
-  await expect(panel.getByText("Rs 25,00,000")).toBeVisible();
-  await panel.getByRole("button", { name: "Save unit" }).click();
-  const saved = page.getByRole("dialog");
-  await expect(saved.getByRole("heading", { name: code })).toBeVisible({
+  await page.getByLabel("Unit code").fill(code);
+  await page.getByLabel("Unit number").fill("E1");
+  await page.locator("#unit-floor").selectOption({ index: 0 });
+  await page.locator("#unit-category").selectOption({ label: "Shop" });
+  await page.getByLabel("Net area (sq ft)").fill("100.00");
+  await page.getByLabel("Rate per sq ft (PKR)").fill("25000.00");
+  await expect(page.getByText("Rs 25,00,000")).toBeVisible();
+  await page.getByRole("button", { name: "Save unit" }).click();
+  await expect(page.locator(".unit-code", { hasText: code }).first()).toBeVisible({
     timeout: 15_000,
   });
-  await expect(saved.getByText("Rs 25,00,000").first()).toBeVisible();
-  await saved.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByText("Rs 25,00,000").first()).toBeVisible();
+  await page.getByRole("link", { name: "Back to Inventory" }).click();
   await expect(page.getByRole("cell", { name: code })).toBeVisible();
 });
 
@@ -67,6 +66,7 @@ test("sales cannot edit units, including via a direct server action", async ({
   await page.goto("/inventory");
   await expect(page.getByRole("columnheader", { name: "Unit code" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "New unit" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "New unit" })).toHaveCount(0);
 
   const floorId = await page.locator("#filter-floor option").nth(1).getAttribute("value");

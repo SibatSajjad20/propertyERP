@@ -163,6 +163,7 @@ test.describe("Font Verification in Production Built App", () => {
       return Array.from(kpis).map((k) => {
         const s = window.getComputedStyle(k);
         return {
+          fontFamily: s.fontFamily,
           fontFeatureSettings: s.fontFeatureSettings,
           fontVariantNumeric: s.fontVariantNumeric,
         };
@@ -171,6 +172,8 @@ test.describe("Font Verification in Production Built App", () => {
     console.log("KPI Styles:", kpiStyles);
     expect(kpiStyles.length).toBeGreaterThan(0);
     for (const kpi of kpiStyles) {
+      expect(kpi.fontFamily).toContain("Geist Variable");
+      expect(kpi.fontFamily).not.toContain("Geist Mono");
       expect(kpi.fontFeatureSettings).toContain("ss01");
       expect(kpi.fontFeatureSettings).toContain("cv11");
       expect(kpi.fontVariantNumeric).toBe("tabular-nums");
@@ -255,12 +258,14 @@ test.describe("Font Verification in Production Built App", () => {
           : null,
         price: priceEl
           ? {
+              fontFamily: window.getComputedStyle(priceEl).fontFamily,
               fontFeatureSettings: window.getComputedStyle(priceEl).fontFeatureSettings,
               fontVariantNumeric: window.getComputedStyle(priceEl).fontVariantNumeric,
             }
           : null,
         area: areaEl
           ? {
+              fontFamily: window.getComputedStyle(areaEl).fontFamily,
               fontFeatureSettings: window.getComputedStyle(areaEl).fontFeatureSettings,
               fontVariantNumeric: window.getComputedStyle(areaEl).fontVariantNumeric,
             }
@@ -280,15 +285,28 @@ test.describe("Font Verification in Production Built App", () => {
     expect(inventoryStyles.button?.fontFamily).toContain("Geist Variable");
 
     if (inventoryStyles.price) {
+      expect(inventoryStyles.price.fontFamily).toContain("Geist Variable");
+      expect(inventoryStyles.price.fontFamily).not.toContain("Geist Mono");
       expect(inventoryStyles.price.fontFeatureSettings).toContain("ss01");
       expect(inventoryStyles.price.fontFeatureSettings).toContain("cv11");
       expect(inventoryStyles.price.fontVariantNumeric).toBe("tabular-nums");
     }
 
     if (inventoryStyles.area) {
+      expect(inventoryStyles.area.fontFamily).toContain("Geist Variable");
+      expect(inventoryStyles.area.fontFamily).not.toContain("Geist Mono");
       expect(inventoryStyles.area.fontFeatureSettings).toContain("ss01");
       expect(inventoryStyles.area.fontFeatureSettings).toContain("cv11");
       expect(inventoryStyles.area.fontVariantNumeric).toBe("tabular-nums");
+    }
+
+    // Verify unit-code uses Geist Mono
+    const unitCodeFont = await page.evaluate(() => {
+      const el = document.querySelector(".unit-code");
+      return el ? window.getComputedStyle(el).fontFamily : null;
+    });
+    if (unitCodeFont) {
+      expect(unitCodeFont).toContain("Geist Mono Variable");
     }
 
     // Inventory Table CDP check

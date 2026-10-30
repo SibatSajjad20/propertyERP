@@ -16,8 +16,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       return (
         <div
           className={cn(
-            "flex w-full items-center rounded-[6px] border border-line bg-surface transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus-ring)]",
-            sizeVariant === "sm" ? "h-7 text-[12px]" : "h-8 text-[13px]",
+            "flex w-full items-center rounded-[8px] border border-line bg-surface transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus-ring)]",
+            sizeVariant === "sm" ? "h-8 text-[12px]" : "h-9 text-[13px]",
             className,
           )}
         >
@@ -29,7 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             type={type}
-            className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-full min-w-0 flex-1 bg-transparent px-3 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-50"
             {...props}
           />
           {suffixText && (
@@ -46,8 +46,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         className={cn(
-          "w-full rounded-[6px] border border-line bg-surface text-ink transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-ink-faint hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
-          sizeVariant === "sm" ? "h-7 px-2 text-[12px]" : "h-8 px-2.5 text-[13px]",
+          "w-full rounded-[8px] border border-line bg-surface text-ink transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-ink-faint hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+          sizeVariant === "sm" ? "h-8 px-2.5 text-[12px]" : "h-9 px-3 text-[13px]",
           className,
         )}
         {...props}

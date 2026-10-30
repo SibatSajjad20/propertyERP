@@ -9,7 +9,7 @@ export const instant = false;
 
 export async function GET() {
   try {
-    const session = await requireSession();
+    const session = await requireSession({ redirect: false });
     assertCan(session.user.role, "data.export");
     const sheets = await fullExportSheets();
     const buffer = await workbookToBuffer(sheets);

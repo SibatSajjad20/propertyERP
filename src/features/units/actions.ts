@@ -11,7 +11,13 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { computeTotalPrice, moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
-import { searchUnitsByCode } from "./queries";
+import {
+  getInventoryFilterOptions,
+  getUnitById,
+  listInventory,
+  listUnitStatusHistory,
+  searchUnitsByCode,
+} from "./queries";
 import {
   archiveUnitSchema,
   changeUnitStatusSchema,
@@ -19,6 +25,7 @@ import {
   searchUnitsSchema,
   STALE_UNIT_MESSAGE,
   updateUnitSchema,
+  type InventoryQuery,
 } from "./schema";
 import {
   assertTransition,
@@ -39,10 +46,10 @@ function staleUnit(): never {
 }
 
 function revalidateUnits(unitId?: string) {
-  revalidatePath("/inventory");
-  revalidatePath("/dashboard");
   if (unitId) {
     revalidatePath(`/units/${unitId}`);
+  } else {
+    revalidatePath("/inventory");
   }
 }
 
@@ -460,4 +467,23 @@ export async function searchUnits(input: unknown) {
   const session = await requireSession();
   assertCan(session.user.role, "units.read");
   return searchUnitsByCode(parsed.q);
+}
+
+export async function getInventoryData(query: InventoryQuery) {
+  const session = await requireSession();
+  assertCan(session.user.role, "units.read");
+  return listInventory(query);
+}
+
+export async function getInventoryOptions() {
+  const session = await requireSession();
+  assertCan(session.user.role, "units.read");
+  return getInventoryFilterOptions();
+}
+
+export async function getUnitDetail(id: string) {
+  const session = await requireSession();
+  assertCan(session.user.role, "units.read");
+  const [row, history] = await Promise.all([getUnitById(id), listUnitStatusHistory(id)]);
+  return { row, history };
 }

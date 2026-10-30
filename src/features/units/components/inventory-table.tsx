@@ -58,7 +58,6 @@ export interface InventoryTableProps {
 
 export function InventoryTable({
   data,
-  totals,
   query,
   selectedId,
   showSoldOn = false,
@@ -93,19 +92,19 @@ export function InventoryTable({
       helper.accessor("netAreaSqft", {
         header: "Net sq ft",
         cell: (info) => (
-          <span className="area font-mono tabular-nums">{info.getValue()}</span>
+          <span className="area font-sans tabular-nums">{info.getValue()}</span>
         ),
       }),
       helper.accessor("grossAreaSqft", {
         header: "Gross sq ft",
         cell: (info) => (
-          <span className="area font-mono tabular-nums">{info.getValue() ?? "—"}</span>
+          <span className="area font-sans tabular-nums">{info.getValue() ?? "—"}</span>
         ),
       }),
       helper.accessor("ratePerSqftPkr", {
         header: "Rate/sq ft",
         cell: (info) => (
-          <span className="price font-mono tabular-nums">
+          <span className="price font-sans tabular-nums">
             {formatPkrLedger(info.getValue())}
           </span>
         ),
@@ -113,7 +112,7 @@ export function InventoryTable({
       helper.accessor("bookPricePkr", {
         header: "Total price",
         cell: (info) => (
-          <span className="price font-mono font-medium text-ink tabular-nums">
+          <span className="price font-sans font-medium text-ink tabular-nums">
             {formatPkrLedger(info.getValue())}
           </span>
         ),
@@ -138,7 +137,7 @@ export function InventoryTable({
           cell: (info) => {
             const val = info.getValue();
             return (
-              <span className="font-mono text-ink-muted tabular-nums">
+              <span className="font-sans text-ink-muted tabular-nums">
                 {val ? formatKarachiDate(val) : "—"}
               </span>
             );
@@ -171,7 +170,7 @@ export function InventoryTable({
                 <button
                   type="button"
                   aria-label="Actions"
-                  className="flex size-7 items-center justify-center rounded-[4px] text-ink-muted opacity-70 transition-colors group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                  className="flex size-7 items-center justify-center rounded-[6px] text-ink-muted opacity-70 transition-colors group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                 >
                   <DotsThree weight="bold" className="size-4" />
                 </button>
@@ -230,7 +229,7 @@ export function InventoryTable({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-line bg-surface">
+    <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
         <table className="w-full min-w-[540px] border-collapse text-[13px]">
           <thead className="sticky top-0 z-20 border-b border-line-strong bg-surface select-none">
@@ -385,21 +384,6 @@ export function InventoryTable({
               </>
             )}
           </tbody>
-          <tfoot className="sticky bottom-0 z-20 border-t border-line-strong bg-surface select-none">
-            <tr className="h-9">
-              <td className="h-9 px-3 text-[12px] font-medium text-ink-muted" colSpan={4}>
-                {totals.count === 1 ? "1 unit" : `${totals.count} units`}
-              </td>
-              <td className="area h-9 px-3 text-right font-mono text-[12px] font-medium text-ink tabular-nums">
-                {totals.netAreaSqft}
-              </td>
-              <td colSpan={2} />
-              <td className="price h-9 px-3 text-right font-mono text-[12px] font-semibold text-ink tabular-nums">
-                {formatPkrLedger(totals.valuePkr)}
-              </td>
-              <td colSpan={showSoldOn ? 3 : 2} />
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>

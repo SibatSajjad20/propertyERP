@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-[11px] font-medium tracking-wide select-none",
+  "inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-0.5 text-[11px] font-medium tracking-wide select-none transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)]",
   {
     variants: {
       tone: {
@@ -50,11 +50,14 @@ export function Badge({
     <span className={cn(badgeVariants({ tone }), className)} {...props}>
       {showDot && (
         <span
-          className={cn("size-1.5 shrink-0 rounded-full", dotColor)}
+          className={cn(
+            "size-1.5 shrink-0 rounded-full transition-transform duration-200",
+            dotColor,
+          )}
           aria-hidden="true"
         />
       )}
-      <span>{children}</span>
+      <span className="transition-opacity duration-150">{children}</span>
     </span>
   );
 }

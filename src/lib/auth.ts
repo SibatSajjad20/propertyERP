@@ -5,6 +5,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
@@ -177,6 +178,7 @@ export type SessionUser = Session["user"] & {
 
 type RequireSessionOptions = {
   allowMustChangePassword?: boolean;
+  redirect?: boolean;
 };
 
 export async function getSession() {
@@ -191,11 +193,17 @@ export async function getSession() {
 export async function requireSession(options: RequireSessionOptions = {}) {
   const session = await getSession();
   if (!session) {
-    throw new UnauthorizedError();
+    if (options.redirect === false) {
+      throw new UnauthorizedError();
+    }
+    redirect("/login");
   }
   const resolved = session as Session & { user: SessionUser };
   if (resolved.user.disabled) {
-    throw new UnauthorizedError("This account is disabled");
+    if (options.redirect === false) {
+      throw new UnauthorizedError("This account is disabled");
+    }
+    redirect("/login");
   }
   if (resolved.user.mustChangePassword && !options.allowMustChangePassword) {
     throw new ForbiddenError("Change your temporary password before continuing");

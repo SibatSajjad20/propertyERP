@@ -10,7 +10,7 @@ export const instant = false;
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireSession();
+    const session = await requireSession({ redirect: false });
     assertCan(session.user.role, "units.export");
     const raw: Record<string, string> = {};
     request.nextUrl.searchParams.forEach((value, key) => {

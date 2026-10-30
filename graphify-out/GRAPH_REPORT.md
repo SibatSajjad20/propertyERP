@@ -1,64 +1,65 @@
-# Graph Report - PropertyERP  (2026-10-30)
+# Graph Report - PropertyERP  (2026-10-31)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 239 files · ~125,371 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1297 nodes · 2961 edges · 143 communities (74 shown, 69 thin omitted)
+- 1335 nodes · 3148 edges · 151 communities (81 shown, 70 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 8 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `685082cc`
+- Built from commit: `b8c6cb44`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- units/schema.ts
-- import-screen.tsx
+- money.ts
+- import/actions.ts
 - users/actions.ts
 - lib/auth.ts
-- can
-- errorMessage
-- users-screen.tsx
-- e2e-guard.ts
+- dashboard-aggregation.test.ts
+- inventory/route.ts
+- sidebar.tsx
+- units/queries.ts
 - compilerOptions
 - structure/actions.ts
-- dashboard/queries.ts
-- cn
-- requireSession
-- structure-screen.tsx
+- inventory-screen.tsx
+- cn.ts
+- profile-screen.tsx
+- users-screen.tsx
 - nav.ts
-- status.test.ts
-- error-state.tsx
-- structure-panel.tsx
+- errors.ts
+- errorMessage
+- cn
 - units/actions.ts
 - enums.ts
 - dashboard-screen.tsx
 - 5. Screen Patterns
 - audit-screen.tsx
-- structure.test.ts
+- parse.ts
 - devDependencies
 - scripts
 - permissions.ts
-- import/actions.ts
+- requireSession
 - dependencies
-- button.tsx
+- UserRole
 - Decisions
 - skeleton.tsx
-- profile-screen.tsx
-- assertCan
+- units/schema.ts
+- structure-screen.tsx
 - Handover
-- structure/page.tsx
+- dashboard-filters.tsx
 - Agent instructions
 - User guide
 - Sardar's Mall ERP
-- units/queries.ts
+- users.test.ts
 - transitions-dev/SKILL.md
 - Avatar group hover
 - Error state shake
 - data-table.tsx
-- seed.ts
+- top-bar.tsx
 - Frontend Design
 - Card resize
 - Number pop-in
@@ -84,12 +85,12 @@
 - instrumentation.ts
 - dashboard/page.tsx
 - proxy.ts
-- better-auth
+- users/route.ts
 - class-variance-authority
 - clsx
 - @better-auth/drizzle-adapter
 - PERMISSIONS.md
-- dotenv
+- structure.test.ts
 - drizzle-kit
 - drizzle-orm
 - eslint.config.mjs
@@ -127,7 +128,7 @@
 - @tanstack/react-table
 - @tanstack/react-virtual
 - @visx/axis
-- @visx/event
+- UsersScreen
 - @visx/group
 - @visx/legend
 - @visx/responsive
@@ -136,167 +137,174 @@
 - @visx/tooltip
 - xlsx
 - zod
-- @playwright/test
+- formatKarachiDateTime
 - prettier
 - tailwindcss
 - @tailwindcss/turbopack
 - @testing-library/react
 - @types/node
-- @types/react
+- segmented-control.tsx
 - typescript
 - @vitejs/plugin-react
 - vitest
 - prettier.config.mjs
 - instrumentation-client.ts
+- success-check.tsx
+- cmdk
+- @tanstack/react-query
+- @visx/grid
+- pino-pretty
+- @testing-library/dom
+- @testing-library/jest-dom
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 75 edges
-2. `requireSession()` - 70 edges
-3. `assertCan()` - 56 edges
-4. `UserRole` - 33 edges
-5. `can()` - 27 edges
-6. `errorMessage()` - 26 edges
-7. `db` - 22 edges
-8. `Button` - 22 edges
-9. `computeTotalPrice()` - 18 edges
-10. `compilerOptions` - 18 edges
+1. `cn()` - 79 edges
+2. `requireSession()` - 78 edges
+3. `assertCan()` - 64 edges
+4. `UserRole` - 37 edges
+5. `errorMessage()` - 28 edges
+6. `can()` - 27 edges
+7. `Button` - 24 edges
+8. `db` - 22 edges
+9. `formatPkrLedger()` - 21 edges
+10. `formatPkrCompact()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
-  tests/unit/users.test.ts → src/lib/auth.ts
-- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/status.test.ts → src/lib/auth.ts
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
-  tests/unit/structure.test.ts → src/lib/auth.ts
-- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/units.test.ts → src/lib/auth.ts
-- `AppShellProps` --references--> `UserRole`  [EXTRACTED]
-  src/components/app-shell/app-shell.tsx → src/db/schema/enums.ts
+- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
+  tests/unit/users.test.ts → src/lib/auth.ts
+- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
+  tests/unit/structure.test.ts → src/lib/auth.ts
+- `main()` --calls--> `isE2eStructureName()`  [EXTRACTED]
+  scripts/cleanup-e2e.ts → src/lib/e2e-records.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (143 total, 69 thin omitted)
+## Communities (151 total, 70 thin omitted)
 
-### Community 0 - "units/schema.ts"
-Cohesion: 0.05
-Nodes (71): SidebarProps, Checkbox, unitStatuses, UserRole, InventoryScreenProps, helper, InventoryTable(), inventoryTableFeatures (+63 more)
+### Community 0 - "money.ts"
+Cohesion: 0.14
+Nodes (25): generateMetadata(), generateMetadata(), UnitDetailPage(), Textarea, StatusHistory(), StatusHistoryProps, statusLabel(), UnitRead() (+17 more)
 
-### Community 1 - "import-screen.tsx"
-Cohesion: 0.09
-Nodes (46): POST(), asAuditJson(), commitImportBatch(), rollbackLatestBatch(), uploadAndParseSpreadsheet(), cleanArea(), cleanCategoryName(), cleanFloorName() (+38 more)
+### Community 1 - "import/actions.ts"
+Cohesion: 0.08
+Nodes (54): POST(), ImportPage(), instant, metadata, asAuditJson(), commitImportBatch(), getImportBatches(), RecordedUnitChange (+46 more)
 
 ### Community 2 - "users/actions.ts"
-Cohesion: 0.08
-Nodes (44): PATCH(), GET(), POST(), instant, metadata, UsersSettingsPage(), session, asAuditJson() (+36 more)
+Cohesion: 0.17
+Nodes (19): PATCH(), session, asAuditJson(), countActiveAdmins(), publicUser(), resetUserPassword(), setUserDisabled(), updateUserRole() (+11 more)
 
 ### Community 3 - "lib/auth.ts"
-Cohesion: 0.08
-Nodes (34): { GET, POST }, AppGroupLayout(), instant, MustChangePasswordGate(), LoginForm(), instant, LoginPage(), metadata (+26 more)
-
-### Community 4 - "can"
-Cohesion: 0.12
-Nodes (33): GET(), DashboardPage(), instant, metadata, sql, applyDataRowStyles(), applyHeaderStyles(), escapeCsvField() (+25 more)
-
-### Community 5 - "errorMessage"
 Cohesion: 0.09
-Nodes (35): GET(), instant, GET(), instant, instant, InventoryRoute(), metadata, generateMetadata() (+27 more)
+Nodes (33): { GET, POST }, AppGroupLayout(), instant, MustChangePasswordGate(), LoginForm(), LoginPage(), metadata, AppShell() (+25 more)
 
-### Community 6 - "users-screen.tsx"
-Cohesion: 0.11
-Nodes (27): formatRole(), getInitials(), navIcons, Sidebar(), DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup (+19 more)
+### Community 4 - "dashboard-aggregation.test.ts"
+Cohesion: 0.16
+Nodes (23): GET(), applyDataRowStyles(), applyHeaderStyles(), escapeCsvField(), formatExportDate(), generateFloorSummaryCsv(), generateFloorSummaryExcel(), generateInventoryCsv() (+15 more)
 
-### Community 7 - "e2e-guard.ts"
-Cohesion: 0.11
-Nodes (12): looksLikeProduction(), main(), E2E_STRUCTURE_NAME_PATTERN, E2E_UNIT_CODE_PATTERN, isE2eStructureName(), isE2eUnitCode(), assertTestDatabase(), isAllowProductionFlag() (+4 more)
+### Community 5 - "inventory/route.ts"
+Cohesion: 0.23
+Nodes (11): GET(), instant, GET(), instant, fullExportSheets(), inventoryExportRows(), serialize(), sheetFromRows() (+3 more)
+
+### Community 6 - "sidebar.tsx"
+Cohesion: 0.12
+Nodes (19): formatRole(), getInitials(), navIcons, Sidebar(), SidebarProps, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent (+11 more)
+
+### Community 7 - "units/queries.ts"
+Cohesion: 0.07
+Nodes (47): looksLikeProduction(), main(), Database, db, globalForDb, auditLog, account, user (+39 more)
 
 ### Community 8 - "compilerOptions"
 Cohesion: 0.06
 Nodes (30): dom, dom.iterable, esnext, **/*.mts, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node_modules (+22 more)
 
 ### Community 9 - "structure/actions.ts"
-Cohesion: 0.10
-Nodes (27): archiveFloor(), asAuditJson(), AuditAction, countActiveUnitsOnBlock(), countActiveUnitsOnFloor(), countActiveUnitsOnProperty(), activeUnitsArchiveMessage(), ArchiveKind (+19 more)
+Cohesion: 0.15
+Nodes (18): AuditAction, archiveBlockSchema, archiveFloorSchema, archivePropertySchema, CreateBlockInput, createBlockSchema, CreateFloorInput, createFloorSchema (+10 more)
 
-### Community 10 - "dashboard/queries.ts"
-Cohesion: 0.21
-Nodes (17): Database, db, globalForDb, UnitStatus, importBatches, blocks, categories, floors (+9 more)
-
-### Community 11 - "cn"
-Cohesion: 0.13
-Nodes (18): PageHeader(), Input, InputProps, NumberInput, NumberInputProps, SegmentedControl(), SegmentedControlOption, SegmentedControlProps (+10 more)
-
-### Community 12 - "requireSession"
+### Community 10 - "inventory-screen.tsx"
 Cohesion: 0.11
-Nodes (22): ImportPage(), instant, metadata, instant, metadata, ProfilePage(), instant, UsersRedirectPage() (+14 more)
+Nodes (27): AnimatedNumber(), AnimatedNumberProps, UnitStatus, getInventoryData(), getUnitDetail(), hrefFor(), InventoryScreen(), handleClearAllFilters() (+19 more)
 
-### Community 13 - "structure-screen.tsx"
-Cohesion: 0.14
-Nodes (20): Badge(), BadgeProps, badgeVariants, dotColors, Dialog, DialogClose, DialogContent, DialogDescription (+12 more)
+### Community 11 - "cn.ts"
+Cohesion: 0.15
+Nodes (11): loginSchema, LoginValues, EmptyState(), EmptyStateProps, Input, InputProps, Label, NumberInput (+3 more)
+
+### Community 12 - "profile-screen.tsx"
+Cohesion: 0.21
+Nodes (12): instant, metadata, ProfilePage(), asAuditJson(), changeOwnPassword(), updateOwnName(), ProfileScreen(), ProfileScreenProps (+4 more)
+
+### Community 13 - "users-screen.tsx"
+Cohesion: 0.17
+Nodes (18): Badge(), BadgeProps, badgeVariants, dotColors, Dialog, DialogClose, DialogContent, DialogDescription (+10 more)
 
 ### Community 14 - "nav.ts"
-Cohesion: 0.13
-Nodes (17): Breadcrumb, BreadcrumbContext, BreadcrumbProvider(), useBreadcrumbOverride(), BreadcrumbSet(), CommandMenu(), icons, getBreadcrumbName() (+9 more)
+Cohesion: 0.23
+Nodes (9): CommandMenu(), icons, UnitJumpTarget, adminNav, allNavItems, AppNavItem, inventoryNav, visibleNav() (+1 more)
 
-### Community 15 - "status.test.ts"
-Cohesion: 0.13
-Nodes (16): assertTransition(), BOOKING_REF_REQUIRED_MESSAGE, canTransition(), NOT_SELLABLE_MESSAGE, REVERSE_REASON_MESSAGE, STATUS_TRANSITIONS, AppError, ConflictError (+8 more)
+### Community 15 - "errors.ts"
+Cohesion: 0.29
+Nodes (6): AppError, ConflictError, errorCode(), errorStatus(), UnauthorizedError, jsonError()
 
-### Community 16 - "error-state.tsx"
-Cohesion: 0.15
-Nodes (8): GET(), ErrorState(), NotFoundState(), pingDatabase(), isTransientDbError(), sleep(), WAKING_DB_MESSAGE, withDbRetry()
+### Community 16 - "errorMessage"
+Cohesion: 0.07
+Nodes (27): GET(), ErrorState(), NotFoundState(), pingDatabase(), initialLevel(), initialName(), panelKey(), StructurePanel() (+19 more)
 
-### Community 17 - "structure-panel.tsx"
-Cohesion: 0.13
-Nodes (20): AppShellProps, Sheet, SheetBody(), SheetClose, SheetContent, SheetDescription, SheetFooter(), SheetHeader() (+12 more)
+### Community 17 - "cn"
+Cohesion: 0.12
+Nodes (21): AppShellProps, PageHeader(), Checkbox, Separator, Sheet, SheetBody(), SheetClose, SheetContent (+13 more)
 
 ### Community 18 - "units/actions.ts"
-Cohesion: 0.19
-Nodes (21): archiveUnit(), asAuditJson(), assertUniqueCode(), changeUnitStatus(), createUnit(), loadCategory(), loadFloorProperty(), revalidateUnits() (+13 more)
+Cohesion: 0.08
+Nodes (40): archiveUnit(), asAuditJson(), assertUniqueCode(), changeUnitStatus(), createUnit(), loadCategory(), loadFloorProperty(), revalidateUnits() (+32 more)
 
 ### Community 19 - "enums.ts"
-Cohesion: 0.19
-Nodes (12): auditLog, user, verification, AuditAction, auditActionEnum, auditActions, unitStatusEnum, userRoleEnum (+4 more)
+Cohesion: 0.22
+Nodes (8): AuditAction, auditActionEnum, auditActions, unitStatusEnum, unitStatuses, userRoleEnum, AuditFilterInput, auditFilterSchema
 
 ### Community 20 - "dashboard-screen.tsx"
-Cohesion: 0.16
-Nodes (18): DashboardFilters(), handleBlockChange(), handlePropertyChange(), updateQuery(), DashboardFiltersProps, DashboardScreen(), DashboardScreenProps, formatRelativeTime() (+10 more)
+Cohesion: 0.13
+Nodes (31): DashboardPage(), instant, metadata, sql, getDashboardData(), loadDashboard(), DashboardFilters(), handleBlockChange() (+23 more)
 
 ### Community 21 - "5. Screen Patterns"
 Cohesion: 0.11
 Nodes (17): 1. Dashboard (`/dashboard`), 1. Foundations & Tokens, 2. Inventory (`/inventory`), 2. Typography & Numerical Formatting, 3. App Shell Architecture, 3. Unit Detail & Edit Sheet, 4. Building Hierarchy (`/structure`), 4. UI Component Library (`src/components/ui/`) (+9 more)
 
 ### Community 22 - "audit-screen.tsx"
-Cohesion: 0.20
-Nodes (13): Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, AuditScreen(), AuditScreenProps, diffFields(), FIELD_LABELS (+5 more)
+Cohesion: 0.14
+Nodes (18): FilterBar(), FilterBarProps, FilterChip(), FilterChipOption, FilterChipProps, Tooltip, TooltipContent, TooltipProvider (+10 more)
 
-### Community 23 - "structure.test.ts"
-Cohesion: 0.23
-Nodes (13): cell(), HEADER_ALIASES, ImportDraftRow, keyOf(), looksLikeSummary(), mapHeaders(), parseImportGrid(), floorLabelForLevel() (+5 more)
+### Community 23 - "parse.ts"
+Cohesion: 0.24
+Nodes (10): cell(), HEADER_ALIASES, ImportDraftRow, keyOf(), looksLikeSummary(), mapHeaders(), parseImportGrid(), DECIMAL_PATTERN (+2 more)
 
 ### Community 24 - "devDependencies"
-Cohesion: 0.13
-Nodes (16): eslint, devDependencies, eslint, pino-pretty, prettier-plugin-tailwindcss, @testing-library/dom, @testing-library/jest-dom, @testing-library/user-event (+8 more)
+Cohesion: 0.12
+Nodes (17): dotenv, eslint, devDependencies, dotenv, eslint, @playwright/test, prettier-plugin-tailwindcss, @testing-library/user-event (+9 more)
 
 ### Community 25 - "scripts"
 Cohesion: 0.12
 Nodes (16): scripts, build, db:cleanup-e2e, db:cleanup-e2e:apply, db:generate, db:migrate, db:seed, db:studio (+8 more)
 
 ### Community 26 - "permissions.ts"
-Cohesion: 0.20
-Nodes (10): AuditPage(), instant, metadata, userRoles, loadAuditLog(), listAuditLog(), ForbiddenError, actions (+2 more)
+Cohesion: 0.19
+Nodes (12): instant, metadata, StructurePage(), instant, UsersRedirectPage(), userRoles, getStructureScreenData(), ForbiddenError (+4 more)
 
-### Community 27 - "import/actions.ts"
-Cohesion: 0.20
-Nodes (9): RecordedUnitChange, Tx, cleanedRowSchema, commitImportSchema, importColumnMappingSchema, importPreviewSchema, rollbackBatchSchema, globalForBoss (+1 more)
+### Community 27 - "requireSession"
+Cohesion: 0.19
+Nodes (17): AuditPage(), instant, metadata, instant, InventoryRoute(), metadata, EditUnitPage(), metadata (+9 more)
 
 ### Community 28 - "dependencies"
 Cohesion: 0.15
-Nodes (13): cmdk, @hookform/resolvers, dependencies, cmdk, @hookform/resolvers, postgres, @radix-ui/react-select, @radix-ui/react-separator (+5 more)
+Nodes (13): better-auth, @hookform/resolvers, dependencies, better-auth, @hookform/resolvers, postgres, @radix-ui/react-select, @radix-ui/react-separator (+5 more)
 
-### Community 29 - "button.tsx"
-Cohesion: 0.19
-Nodes (10): Button, ButtonProps, buttonVariants, FilterBar(), FilterBarProps, FilterChip(), FilterChipOption, FilterChipProps (+2 more)
+### Community 29 - "UserRole"
+Cohesion: 0.22
+Nodes (18): Button, ButtonProps, buttonVariants, UserRole, UnitCreateScreenProps, UnitEditScreenProps, toDefaults(), UnitForm() (+10 more)
 
 ### Community 30 - "Decisions"
 Cohesion: 0.17
@@ -306,21 +314,21 @@ Nodes (11): ADR-0001 — Next.js App Router monolith, monorepo-ready, ADR-0002 �
 Cohesion: 0.24
 Nodes (3): PageSkeleton(), Skeleton(), DashboardSkeleton()
 
-### Community 32 - "profile-screen.tsx"
-Cohesion: 0.26
-Nodes (8): loginSchema, LoginValues, Label, ProfileScreenProps, ChangeOwnPasswordInput, changeOwnPasswordSchema, UpdateOwnNameInput, updateOwnNameSchema
+### Community 32 - "units/schema.ts"
+Cohesion: 0.12
+Nodes (19): ArchiveUnitInput, archiveUnitSchema, areaSchema, ChangeUnitStatusInput, changeUnitStatusSchema, defaultInventoryQuery, InventoryQueryInput, inventoryQuerySchema (+11 more)
 
-### Community 33 - "assertCan"
-Cohesion: 0.45
-Nodes (12): archiveBlock(), archiveProperty(), createBlock(), createFloor(), createProperty(), revalidateStructure(), updateBlock(), updateFloor() (+4 more)
+### Community 33 - "structure-screen.tsx"
+Cohesion: 0.14
+Nodes (28): archiveBlock(), archiveFloor(), archiveProperty(), asAuditJson(), countActiveUnitsOnBlock(), countActiveUnitsOnFloor(), countActiveUnitsOnProperty(), createBlock() (+20 more)
 
 ### Community 34 - "Handover"
 Cohesion: 0.18
 Nodes (10): Architecture, Data rules, Handover, How to add a floor, How to add a unit, Known limitations, Neon, Preview deploys (+2 more)
 
-### Community 35 - "structure/page.tsx"
-Cohesion: 0.24
-Nodes (10): instant, metadata, StructurePage(), hrefFor(), isArchiveResult(), StructureScreen(), handleArchiveFromPanel(), handleArchiveTarget() (+2 more)
+### Community 35 - "dashboard-filters.tsx"
+Cohesion: 0.22
+Nodes (13): Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue (+5 more)
 
 ### Community 36 - "Agent instructions"
 Cohesion: 0.20
@@ -334,9 +342,9 @@ Nodes (9): Export, Find a unit, If the page says the database is waking, Import,
 Cohesion: 0.20
 Nodes (9): Code graph, Deploy, Docs, Env, Migrate and seed, Neon point-in-time restore, Sardar's Mall ERP, Scripts (+1 more)
 
-### Community 39 - "units/queries.ts"
-Cohesion: 0.31
-Nodes (9): unitPricing, bookPriceExpr(), inventorySelect, inventoryWhere(), listInventory(), listInventoryRows(), searchUnitsByCode(), sortColumn() (+1 more)
+### Community 39 - "users.test.ts"
+Cohesion: 0.29
+Nodes (9): assertActiveAdminRemains(), assertNotSelfDisable(), assertNotSelfRoleChange(), LAST_ADMIN_MESSAGE, nextActiveAdminCount(), SELF_DEMOTE_MESSAGE, SELF_DISABLE_MESSAGE, ValidationError (+1 more)
 
 ### Community 40 - "transitions-dev/SKILL.md"
 Cohesion: 0.22
@@ -354,9 +362,9 @@ Nodes (8): CSS, Error state shake, HTML usage, JavaScript orchestration, Recompu
 Cohesion: 0.25
 Nodes (7): DataTable(), DataTableProps, helper, inventoryColumns, InventoryRow, inventoryTableFeatures, numericAccessors
 
-### Community 44 - "seed.ts"
-Cohesion: 0.36
-Nodes (7): account, DEFAULT_CATEGORIES, ensureUser(), envOr(), seed(), SeedUser, seedDevUnits()
+### Community 44 - "top-bar.tsx"
+Cohesion: 0.29
+Nodes (8): Breadcrumb, BreadcrumbContext, BreadcrumbProvider(), useBreadcrumbOverride(), BreadcrumbSet(), getBreadcrumbName(), TopBar(), TopBarProps
 
 ### Community 45 - "Frontend Design"
 Cohesion: 0.29
@@ -414,6 +422,10 @@ Nodes (5): Commits, Contributing, Hooks, Setup, Workflow
 Cohesion: 0.33
 Nodes (5): Data model, Entities, ER diagram, Invariants, Unit fields
 
+### Community 59 - "app/layout.tsx"
+Cohesion: 0.33
+Nodes (5): metadata, getQueryClient(), makeQueryClient(), QueryProvider(), Toaster()
+
 ### Community 60 - "Web Interface Guidelines"
 Cohesion: 0.40
 Nodes (4): Guidelines Source, How It Works, Usage, Web Interface Guidelines
@@ -438,25 +450,45 @@ Nodes (3): MVP (this scaffold), Next, Roadmap
 Cohesion: 0.50
 Nodes (3): nextConfig, securityHeaders, sentryEnabled
 
+### Community 70 - "users/route.ts"
+Cohesion: 0.27
+Nodes (8): GET(), POST(), instant, metadata, UsersSettingsPage(), createUser(), inviteUser(), listUsers()
+
+### Community 75 - "structure.test.ts"
+Cohesion: 0.54
+Nodes (6): createFloor(), floorLabelForLevel(), normaliseFloorLabel(), ordinalSuffix(), SARDARS_MALL_FLOORS, WORD_LEVELS
+
+### Community 113 - "UsersScreen"
+Cohesion: 0.47
+Nodes (6): getInitials(), roleBadge(), roleLabel(), UsersScreen(), closeDialog(), run()
+
+### Community 122 - "formatKarachiDateTime"
+Cohesion: 0.70
+Nodes (3): formatKarachiDate(), formatKarachiDateTime(), part()
+
+### Community 128 - "segmented-control.tsx"
+Cohesion: 0.50
+Nodes (3): SegmentedControl(), SegmentedControlOption, SegmentedControlProps
+
 ## Knowledge Gaps
-- **420 isolated node(s):** `InventoryScreenProps`, `StatusHistoryProps`, `StatusMode`, `ArchiveUnitInput`, `ChangeUnitStatusInput` (+415 more)
+- **424 isolated node(s):** `eslintConfig`, `lintStagedConfig`, `securityHeaders`, `nextConfig`, `sentryEnabled` (+419 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **69 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **70 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `cn` to `units/schema.ts`, `profile-screen.tsx`, `structure/page.tsx`, `users-screen.tsx`, `data-table.tsx`, `structure-screen.tsx`, `structure-panel.tsx`, `audit-screen.tsx`, `button.tsx`, `skeleton.tsx`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Why does `requireSession()` connect `requireSession` to `import-screen.tsx`, `users/actions.ts`, `structure/page.tsx`, `can`, `errorMessage`, `assertCan`, `lib/auth.ts`, `structure/actions.ts`, `status.test.ts`, `units/actions.ts`, `enums.ts`, `structure.test.ts`, `permissions.ts`, `import/actions.ts`?**
-  _High betweenness centrality (0.028) - this node is a cross-community bridge._
-- **Why does `assertCan()` connect `assertCan` to `import-screen.tsx`, `users/actions.ts`, `structure/page.tsx`, `can`, `errorMessage`, `structure/actions.ts`, `requireSession`, `status.test.ts`, `units/actions.ts`, `enums.ts`, `structure.test.ts`, `permissions.ts`, `import/actions.ts`?**
+- **Why does `cn()` connect `cn` to `segmented-control.tsx`, `money.ts`, `structure-screen.tsx`, `dashboard-filters.tsx`, `sidebar.tsx`, `inventory-screen.tsx`, `data-table.tsx`, `cn.ts`, `users-screen.tsx`, `success-check.tsx`, `audit-screen.tsx`, `UserRole`, `skeleton.tsx`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `UserRole` connect `UserRole` to `import/actions.ts`, `lib/auth.ts`, `dashboard-aggregation.test.ts`, `sidebar.tsx`, `units/queries.ts`, `users.test.ts`, `inventory-screen.tsx`, `structure.test.ts`, `top-bar.tsx`, `users-screen.tsx`, `nav.ts`, `cn`, `units/actions.ts`, `enums.ts`, `dashboard-screen.tsx`, `permissions.ts`?**
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
+- **Why does `requireSession()` connect `requireSession` to `money.ts`, `import/actions.ts`, `structure-screen.tsx`, `users/actions.ts`, `lib/auth.ts`, `inventory/route.ts`, `users/route.ts`, `units/queries.ts`, `users.test.ts`, `structure/actions.ts`, `inventory-screen.tsx`, `structure.test.ts`, `profile-screen.tsx`, `units/actions.ts`, `dashboard-screen.tsx`, `permissions.ts`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `requireSession()` (e.g. with `mockSession()` and `mockSession()`) actually correct?**
   _`requireSession()` has 4 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `InventoryScreenProps`, `StatusHistoryProps`, `StatusMode` to the rest of the system?**
-  _420 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `units/schema.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.05396825396825397 - nodes in this community are weakly interconnected._
-- **Should `import-screen.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.09294199860237597 - nodes in this community are weakly interconnected._
+- **What connects `eslintConfig`, `lintStagedConfig`, `securityHeaders` to the rest of the system?**
+  _424 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `money.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.1411764705882353 - nodes in this community are weakly interconnected._
+- **Should `import/actions.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.07884615384615384 - nodes in this community are weakly interconnected._

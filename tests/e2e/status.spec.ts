@@ -23,8 +23,10 @@ async function signIn(
 async function signOut(page: import("@playwright/test").Page) {
   const dialog = page.getByRole("dialog");
   if (await dialog.isVisible()) {
-    await dialog.getByRole("button", { name: "Close" }).click();
-    await expect(dialog).toHaveCount(0);
+    const closeBtn = dialog.getByRole("button", { name: "Close" });
+    if (await closeBtn.isVisible()) {
+      await closeBtn.click();
+    }
   }
   await page
     .getByRole("button", { name: "Account menu" })
@@ -35,17 +37,16 @@ async function signOut(page: import("@playwright/test").Page) {
 }
 
 async function createUnit(page: import("@playwright/test").Page, code: string) {
-  await page.getByRole("button", { name: "New unit" }).click();
-  const panel = page.getByRole("dialog");
-  await panel.getByLabel("Unit code").fill(code);
-  await panel.getByLabel("Unit number").fill("E1");
-  await panel.locator("#unit-floor").selectOption({ index: 0 });
-  await panel.getByLabel("Category").selectOption({ label: "Shop" });
-  await panel.getByLabel("Net area (sq ft)").fill("100.00");
-  await panel.getByLabel("Rate per sq ft (PKR)").fill("25000.00");
-  await panel.getByRole("button", { name: "Save unit" }).click();
-  const saved = page.getByRole("dialog");
-  await expect(saved.getByRole("heading", { name: code })).toBeVisible({
+  await page.getByRole("link", { name: "New unit" }).click();
+  await expect(page).toHaveURL(/\/units\/new/, { timeout: 15_000 });
+  await page.getByLabel("Unit code").fill(code);
+  await page.getByLabel("Unit number").fill("E1");
+  await page.locator("#unit-floor").selectOption({ index: 0 });
+  await page.locator("#unit-category").selectOption({ label: "Shop" });
+  await page.getByLabel("Net area (sq ft)").fill("100.00");
+  await page.getByLabel("Rate per sq ft (PKR)").fill("25000.00");
+  await page.getByRole("button", { name: "Save unit" }).click();
+  await expect(page.locator(".unit-code", { hasText: code }).first()).toBeVisible({
     timeout: 15_000,
   });
 }
@@ -53,11 +54,11 @@ async function createUnit(page: import("@playwright/test").Page, code: string) {
 async function openUnit(page: import("@playwright/test").Page, code: string) {
   await page.goto(`/inventory?q=${encodeURIComponent(code)}`);
   await page.getByRole("cell", { name: code }).click();
-  const panel = page.getByRole("dialog");
-  await expect(panel.getByRole("heading", { name: code })).toBeVisible({
+  await expect(page).toHaveURL(/\/units\/[0-9a-f-]+/, { timeout: 15_000 });
+  await expect(page.locator(".unit-code", { hasText: code }).first()).toBeVisible({
     timeout: 15_000,
   });
-  return panel;
+  return page;
 }
 
 test.beforeAll(() => {
@@ -79,11 +80,13 @@ test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   await signIn(page, salesEmail, salesPassword);
   const panel = await openUnit(page, code);
   await panel.getByRole("button", { name: "Mark as Sold" }).click();
-  await panel.getByLabel("Booking ref").fill("BK-E2E-1");
+  await panel.locator("#sale-booking-ref").fill("BK-E2E-1");
   await panel.getByLabel("Note (optional)").fill("Walk-in buyer");
   await panel.getByRole("button", { name: "Confirm sale" }).click();
 
-  await expect(panel.getByText("Sold", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("Sold", { exact: true }).first()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(panel.getByText("Available → Sold")).toBeVisible();
   await expect(panel.getByText("Booking ref BK-E2E-1")).toBeVisible();
   await expect(panel.getByText(/Sold price Rs/)).toBeVisible();
@@ -91,6 +94,7 @@ test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   await expect(panel.getByRole("button", { name: "Mark as Sold" })).toHaveCount(0);
 
   const unitId =
+    page.url().match(/\/units\/([0-9a-f-]+)/)?.[1] ||
     new URL(page.url()).searchParams.get("unitId") ||
     new URL(page.url()).searchParams.get("unit");
   expect(unitId).toBeTruthy();
@@ -135,14 +139,13 @@ test("admin reverses a sale with a reason", async ({ page }) => {
   await signIn(page, inventoryEmail, inventoryPassword);
   await page.goto("/inventory");
   await createUnit(page, code);
-  const created = page.getByRole("dialog");
-  await created.getByRole("button", { name: "Mark as Sold" }).click();
-  await created.getByLabel("Booking ref").fill("BK-E2E-2");
-  await created.getByRole("button", { name: "Confirm sale" }).click();
-  await expect(created.getByText("Sold", { exact: true })).toBeVisible({
+  await page.getByRole("button", { name: "Mark as Sold" }).click();
+  await page.locator("#sale-booking-ref").fill("BK-E2E-2");
+  await page.getByRole("button", { name: "Confirm sale" }).click();
+  await expect(page.getByText("Sold", { exact: true }).first()).toBeVisible({
     timeout: 15_000,
   });
-  await expect(created.getByText("Available → Sold")).toBeVisible();
+  await expect(page.getByText("Available → Sold")).toBeVisible();
   await signOut(page);
 
   await signIn(page, adminEmail, adminPassword);

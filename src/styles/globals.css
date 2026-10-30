@@ -21,13 +21,11 @@
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-md);
-  --radius-xl: var(--radius-md);
+  --radius-lg: var(--radius-lg);
 
-  --shadow: 0 0 #0000;
-  --shadow-sm: 0 0 #0000;
-  --shadow-md: 0 0 #0000;
-  --shadow-lg: 0 0 #0000;
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-floating: var(--shadow-floating);
 }
 
 html {
@@ -64,6 +62,25 @@ textarea {
   font-family: inherit;
 }
 
+/* Card utility */
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.card-interactive {
+  transition:
+    transform var(--duration-hover) var(--ease-ledger),
+    box-shadow var(--duration-hover) var(--ease-ledger);
+}
+
+.card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
 /* Wordmark */
 .wordmark {
   font-family: var(--font-sans);
@@ -71,9 +88,8 @@ textarea {
   letter-spacing: -0.015em;
 }
 
-/* Monospace for unit codes, IDs, hashes */
-.unit-code,
-.font-mono {
+/* Monospace strictly for unit codes, IDs, hashes */
+.unit-code {
   font-family:
     var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
@@ -88,6 +104,7 @@ td,
 .area {
   font-feature-settings: "ss01", "cv11";
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-sans);
 }
 
 /* Focus ring: 2px brass at 40% opacity, offset 2px */
@@ -104,6 +121,10 @@ td,
 /* Floating shadow class for popovers, dialogs, dropdowns, toasts */
 .shadow-floating {
   box-shadow: var(--shadow-floating);
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
 }
 
 /* Fix autofill blue/yellow background to match surface */
@@ -230,6 +251,199 @@ select:-webkit-autofill:focus {
   animation: scaleIn var(--duration-popover) var(--ease-ledger) forwards;
 }
 
+/* --- transitions-dev: Number Pop-In --- */
+@keyframes t-digit-pop-in {
+  0% {
+    transform: translate(
+      calc(var(--digit-distance) * var(--digit-dir-x)),
+      calc(var(--digit-distance) * var(--digit-dir-y))
+    );
+    opacity: 0;
+    filter: blur(var(--digit-blur));
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.t-digit-group {
+  display: inline-flex;
+  align-items: baseline;
+}
+.t-digit {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.t-digit-group.is-animating .t-digit {
+  animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) both;
+}
+.t-digit-group.is-animating .t-digit[data-stagger="1"] {
+  animation-delay: var(--digit-stagger);
+}
+.t-digit-group.is-animating .t-digit[data-stagger="2"] {
+  animation-delay: calc(var(--digit-stagger) * 2);
+}
+.t-digit-group.is-animating .t-digit[data-stagger="3"] {
+  animation-delay: calc(var(--digit-stagger) * 3);
+}
+
+/* --- transitions-dev: Modal --- */
+.t-modal {
+  transform-origin: center;
+  transform: scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+}
+.t-modal.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.t-modal.is-closing {
+  transform: scale(var(--modal-scale-close));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-close-dur) var(--modal-ease),
+    opacity var(--modal-close-dur) var(--modal-ease);
+}
+
+/* --- transitions-dev: Panel Reveal --- */
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease),
+    filter var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity var(--panel-open-dur) var(--panel-ease),
+    filter var(--panel-open-dur) var(--panel-ease);
+}
+
+/* --- transitions-dev: Page Transition (180ms) --- */
+.t-page-enter {
+  animation: pageEnter var(--duration-page) var(--ease-ledger) both;
+}
+@keyframes pageEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- transitions-dev: Icon Swap --- */
+.t-icon-swap {
+  position: relative;
+  display: inline-grid;
+}
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
+    transform var(--icon-swap-dur) var(--icon-swap-ease);
+  will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="b"] {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"],
+.t-icon-swap[data-state="b"] .t-icon[data-icon="a"] {
+  opacity: 0;
+  filter: blur(var(--icon-swap-blur));
+  transform: scale(var(--icon-swap-start-scale));
+}
+
+/* --- transitions-dev: Success Check --- */
+.t-success-check {
+  display: inline-block;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+.t-success-check svg {
+  display: block;
+  overflow: visible;
+}
+.t-success-check.is-animating {
+  animation:
+    check-appear var(--check-opacity-dur) var(--check-ease-opacity) forwards,
+    check-bob var(--check-bob-dur) var(--check-ease-bob) forwards,
+    check-spin var(--check-rotate-dur) var(--check-ease-rotate) forwards,
+    check-unblur var(--check-blur-dur) var(--check-ease-out) forwards;
+}
+.t-success-check.is-animating path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: check-draw var(--check-path-dur) var(--check-ease-path)
+    var(--check-path-delay) forwards;
+}
+
+@keyframes check-appear {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes check-bob {
+  0% {
+    transform: translateY(var(--check-y-amount));
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes check-spin {
+  0% {
+    transform: rotate(var(--check-rotate-from));
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes check-unblur {
+  0% {
+    filter: blur(var(--check-blur-from));
+  }
+  100% {
+    filter: blur(0);
+  }
+}
+@keyframes check-draw {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -238,5 +452,17 @@ select:-webkit-autofill:focus {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .t-digit-group .t-digit,
+  .t-modal,
+  .t-panel-slide,
+  .t-page-enter,
+  .t-icon-swap .t-icon,
+  .t-success-check {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
   }
 }

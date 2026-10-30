@@ -13,7 +13,7 @@ function createClient() {
     throw new Error("DATABASE_URL is not set");
   }
   return postgres(url, {
-    max: process.env.NODE_ENV === "production" ? 4 : 10,
+    max: process.env.NODE_ENV === "production" && !process.env.ALLOW_TEST_DB ? 4 : 10,
     idle_timeout: 20,
     connect_timeout: 30,
     max_lifetime: 60 * 30,

@@ -15,12 +15,12 @@ Use **pnpm**: `pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm t
 
 ## Stack
 
-Next.js App Router, strict TS, Drizzle, Better Auth (email/password), Tailwind v4, Radix (no shadcn defaults), Phosphor light icons, visx, Zod on every action.
+Next.js App Router, strict TS, Drizzle, Better Auth (email/password), Tailwind v4, Radix (no shadcn defaults), Phosphor light icons, visx, @tanstack/react-query, Zod on every action.
 
 ## Layout
 
-- Features: `src/features/<module>/{actions,queries,schema,components}`
-- UI: `src/components/ui`, `src/components/data-table`
+- Features: `src/features/<module>/{actions,queries,schema,components,hooks}`
+- UI: `src/components/ui`, `src/components/data-table`, `src/components/providers`
 - DB: `src/db/schema`, `src/db/migrations`
 - Rules: `.cursor/rules/*.mdc`
 - Docs: `docs/`
@@ -33,14 +33,15 @@ Next.js App Router, strict TS, Drizzle, Better Auth (email/password), Tailwind v
 - Users: `/settings/users` (ADMIN). Create with a temporary password (`must_change_password`). No self-demote/disable; keep one active ADMIN. Profile: `/settings/profile`.
 - Login: in-memory failed-attempt limit (5 / 15 min per email). Better Auth request rate limit is on in production only (off when `ALLOW_TEST_DB=1` so Playwright can sign in repeatedly). Disabled users cannot sign in; sessions revoked.
 - Client docs: `docs/USER_GUIDE.md`. Handover: `docs/HANDOVER.md`.
-- Dashboard: `/` (alias `/dashboard`). Title is **Dashboard**. Hairline layout, no cards, Geist Mono tabular figures, visx sales-over-time chart. Role SALES sees dashboard but no audit trail.
-- UX: breadcrumbs in the top bar, `PageHeader` on list pages, cmdk (`⌘/Ctrl+K`), toasts on mutations, `ErrorState` / 404, Neon waking copy. Sign out lives in the **Account menu**.
+- Dashboard: `/` (alias `/dashboard`). Title is **Dashboard**. Soft elevated KPI cards with transitions-dev digit pop-in, Geist Sans tabular figures for KPIs/money/areas, Geist Mono strictly for unit codes. Animated visx sales chart with staggered entry and hover lift. Role SALES sees dashboard but no audit trail.
+- UX: breadcrumbs in the top bar, `PageHeader` on list pages, cmdk (`⌘/Ctrl+K`), toasts on mutations, `ErrorState` / 404, Neon waking copy (delayed 3.5s). Sign out lives in the **Account menu**. Unit row click navigates to `/units/[id]` full page; create is `/units/new`; edit is `/units/[id]/edit` (no drawer).
+- Performance & Client cache: `@tanstack/react-query` with `staleTime: 60_000`, `gcTime: 5min`, `refetchOnWindowFocus: false`. RSC first paint hydrates into React Query via `initialData`. Inventory filter changes update client-side via query keys without full RSC reloads. Mutation invalidations target affected keys; narrow `revalidatePath`. Links prefetch by default.
 - Aggregations: Dashboard KPIs, floor ledger, block breakdown, and monthly sales are aggregated strictly in SQL (never load units into memory).
 - Exports: `/api/export` generates formatted `.xlsx` (exceljs) and `.csv` for Inventory (current filters), Sold Units, and Floor Summary with frozen headers, PKR currency format (`"Rs "#,##0`), and dates in filenames (`YYYY-MM-DD`).
 - Import: `/import` (ADMIN and INVENTORY_MANAGER). Ingest `.xlsx`/`.csv` (max 5 MB) parsed server-side via SheetJS/exceljs. Auto-detect headers, remap with Radix selects, apply cleaning rules (trim/uppercase unit codes, normalize floors, strip Rs/commas, map AVAILABLE/SOLD). Virtualized validation preview (TanStack) flagging duplicates, non-matching floor/block, conflicting data (6F-RA33 cases), and SOLD units without price. Atomic single-transaction commit recording audit_log, rate_history, status history, and `import_batches` row with audit-log-based soft-rollback for latest batch. Error rows downloadable as `.xlsx`. Client data files (*.xlsx, *.csv) are gitignored.
 - Money: `numeric` / decimal strings. `computeTotalPrice`. Freeze `sold_price_pkr` on sale.
 - One status-change action, optimistic `version` lock, history + audit in the same transaction.
-- Design: `src/styles/tokens.css`. No gradients, shadows, cards, emoji, Lucide, Recharts.
+- Design: `src/styles/tokens.css`. Soft elevated cards (`.card` utility), soft card shadow, 8/12/16 radii. Geist Sans + tabular-nums for KPIs/money; Geist Mono strictly for unit codes (`.unit-code`). Transitions-dev patterns for number pop-ins, page transitions, and status swaps. No emoji, Lucide, Recharts, or loud gradients.
 - New modules copy the feature-folder pattern (`docs/ARCHITECTURE.md`).
 
 ## Code graph

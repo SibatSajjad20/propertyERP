@@ -1,17 +1,43 @@
 ---
-description: Old-money ledger design tokens and bans
+description: Design system tokens, typography rules, card elevation, and motion guidelines
 globs: src/**/*.{tsx,css}
 alwaysApply: true
 ---
 
-# Design
+# Design System Rules
 
-Tokens live in `src/styles/tokens.css`: `--bg #F7F5F0`, `--surface #FFFFFF`, `--line #E4E0D6`, `--ink #1A1A17`, `--ink-muted #6B675E`, `--primary #0E3A5B`, `--accent #9A7B4F`, `--available #2F5D46`, `--sold #7A2E2A`.
+Tokens live in `src/styles/tokens.css` and are exposed via Tailwind in `src/styles/globals.css`:
+- Backgrounds: `--bg #F3F5F7`, `--surface #FFFFFF`, `--subtle #E9EEF2`
+- Borders: `--line #DDE3E8`, `--line-strong #C8D0D8`
+- Text: `--ink #0F172A`, `--ink-muted #64748B`, `--ink-faint #94A3B8`
+- Brand: `--primary #0B558B`, `--primary-hover #084572`, `--accent #9A7B4F` (brass)
+- Status: `--available #1F7A4D`, `--sold #9B2C2C`
+- Radius: `8px` controls/buttons, `12px` cards, `16px` dialogs/modal sheets
+- Elevation: `--shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06)`; floating layer `--shadow-floating` for dialogs/toasts/popovers. Soft card elevation is allowed via the `.card` utility.
 
-- Radius 2–4px. Spacing on a 4px scale. Table row height 32px.
-- Geist = UI, headings and big numbers. Geist Mono = unit codes. No serifs.
-- Numbers: `tabular-nums`, right-aligned. PKR via `formatPkr` / `formatPkrLedger` (lakh/crore).
-- Motion 150–200ms ease-out only.
-- Icons only in navigation.
+## Typography & Numbers
+- **Geist (sans)**: UI, headings, buttons, KPIs, money, prices, areas, and chart axes.
+- **Numbers**: Always use `tabular-nums` (`font-sans tabular-nums`), right-aligned in tables and cards. Currency formatted via `formatPkr` / `formatPkrCompact` / `formatPkrLedger`.
+- **Geist Mono (`.unit-code`, `.font-mono`)**: ONLY for unit codes, booking references, IDs, and cryptographic hashes. Never use Mono for prices, areas, KPI totals, or chart labels.
 
-Banned: gradients, shadows, card boxes, emoji, rainbow colours, purple, Lucide, Recharts, default shadcn styling. Use hairline `border-line` dividers instead of cards.
+## Components & Cards
+- Cards: `.card` utility (surface background, 1px line border, 12px border radius, `--shadow-card` elevation). Interactive cards lift slightly on hover (`translateY(-1px)`).
+- Buttons: Primary solid `#0B558B` (hover `#084572`, `h-9`, `rounded-[8px]`); secondary white with `line-strong` border; retain `active:scale-[0.98]`.
+- Navigation: Sidebar active item displays a subtle brass left bar (`--accent`).
+
+## Motion & Transitions
+- Micro-interactions timed between 120ms and 240ms with `cubic-bezier(0.2, 0.8, 0.2, 1)`.
+- Transitions-dev required patterns:
+  - Number pop-in / count-up for KPI cards on view and filter changes.
+  - Panel reveal for sheets and drawers.
+  - Modal open / close for dialogs.
+  - Page enter transitions (180ms).
+  - Status badge swap animation.
+  - Success check stroke-draw for completed actions (sell / reverse / save).
+- Always respect `@media (prefers-reduced-motion: reduce)`.
+
+## Bans
+- No Lucide icons (use Phosphor light icons only).
+- No purple, rainbow, or loud gradient backgrounds.
+- No Recharts (use visx).
+- No raw default shadcn components.

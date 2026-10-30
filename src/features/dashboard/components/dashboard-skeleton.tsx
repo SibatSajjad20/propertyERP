@@ -1,6 +1,20 @@
+"use client";
+
+import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CircleNotch } from "@phosphor-icons/react";
 
 export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }) {
+  const [showWakingNotice, setShowWakingNotice] = React.useState(false);
+
+  React.useEffect(() => {
+    // Show "Waking database..." only if real cold-start loading exceeds 3.5 seconds
+    const timer = setTimeout(() => {
+      setShowWakingNotice(true);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div
       className="animate-fade-in space-y-8"
@@ -19,10 +33,20 @@ export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }
         </div>
       </div>
 
-      {/* KPI Row Skeleton (6 columns separated by hairlines) */}
-      <div className="grid grid-cols-2 divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-6">
+      {showWakingNotice && (
+        <div className="animate-fade-in flex items-center gap-2.5 rounded-[8px] border border-accent/30 bg-accent/5 px-3.5 py-2 text-[12px] text-ink-muted">
+          <CircleNotch weight="light" className="size-4 animate-spin text-accent" />
+          <span>Waking the database. This can take a few seconds after idle time…</span>
+        </div>
+      )}
+
+      {/* KPI Cards Skeleton (separate cards) */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex flex-col justify-between space-y-3 p-4 sm:p-5">
+          <div
+            key={i}
+            className="card flex flex-col justify-between space-y-3 p-4 sm:p-5"
+          >
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-8 w-24" />
             <Skeleton className="h-3 w-16" />
@@ -42,7 +66,7 @@ export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }
             <Skeleton className="h-3 w-24" />
           </div>
 
-          <div className="divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface">
+          <div className="card divide-y divide-line overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div className="w-24 shrink-0 space-y-1">
@@ -50,7 +74,7 @@ export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }
                   <Skeleton className="h-2.5 w-12" />
                 </div>
                 <div className="flex-1">
-                  <Skeleton className="h-2 w-full rounded-full" />
+                  <Skeleton className="h-2.5 w-full rounded-full" />
                 </div>
                 <div className="w-28 shrink-0 space-y-1 text-right">
                   <Skeleton className="ml-auto h-3.5 w-20" />
@@ -69,7 +93,7 @@ export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }
               <Skeleton className="h-4 w-32" />
               <Skeleton className="mt-1 h-3 w-40" />
             </div>
-            <div className="space-y-3 overflow-hidden rounded-[8px] border border-line bg-surface p-4">
+            <div className="card space-y-3 overflow-hidden p-4">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-full" />
@@ -82,19 +106,19 @@ export function DashboardSkeleton({ hideAudit = false }: { hideAudit?: boolean }
               <Skeleton className="h-4 w-28" />
               <Skeleton className="mt-1 h-3 w-44" />
             </div>
-            <div className="flex h-[210px] items-center justify-center rounded-[8px] border border-line bg-surface p-4">
+            <div className="card flex h-[210px] items-center justify-center overflow-hidden p-4">
               <Skeleton className="h-full w-full" />
             </div>
           </div>
 
-          {/* Recent Activity Skeleton (if not hidden for SALES) */}
+          {/* Recent Activity Skeleton */}
           {!hideAudit && (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-line pb-2.5">
                 <Skeleton className="h-4 w-28" />
                 <Skeleton className="h-3 w-16" />
               </div>
-              <div className="divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface">
+              <div className="card divide-y divide-line overflow-hidden">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center justify-between p-3">
                     <div className="flex-1 space-y-1.5">

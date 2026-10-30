@@ -133,7 +133,7 @@ export function Sidebar({ role, userName = "Staff", onNavigate }: SidebarProps) 
                     >
                       {active && (
                         <span
-                          className="absolute top-1.5 bottom-1.5 left-0 w-[2px] rounded-r bg-primary"
+                          className="absolute top-1.5 bottom-1.5 left-0 w-[2.5px] rounded-r bg-accent"
                           aria-hidden="true"
                         />
                       )}
@@ -182,7 +182,7 @@ export function Sidebar({ role, userName = "Staff", onNavigate }: SidebarProps) 
                     >
                       {active && (
                         <span
-                          className="absolute top-1.5 bottom-1.5 left-0 w-[2px] rounded-r bg-primary"
+                          className="absolute top-1.5 bottom-1.5 left-0 w-[2.5px] rounded-r bg-accent"
                           aria-hidden="true"
                         />
                       )}

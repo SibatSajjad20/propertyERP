@@ -7,7 +7,7 @@ import { assertCan } from "@/lib/permissions";
 
 export async function GET() {
   try {
-    const session = await requireSession();
+    const session = await requireSession({ redirect: false });
     assertCan(session.user.role, "users.read");
     const users = await listUsers();
     return NextResponse.json({ users });

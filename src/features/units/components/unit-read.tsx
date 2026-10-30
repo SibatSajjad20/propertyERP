@@ -21,7 +21,7 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
   return (
     <div className="flex flex-1 flex-col space-y-6 overflow-y-auto px-5 py-4">
       {/* Status banner */}
-      <div className="flex items-center justify-between rounded-[6px] border border-line bg-subtle/50 px-3.5 py-2.5">
+      <div className="flex items-center justify-between rounded-[8px] border border-line bg-subtle/50 px-4 py-3">
         <div>
           <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             Current Status
@@ -36,7 +36,7 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
           <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             {unit.soldPricePkr ? "Frozen Sold Price" : "Total Asking"}
           </p>
-          <p className="mt-0.5 font-mono text-[16px] font-semibold text-ink tabular-nums">
+          <p className="price mt-0.5 font-sans text-[16px] font-semibold text-ink tabular-nums">
             {formatPkrLedger(book)}
           </p>
         </div>
@@ -62,13 +62,12 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
           Area &amp; Valuation
         </p>
         <dl className="divide-y divide-line/60">
-          <Row label="Net area" value={formatSqft(unit.netAreaSqft)} mono />
-          <Row label="Gross area" value={formatSqft(unit.grossAreaSqft)} mono />
-          <Row label="Rate per sq ft" value={formatPkrLedger(unit.ratePerSqftPkr)} mono />
+          <Row label="Net area" value={formatSqft(unit.netAreaSqft)} />
+          <Row label="Gross area" value={formatSqft(unit.grossAreaSqft)} />
+          <Row label="Rate per sq ft" value={formatPkrLedger(unit.ratePerSqftPkr)} />
           <Row
             label={`Base valuation (${unit.ratePerSqftPkr} × ${unit.netAreaSqft})`}
             value={formatPkrLedger(base)}
-            mono
           />
           <Row
             label={
@@ -77,16 +76,14 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
                 : "Adjustment"
             }
             value={formatPkrLedger(unit.priceAdjustmentPkr)}
-            mono
           />
           <Row
             label={unit.soldPricePkr ? "Sold price (frozen)" : "Total calculated"}
             value={formatPkrLedger(book)}
-            mono
             highlight
           />
         </dl>
-        <p className="text-right text-[11px] text-ink-muted tabular-nums">
+        <p className="price text-right font-sans text-[11px] text-ink-muted tabular-nums">
           {formatPkrCompact(book)}
         </p>
       </section>
@@ -100,16 +97,24 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
           <Row label="Ownership group" value={unit.ownershipGroup ?? "—"} />
           <Row label="Sub-owner" value={unit.subOwner ?? "—"} />
           <Row
-            label="Booking reference"
+            label="Booking ref"
             value={unit.bookingRef ?? "—"}
             mono={Boolean(unit.bookingRef)}
           />
-          <Row label="Internal notes" value={unit.notes ?? "—"} />
+          {unit.soldAt ? (
+            <Row label="Sold at" value={new Date(unit.soldAt).toLocaleString()} />
+          ) : null}
+          {unit.notes ? <Row label="Notes" value={unit.notes} /> : null}
         </dl>
       </section>
 
-      {/* Status History */}
-      <StatusHistory entries={history} />
+      {/* History timeline */}
+      <section className="space-y-2">
+        <p className="border-b border-line pb-1 text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+          Status &amp; Valuation History
+        </p>
+        <StatusHistory entries={history} />
+      </section>
     </div>
   );
 }
@@ -131,10 +136,10 @@ function Row({
       <dd
         className={
           highlight
-            ? "font-mono text-[15px] font-semibold text-ink tabular-nums"
+            ? "font-sans text-[15px] font-semibold text-ink tabular-nums"
             : mono
-              ? "font-mono text-ink tabular-nums"
-              : "text-ink"
+              ? "unit-code font-mono text-ink"
+              : "font-sans text-ink tabular-nums"
         }
       >
         {value}

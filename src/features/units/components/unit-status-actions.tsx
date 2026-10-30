@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,11 +30,23 @@ export function UnitStatusActions({
   children,
 }: UnitStatusActionsProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<StatusMode>("idle");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const showSell = unit.status === "AVAILABLE" && canSell && unit.isSellable;
   const showReverse = unit.status === "SOLD" && canReverse;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const host = window as unknown as {
+      __erpChangeUnitStatus?: typeof changeUnitStatus;
+    };
+    host.__erpChangeUnitStatus = changeUnitStatus;
+    return () => {
+      delete host.__erpChangeUnitStatus;
+    };
+  }, []);
 
   async function sell(input: { bookingRef: string; reason?: string }) {
     setPending(true);
@@ -48,6 +61,9 @@ export function UnitStatusActions({
       });
       setMode("idle");
       setPending(false);
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["unit-detail", unit.id] });
       toast.success(`Unit ${unit.unitCode} marked as Sold`);
       router.refresh();
     } catch (caught) {
@@ -70,6 +86,9 @@ export function UnitStatusActions({
       });
       setMode("idle");
       setPending(false);
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["unit-detail", unit.id] });
       toast.success(`Sale reversed for unit ${unit.unitCode}`);
       router.refresh();
     } catch (caught) {
@@ -169,18 +188,22 @@ function SellConfirm({
           Confirm unit sale
         </p>
 
-        <div className="space-y-2 rounded-[6px] border border-line bg-subtle/50 p-3.5">
+        <div className="space-y-2 rounded-[8px] border border-line bg-subtle/50 p-4">
           <div className="flex items-center justify-between text-[13px]">
             <span className="text-ink-muted">Unit code</span>
-            <span className="font-mono font-medium text-ink">{unit.unitCode}</span>
+            <span className="unit-code font-mono font-medium text-ink">
+              {unit.unitCode}
+            </span>
           </div>
           <div className="flex items-baseline justify-between border-t border-line/60 pt-2">
             <span className="text-[13px] text-ink-muted">Final selling price</span>
             <div className="text-right">
-              <span className="font-mono text-[18px] font-semibold text-ink tabular-nums">
+              <span className="price font-sans text-[18px] font-semibold text-ink tabular-nums">
                 {formatPkrLedger(total)}
               </span>
-              <p className="text-[11px] text-ink-muted">{formatPkrCompact(total)}</p>
+              <p className="price font-sans text-[11px] text-ink-muted tabular-nums">
+                {formatPkrCompact(total)}
+              </p>
             </div>
           </div>
         </div>
@@ -216,7 +239,7 @@ function SellConfirm({
 
         {error ? (
           <p
-            className="rounded-[4px] border border-sold/30 bg-sold/5 p-2.5 text-[12px] text-sold"
+            className="rounded-[6px] border border-sold/30 bg-sold/5 p-2.5 text-[12px] text-sold"
             role="alert"
           >
             {error}
@@ -277,8 +300,10 @@ function ReverseConfirm({
           Reverse unit sale
         </p>
 
-        <div className="space-y-1 rounded-[6px] border border-sold/20 bg-sold/5 p-3.5">
-          <p className="font-mono text-[13px] font-medium text-ink">{unit.unitCode}</p>
+        <div className="space-y-1 rounded-[8px] border border-sold/20 bg-sold/5 p-4">
+          <p className="unit-code font-mono text-[13px] font-medium text-ink">
+            {unit.unitCode}
+          </p>
           <p className="text-[12px] leading-relaxed text-ink-muted">
             Reversing returns this unit to Available status. The booking reference and
             price are cleared from active ledger and retained in history.
@@ -308,7 +333,7 @@ function ReverseConfirm({
 
         {error ? (
           <p
-            className="rounded-[4px] border border-sold/30 bg-sold/5 p-2.5 text-[12px] text-sold"
+            className="rounded-[6px] border border-sold/30 bg-sold/5 p-2.5 text-[12px] text-sold"
             role="alert"
           >
             {error}

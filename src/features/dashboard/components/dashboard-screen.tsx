@@ -1,8 +1,11 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Plus } from "@phosphor-icons/react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import type { UserRole } from "@/db/schema/enums";
 import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import type {
@@ -16,6 +19,7 @@ import type {
 import { PageHeader } from "@/components/page-header";
 import { DashboardFilters } from "./dashboard-filters";
 import { SalesOverTimeChart } from "./sales-over-time-chart";
+import { useDashboardQuery } from "../hooks/use-dashboard-query";
 
 function formatRelativeTime(date: Date): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -71,18 +75,42 @@ export interface DashboardScreenProps {
 }
 
 export function DashboardScreen({
-  stats,
-  floors,
-  blocks,
-  salesOverTime,
-  activities,
-  filterOptions,
+  stats: initialStats,
+  floors: initialFloors,
+  blocks: initialBlocks,
+  salesOverTime: initialSalesOverTime,
+  activities: initialActivities,
+  filterOptions: initialFilterOptions,
   selectedPropertyId,
   selectedBlockId,
   role,
   canManage,
 }: DashboardScreenProps) {
   const canSeeAudit = role !== "SALES";
+
+  const filter = React.useMemo(() => {
+    if (!selectedPropertyId && !selectedBlockId) return undefined;
+    return {
+      propertyId: selectedPropertyId || undefined,
+      blockId: selectedBlockId || undefined,
+    };
+  }, [selectedPropertyId, selectedBlockId]);
+
+  const { data: dashboardData } = useDashboardQuery(filter, {
+    stats: initialStats,
+    floors: initialFloors,
+    blocks: initialBlocks,
+    salesOverTime: initialSalesOverTime,
+    activities: initialActivities,
+    filterOptions: initialFilterOptions,
+  });
+
+  const stats = dashboardData?.stats ?? initialStats;
+  const floors = dashboardData?.floors ?? initialFloors;
+  const blocks = dashboardData?.blocks ?? initialBlocks;
+  const salesOverTime = dashboardData?.salesOverTime ?? initialSalesOverTime;
+  const activities = dashboardData?.activities ?? initialActivities;
+  const filterOptions = dashboardData?.filterOptions ?? initialFilterOptions;
 
   return (
     <div className="space-y-8">
@@ -101,7 +129,7 @@ export function DashboardScreen({
             </Button>
             {canManage && (
               <Button variant="primary" size="md" asChild>
-                <Link href="/inventory?mode=create">
+                <Link href="/units/new">
                   <Plus weight="light" className="mr-1.5 size-3.5" />
                   New unit
                 </Link>
@@ -111,23 +139,23 @@ export function DashboardScreen({
         }
       />
 
-      {/* KPI Strip: 6 metrics separated by vertical hairlines */}
-      <div className="grid grid-cols-2 divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-6">
+      {/* Overview Cards: Grid of separate KPI cards (2/3/6 cols) */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {/* 1. Total units */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             Total units
           </p>
           <div className="mt-3">
-            <span className="font-mono text-[26px] leading-none font-medium text-ink tabular-nums sm:text-[28px]">
-              {stats.total}
+            <span className="text-[26px] leading-none font-semibold text-ink sm:text-[28px]">
+              <AnimatedNumber value={stats.total} />
             </span>
-            <p className="mt-1 text-[11px] text-ink-muted">catalogued</p>
+            <p className="mt-1 text-[11px] text-ink-muted">in inventory</p>
           </div>
         </div>
 
-        {/* 2. Available */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        {/* 2. Available units */}
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
               Available
@@ -135,20 +163,15 @@ export function DashboardScreen({
             <span className="size-2 rounded-full bg-available" aria-hidden="true" />
           </div>
           <div className="mt-3">
-            <span className="font-mono text-[26px] leading-none font-medium text-available tabular-nums sm:text-[28px]">
-              {stats.available}
+            <span className="text-[26px] leading-none font-semibold text-available sm:text-[28px]">
+              <AnimatedNumber value={stats.available} />
             </span>
-            <p className="mt-1 font-mono text-[11px] text-ink-muted tabular-nums">
-              {stats.total > 0
-                ? `${Math.round((stats.available / stats.total) * 100)}%`
-                : "0%"}{" "}
-              in inventory
-            </p>
+            <p className="mt-1 text-[11px] text-ink-muted">ready to sell</p>
           </div>
         </div>
 
-        {/* 3. Sold */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        {/* 3. Sold units */}
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
               Sold
@@ -156,20 +179,15 @@ export function DashboardScreen({
             <span className="size-2 rounded-full bg-sold" aria-hidden="true" />
           </div>
           <div className="mt-3">
-            <span className="font-mono text-[26px] leading-none font-medium text-sold tabular-nums sm:text-[28px]">
-              {stats.sold}
+            <span className="text-[26px] leading-none font-semibold text-sold sm:text-[28px]">
+              <AnimatedNumber value={stats.sold} />
             </span>
-            <p className="mt-1 font-mono text-[11px] text-ink-muted tabular-nums">
-              {stats.total > 0
-                ? `${Math.round((stats.sold / stats.total) * 100)}%`
-                : "0%"}{" "}
-              closed
-            </p>
+            <p className="mt-1 text-[11px] text-ink-muted">committed deals</p>
           </div>
         </div>
 
         {/* 4. % Sold */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
               % Sold
@@ -177,24 +195,24 @@ export function DashboardScreen({
             <span className="size-2 rounded-full bg-accent/60" aria-hidden="true" />
           </div>
           <div className="mt-3">
-            <span className="font-mono text-[26px] leading-none font-medium text-ink tabular-nums sm:text-[28px]">
-              {stats.soldPercent.toFixed(1)}%
+            <span className="text-[26px] leading-none font-semibold text-ink sm:text-[28px]">
+              <AnimatedNumber value={stats.soldPercent.toFixed(1)} suffix="%" />
             </span>
             <p className="mt-1 text-[11px] text-ink-muted">absorption rate</p>
           </div>
         </div>
 
-        {/* 5. Available inventory value (area x rate) */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        {/* 5. Available inventory value */}
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             Available value
           </p>
           <div className="mt-3">
-            <span className="font-mono text-[24px] leading-none font-medium text-ink tabular-nums sm:text-[26px]">
-              {formatPkrCompact(stats.availableValuePkr)}
+            <span className="text-[22px] leading-none font-semibold text-ink sm:text-[24px]">
+              <AnimatedNumber value={formatPkrCompact(stats.availableValuePkr)} />
             </span>
             <p
-              className="mt-1 truncate font-mono text-[11px] text-ink-muted tabular-nums"
+              className="mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums"
               title={formatPkrLedger(stats.availableValuePkr)}
             >
               area × rate
@@ -202,17 +220,17 @@ export function DashboardScreen({
           </div>
         </div>
 
-        {/* 6. Total sold value (PKR) */}
-        <div className="kpi flex flex-col justify-between p-4 sm:p-5">
+        {/* 6. Total sold value */}
+        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
           <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             Sold value
           </p>
           <div className="mt-3">
-            <span className="font-mono text-[24px] leading-none font-medium text-ink tabular-nums sm:text-[26px]">
-              {formatPkrCompact(stats.soldValuePkr)}
+            <span className="text-[22px] leading-none font-semibold text-ink sm:text-[24px]">
+              <AnimatedNumber value={formatPkrCompact(stats.soldValuePkr)} />
             </span>
             <p
-              className="mt-1 truncate font-mono text-[11px] text-ink-muted tabular-nums"
+              className="mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums"
               title={formatPkrLedger(stats.soldValuePkr)}
             >
               Frozen at sale
@@ -243,18 +261,18 @@ export function DashboardScreen({
           </div>
 
           {floors.length === 0 ? (
-            <div className="rounded-[8px] border border-line bg-surface p-6 text-center text-[13px] text-ink-muted">
+            <div className="card p-6 text-center text-[13px] text-ink-muted">
               No floors match the current filters.
             </div>
           ) : (
-            <div className="divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface">
+            <div className="card divide-y divide-line overflow-hidden">
               {floors.map((fl) => {
                 const soldPct = fl.total > 0 ? (fl.sold / fl.total) * 100 : 0;
                 const availPct = fl.total > 0 ? (fl.available / fl.total) * 100 : 0;
                 return (
                   <Link
                     key={fl.floorId}
-                    href={`/inventory?floor=${fl.floorId}`}
+                    href={`/inventory?floorId=${fl.floorId}`}
                     className="group flex cursor-pointer flex-col justify-between gap-3 px-4 py-3 transition-colors hover:bg-subtle/50 sm:flex-row sm:items-center"
                     title={`View inventory on ${fl.floorName}`}
                   >
@@ -267,39 +285,40 @@ export function DashboardScreen({
                       </p>
                     </div>
 
-                    {/* Proportional bar (available vs sold) */}
+                    {/* Proportional bar (available vs sold) with width animated on mount */}
                     <div className="mx-2 min-w-0 flex-1">
-                      <div className="flex h-2 w-full overflow-hidden rounded-full border border-line/60 bg-subtle">
+                      <div className="flex h-2.5 w-full overflow-hidden rounded-full border border-line/60 bg-subtle">
                         {soldPct > 0 && (
-                          <div
-                            style={{ width: `${soldPct}%` }}
-                            className="h-full bg-sold transition-all duration-300"
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${soldPct}%` }}
+                            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                            className="h-full bg-sold"
                             title={`Sold: ${fl.sold} (${Math.round(soldPct)}%)`}
                           />
                         )}
                         {availPct > 0 && (
-                          <div
-                            style={{ width: `${availPct}%` }}
-                            className="h-full bg-available transition-all duration-300"
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${availPct}%` }}
+                            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                            className="h-full bg-available"
                             title={`Available: ${fl.available} (${Math.round(availPct)}%)`}
                           />
                         )}
                       </div>
                     </div>
 
-                    {/* Sold / total and value right-aligned in mono numbers */}
+                    {/* Sold / total and value right-aligned in tabular numbers */}
                     <div className="w-36 shrink-0 text-right">
-                      <div className="font-mono text-[13px] text-ink tabular-nums">
-                        <span>{fl.sold}</span>
-                        <span className="font-mono text-[12px] text-ink-muted">
-                          {" "}
-                          / {fl.total}
-                        </span>
+                      <div className="font-sans text-[13px] text-ink tabular-nums">
+                        <span className="font-medium">{fl.sold}</span>
+                        <span className="text-[12px] text-ink-muted"> / {fl.total}</span>
                         <span className="ml-1 text-[11px] text-ink-muted tabular-nums">
                           ({Math.round(soldPct)}%)
                         </span>
                       </div>
-                      <p className="font-mono text-[11px] text-ink-muted tabular-nums">
+                      <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         {formatPkrCompact(fl.totalValuePkr)}
                       </p>
                     </div>
@@ -323,7 +342,7 @@ export function DashboardScreen({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
+            <div className="card overflow-hidden">
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="border-b border-line bg-subtle/40 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
@@ -344,19 +363,19 @@ export function DashboardScreen({
                       <td className="px-3 py-2.5 font-medium text-ink">
                         {blk.blockName}
                       </td>
-                      <td className="px-2.5 py-2.5 text-right font-mono text-ink tabular-nums">
+                      <td className="px-2.5 py-2.5 text-right font-sans text-ink tabular-nums">
                         {blk.total}
                       </td>
-                      <td className="px-2.5 py-2.5 text-right font-mono text-available tabular-nums">
+                      <td className="px-2.5 py-2.5 text-right font-sans text-available tabular-nums">
                         {blk.available}
                       </td>
-                      <td className="px-2.5 py-2.5 text-right font-mono text-sold tabular-nums">
+                      <td className="px-2.5 py-2.5 text-right font-sans text-sold tabular-nums">
                         {blk.sold}
                       </td>
-                      <td className="px-2.5 py-2.5 text-right font-mono text-ink tabular-nums">
+                      <td className="px-2.5 py-2.5 text-right font-sans text-ink tabular-nums">
                         {Math.round(blk.soldPercent)}%
                       </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-ink-muted tabular-nums">
+                      <td className="px-3 py-2.5 text-right font-sans text-ink-muted tabular-nums">
                         {formatPkrCompact(blk.totalValuePkr)}
                       </td>
                     </tr>
@@ -373,7 +392,7 @@ export function DashboardScreen({
             </div>
           </section>
 
-          {/* Sales over time chart (visx) */}
+          {/* Sales over time chart (visx + motion) */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-2.5">
               <div>
@@ -384,12 +403,12 @@ export function DashboardScreen({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-[8px] border border-line bg-surface p-4">
+            <div className="card overflow-hidden p-4">
               <SalesOverTimeChart data={salesOverTime} />
             </div>
           </section>
 
-          {/* Recent activity list (only rendered if user role is not SALES) */}
+          {/* Recent activity list */}
           {canSeeAudit && (
             <section className="space-y-4">
               <div className="flex items-center justify-between border-b border-line pb-2.5">
@@ -406,7 +425,7 @@ export function DashboardScreen({
                 )}
               </div>
 
-              <div className="divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-surface">
+              <div className="card divide-y divide-line overflow-hidden">
                 {activities.length === 0 ? (
                   <p className="p-4 text-center text-[12px] text-ink-muted">
                     No recorded activity yet.
@@ -425,7 +444,7 @@ export function DashboardScreen({
                               {item.actorName}
                             </span>{" "}
                             <span className="text-ink-muted">{act.label}</span>{" "}
-                            <span className="font-mono font-medium text-ink">
+                            <span className="unit-code font-mono font-medium text-ink">
                               {item.targetName}
                             </span>
                           </p>
@@ -433,7 +452,7 @@ export function DashboardScreen({
                             {item.entity}
                           </p>
                         </div>
-                        <span className="shrink-0 font-mono text-[11px] text-ink-muted tabular-nums">
+                        <span className="shrink-0 font-sans text-[11px] text-ink-muted tabular-nums">
                           {formatRelativeTime(item.createdAt)}
                         </span>
                       </div>

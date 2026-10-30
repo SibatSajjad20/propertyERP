@@ -12,18 +12,20 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-primary hover:bg-primary-hover text-surface border border-transparent",
-        secondary: "bg-surface hover:bg-subtle text-ink border border-line-strong",
+          "bg-primary hover:bg-primary-hover text-surface border border-transparent shadow-xs",
+        secondary:
+          "bg-surface hover:bg-subtle text-ink border border-line-strong shadow-xs",
         outline: "bg-surface hover:bg-subtle text-ink border border-line-strong",
         ghost: "bg-transparent hover:bg-subtle text-ink border border-transparent",
         danger:
           "bg-surface hover:bg-[color-mix(in_srgb,var(--sold)_10%,transparent)] text-sold border border-sold",
         dangerSolid:
-          "bg-sold hover:bg-[color-mix(in_srgb,var(--sold)_90%,black)] text-surface border border-transparent",
+          "bg-sold hover:bg-[color-mix(in_srgb,var(--sold)_90%,black)] text-surface border border-transparent shadow-xs",
       },
       size: {
-        sm: "h-7 px-2.5 text-[12px] gap-1.5 rounded-[6px]",
-        md: "h-8 px-3 text-[13px] gap-2 rounded-[6px]",
+        sm: "h-7.5 px-2.5 text-[12px] gap-1.5 rounded-[8px]",
+        md: "h-9 px-3.5 text-[13px] gap-2 rounded-[8px]",
+        lg: "h-10 px-4 text-[14px] gap-2 rounded-[8px]",
       },
     },
     defaultVariants: {

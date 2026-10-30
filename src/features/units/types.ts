@@ -42,6 +42,8 @@ export type StatusHistoryEntry = {
 
 export type InventoryTotals = {
   count: number;
+  availableCount: number;
+  soldCount: number;
   netAreaSqft: string;
   valuePkr: string;
 };

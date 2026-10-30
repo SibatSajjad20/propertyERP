@@ -8,12 +8,8 @@ export function proxy(request: NextRequest) {
   const isPublic =
     isAuthRoute || pathname.startsWith("/api/auth") || pathname.startsWith("/api/health");
 
-  if (!sessionCookie && !isPublic && pathname !== "/") {
+  if (!sessionCookie && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (sessionCookie && isAuthRoute) {
-    return NextResponse.redirect(new URL("/inventory", request.url));
   }
 
   return NextResponse.next();

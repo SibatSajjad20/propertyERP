@@ -49,16 +49,13 @@ test("capture high-resolution screenshots of all screens at 1440x900", async ({
   await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(screenshotDir, "03-inventory.png") });
 
-  // 4. Inventory Unit Side Panel (Sheet)
+  // 4. Inventory Unit Detail Page
   const unitCell = page.locator("tbody tr[tabindex='0'] td").first();
   await unitCell.waitFor({ state: "visible", timeout: 10_000 });
   await unitCell.click();
-  const sheet = page.getByRole("dialog");
-  await expect(sheet).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(600); // allow 240ms slide transition to finish
-  await page.screenshot({ path: path.join(screenshotDir, "04-unit-panel.png") });
-  await sheet.getByRole("button", { name: "Close" }).click();
-  await expect(sheet).toHaveCount(0);
+  await expect(page).toHaveURL(/\/units\/[0-9a-f-]+/, { timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(screenshotDir, "04-unit-detail.png") });
 
   // 5. Structure
   await page.goto("/structure");

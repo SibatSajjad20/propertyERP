@@ -2,7 +2,7 @@ export const WAKING_DB_MESSAGE =
   "Waking the database. This can take a few seconds after idle time.";
 
 const TRANSIENT_PATTERN =
-  /timeout|timed out|etimedout|econnreset|econnrefused|enotfound|connection terminated|connection refused|connection reset|remaining connection slots|too many clients|neon|compute is not active|endpoint is not ready|server closed the connection|57P01|53300|08006|08001|08004|08003|40001/i;
+  /network error|failed to fetch|timeout|timed out|etimedout|econnreset|econnrefused|enotfound|connection terminated|connection refused|connection reset|remaining connection slots|too many clients|neon|compute is not active|endpoint is not ready|server closed the connection|57P01|53300|08006|08001|08004|08003|40001/i;
 
 export function isTransientDbError(error: unknown): boolean {
   if (!error) {
