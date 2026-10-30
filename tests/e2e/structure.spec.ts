@@ -1,0 +1,46 @@
+import { expect, test } from "@playwright/test";
+
+const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
+const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
+const salesEmail = process.env.SALES_EMAIL ?? "sales@sardarsmall.local";
+const salesPassword = process.env.SALES_PASSWORD ?? "ChangeMe_Sales_2026!";
+
+async function signIn(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string,
+) {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
+}
+
+test("inventory manager can create a floor", async ({ page }) => {
+  await signIn(page, inventoryEmail, inventoryPassword);
+  await page.goto("/structure");
+  await expect(page.getByRole("columnheader", { name: "Level" })).toBeVisible();
+
+  const blockName = `E2E ${Date.now()}`;
+  await page.getByRole("button", { name: "New block" }).click();
+  await page.getByLabel("Name").fill(blockName);
+  await page.getByRole("button", { name: "Save block" }).click();
+  await expect(page.getByRole("link", { name: blockName })).toBeVisible();
+  await page.getByRole("link", { name: blockName }).click();
+
+  await page.getByRole("button", { name: "New floor" }).click();
+  await page.getByLabel("Level").fill("0");
+  await page.getByLabel("Label").fill("Ground");
+  await page.getByRole("button", { name: "Save floor" }).click();
+  await expect(page.getByRole("button", { name: "Ground" })).toBeVisible();
+});
+
+test("sales cannot create a floor", async ({ page }) => {
+  await signIn(page, salesEmail, salesPassword);
+  await page.goto("/structure");
+  await expect(page.getByText("This ledger is read-only for Sales.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "New floor" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New block" })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Level" })).toBeVisible();
+});

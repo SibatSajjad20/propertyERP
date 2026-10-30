@@ -19,4 +19,6 @@ Roles: `ADMIN`, `INVENTORY_MANAGER`, `SALES`. Enforced in server actions and pag
 
 Reverse sale requires a non-empty reason. Sale freezes `sold_price_pkr`. Re-import must not overwrite `SOLD` without ADMIN.
 
+`structure.manage` covers create, update, and archive of properties, blocks, and floors. Archive is refused when active units remain. SALES is read-only on `/structure`.
+
 Matrix source: `src/lib/permissions.ts`.

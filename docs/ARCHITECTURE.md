@@ -22,7 +22,7 @@ src/features/bookings/
   components/    # feature UI
 ```
 
-Add a route under `src/app/(app)/bookings` that composes those pieces.
+Add a route under `src/app/(app)/bookings` that composes those pieces. Structure (`src/features/structure`, `/structure`) is the live example: one screen for properties, blocks, and floors.
 
 ## How to add a module
 
@@ -43,4 +43,4 @@ Customers, bookings, payments, and leasing come next. For each:
 
 ## Caching
 
-Next.js Cache Components is on. Request-time work (`headers()`, `cookies()`, `connection()`, DB) must sit under a parent `Suspense` boundary. Do not export `dynamic = "force-dynamic"`.
+Next.js Cache Components is on. Authenticated pages export `instant = false` so session and DB reads may block. Do not export `dynamic = "force-dynamic"`. New `(app)` pages must include `export const instant = false`.

@@ -1,8 +1,9 @@
-import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const properties = pgTable("properties", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -13,6 +14,7 @@ export const blocks = pgTable("blocks", {
     .notNull()
     .references(() => properties.id, { onDelete: "restrict" }),
   name: text("name").notNull(),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -23,7 +25,8 @@ export const floors = pgTable("floors", {
     .notNull()
     .references(() => blocks.id, { onDelete: "restrict" }),
   name: text("name").notNull(),
-  level: text("level"),
+  level: integer("level").notNull(),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
