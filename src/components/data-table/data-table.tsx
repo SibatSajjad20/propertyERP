@@ -152,6 +152,12 @@ export function DataTable({
                             className={cn(
                               "h-8 px-2 align-middle",
                               numeric && "text-right tabular-nums",
+                              (cell.column.id === "netAreaSqft" ||
+                                cell.column.id === "grossAreaSqft") &&
+                                "area",
+                              (cell.column.id === "ratePerSqftPkr" ||
+                                cell.column.id === "bookPricePkr") &&
+                                "price",
                               isCode && "unit-code",
                             )}
                           >

@@ -4,19 +4,19 @@ Hierarchy: **Property > Block > Floor > Unit**. One property in production: Sard
 
 ## Entities
 
-| Entity                                          | Key  | Notes                                                                                                       |
-| ----------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
-| `properties`                                    | uuid | Name unique among live rows; `archived_at` soft delete; seed is "Sardar's Mall"                             |
-| `blocks`                                        | uuid | Belongs to a property; `archived_at` soft delete                                                            |
-| `floors`                                        | uuid | Belongs to a block; `level` is the storey number (0 = Ground); `name` is the canonical label                |
-| `categories`                                    | uuid | `is_sellable_default` copied onto new units                                                                 |
-| `units`                                         | uuid | `unit_code` unique per property                                                                             |
-| `unit_status_history`                           | uuid | One row per status change; snapshots `booking_ref` and `sold_price_pkr`; indexed on `(unit_id, created_at)` |
-| `rate_history`                                  | uuid | One row per rate change: old rate, new rate, actor, reason, timestamp                                       |
-| `unit_pricing`                                  | view | `round(rate * net_area + adjustment, 0)` — whole rupees                                                     |
-| `user` / `session` / `account` / `verification` | text | Better Auth                                                                                                 |
-| `audit_log`                                     | uuid | `before` / `after` jsonb                                                                                    |
-| `import_batches`                                | uuid | Original path, raw rows, counts, warnings, errors                                                           |
+| Entity                                          | Key  | Notes                                                                                                                                     |
+| ----------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `properties`                                    | uuid | Name unique among live rows; `archived_at` soft delete; seed is "Sardar's Mall"                                                           |
+| `blocks`                                        | uuid | Belongs to a property; `archived_at` soft delete                                                                                          |
+| `floors`                                        | uuid | Belongs to a block; `level` is the storey number (0 = Ground); `name` is the canonical label                                              |
+| `categories`                                    | uuid | `is_sellable_default` copied onto new units                                                                                               |
+| `units`                                         | uuid | `unit_code` unique per property; indexes on floor, property, category, status, archived_at, updated_at                                    |
+| `unit_status_history`                           | uuid | One row per status change; snapshots `booking_ref` and `sold_price_pkr`; indexed on `(unit_id, created_at)` and `(to_status, created_at)` |
+| `rate_history`                                  | uuid | One row per rate change: old rate, new rate, actor, reason, timestamp                                                                     |
+| `unit_pricing`                                  | view | `round(rate * net_area + adjustment, 0)` — whole rupees                                                                                   |
+| `user` / `session` / `account` / `verification` | text | Better Auth. `user.disabled`, `must_change_password`, `last_login_at`                                                                     |
+| `audit_log`                                     | uuid | `before` / `after` jsonb                                                                                                                  |
+| `import_batches`                                | uuid | Original path, raw rows, counts, warnings, errors                                                                                         |
 
 ## Unit fields
 
@@ -35,6 +35,7 @@ Hierarchy: **Property > Block > Floor > Unit**. One property in production: Sard
 - Only `ADMIN` can reverse `SOLD → AVAILABLE`. Reason min 10 characters. Reverse clears `sold_price_pkr`, `sold_at`, `sold_by` and keeps `booking_ref` on the unit and in history.
 - Do not overwrite a `SOLD` unit on re-import without admin.
 - Soft-delete structure with `archived_at`. A floor or block (and a property) cannot be archived while it still has active, non-archived units.
+- User create/role/disable/password-reset writes `audit_log` (`entity = user`) in the same transaction. An active ADMIN cannot be removed if they are the last one. Disabled users cannot authenticate; sessions are deleted.
 - Seeded Main block of Sardar's Mall has 11 floors with normalised labels: Ground, 1st–10th (`level` 0–10).
 
 ## ER diagram

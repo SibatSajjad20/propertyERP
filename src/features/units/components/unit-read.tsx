@@ -1,12 +1,13 @@
 import { formatSqft } from "@/lib/area";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
+import { Badge } from "@/components/ui/badge";
 import type { InventoryRow, StatusHistoryEntry } from "../types";
 import { StatusHistory } from "./status-history";
 
-type UnitReadProps = {
+interface UnitReadProps {
   unit: InventoryRow;
   history?: StatusHistoryEntry[];
-};
+}
 
 export function UnitRead({ unit, history = [] }: UnitReadProps) {
   const live = computeTotalPrice(
@@ -18,86 +19,122 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
   const base = computeTotalPrice(unit.ratePerSqftPkr, unit.netAreaSqft, "0");
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto p-4">
-      <dl className="space-y-0">
-        <Item label="Unit code" value={unit.unitCode} mono />
-        <Item label="Unit number" value={unit.unitNumber} />
-        <Item label="Floor" value={unit.floorName} />
-        <Item label="Category" value={unit.categoryName} />
-        <Item label="Net area" value={formatSqft(unit.netAreaSqft)} align="right" />
-        <Item label="Gross area" value={formatSqft(unit.grossAreaSqft)} align="right" />
-        <Item
-          label="Rate / sq ft"
-          value={formatPkrLedger(unit.ratePerSqftPkr)}
-          align="right"
-        />
-        <Item label="Ownership group" value={unit.ownershipGroup ?? "—"} />
-        <Item label="Sub-owner" value={unit.subOwner ?? "—"} />
-        <Item label="Booking ref" value={unit.bookingRef ?? "—"} />
-        <Item label="Sellable" value={unit.isSellable ? "Yes" : "No"} />
-        <Item label="Status" value={unit.status === "SOLD" ? "Sold" : "Available"} />
-        <Item label="Notes" value={unit.notes ?? "—"} />
-      </dl>
+    <div className="flex flex-1 flex-col space-y-6 overflow-y-auto px-5 py-4">
+      {/* Status banner */}
+      <div className="flex items-center justify-between rounded-[6px] border border-line bg-subtle/50 px-3.5 py-2.5">
+        <div>
+          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+            Current Status
+          </p>
+          <div className="mt-1">
+            <Badge tone={unit.status === "SOLD" ? "sold" : "available"}>
+              {unit.status === "SOLD" ? "Sold" : "Available"}
+            </Badge>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+            {unit.soldPricePkr ? "Frozen Sold Price" : "Total Asking"}
+          </p>
+          <p className="mt-0.5 font-mono text-[16px] font-semibold text-ink tabular-nums">
+            {formatPkrLedger(book)}
+          </p>
+        </div>
+      </div>
 
-      <div className="mt-6 border-t border-line pt-4">
-        <p className="text-[11px] tracking-wide text-ink-muted">Price breakdown</p>
-        <dl className="mt-2 space-y-0">
-          <Item
-            label={`${formatPkrLedger(unit.ratePerSqftPkr)} × ${unit.netAreaSqft} sq ft`}
+      {/* Identity & Structure */}
+      <section className="space-y-2">
+        <p className="border-b border-line pb-1 text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+          Identity &amp; Location
+        </p>
+        <dl className="divide-y divide-line/60">
+          <Row label="Unit code" value={unit.unitCode} mono />
+          <Row label="Unit number" value={unit.unitNumber} />
+          <Row label="Floor" value={unit.floorName} />
+          <Row label="Category" value={unit.categoryName} />
+          <Row label="Sellable inventory" value={unit.isSellable ? "Yes" : "No"} />
+        </dl>
+      </section>
+
+      {/* Area & Valuation */}
+      <section className="space-y-2">
+        <p className="border-b border-line pb-1 text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+          Area &amp; Valuation
+        </p>
+        <dl className="divide-y divide-line/60">
+          <Row label="Net area" value={formatSqft(unit.netAreaSqft)} mono />
+          <Row label="Gross area" value={formatSqft(unit.grossAreaSqft)} mono />
+          <Row label="Rate per sq ft" value={formatPkrLedger(unit.ratePerSqftPkr)} mono />
+          <Row
+            label={`Base valuation (${unit.ratePerSqftPkr} × ${unit.netAreaSqft})`}
             value={formatPkrLedger(base)}
-            align="right"
+            mono
           />
-          <Item
+          <Row
             label={
               unit.priceAdjustmentReason
                 ? `Adjustment · ${unit.priceAdjustmentReason}`
                 : "Adjustment"
             }
             value={formatPkrLedger(unit.priceAdjustmentPkr)}
-            align="right"
+            mono
           />
-          <Item
-            label={unit.soldPricePkr ? "Sold price (frozen)" : "Asking total"}
+          <Row
+            label={unit.soldPricePkr ? "Sold price (frozen)" : "Total calculated"}
             value={formatPkrLedger(book)}
-            align="right"
-            display
+            mono
+            highlight
           />
         </dl>
-        <p className="mt-1 text-right text-[12px] text-ink-muted">
+        <p className="text-right text-[11px] text-ink-muted tabular-nums">
           {formatPkrCompact(book)}
         </p>
-      </div>
+      </section>
 
+      {/* Ownership & Booking */}
+      <section className="space-y-2">
+        <p className="border-b border-line pb-1 text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+          Ownership &amp; Booking
+        </p>
+        <dl className="divide-y divide-line/60">
+          <Row label="Ownership group" value={unit.ownershipGroup ?? "—"} />
+          <Row label="Sub-owner" value={unit.subOwner ?? "—"} />
+          <Row
+            label="Booking reference"
+            value={unit.bookingRef ?? "—"}
+            mono={Boolean(unit.bookingRef)}
+          />
+          <Row label="Internal notes" value={unit.notes ?? "—"} />
+        </dl>
+      </section>
+
+      {/* Status History */}
       <StatusHistory entries={history} />
     </div>
   );
 }
 
-function Item({
+function Row({
   label,
   value,
-  align,
   mono,
-  display,
+  highlight,
 }: {
   label: string;
   value: string;
-  align?: "right";
   mono?: boolean;
-  display?: boolean;
+  highlight?: boolean;
 }) {
   return (
-    <div className="border-b border-line py-2">
-      <dt className="text-[11px] tracking-wide text-ink-muted">{label}</dt>
+    <div className="flex items-center justify-between py-2 text-[13px]">
+      <dt className="font-normal text-ink-muted">{label}</dt>
       <dd
         className={
-          display
-            ? "font-display text-[22px] tabular-nums"
-            : align === "right"
-              ? "text-right tabular-nums"
-              : mono
-                ? "unit-code"
-                : undefined
+          highlight
+            ? "font-mono text-[15px] font-semibold text-ink tabular-nums"
+            : mono
+              ? "font-mono text-ink tabular-nums"
+              : "text-ink"
         }
       >
         {value}

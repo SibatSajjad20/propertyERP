@@ -1,8 +1,11 @@
 import type { Route } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, PencilSimple } from "@phosphor-icons/react/dist/ssr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BreadcrumbSet } from "@/components/app-shell/breadcrumb-set";
 import { UnitRead } from "@/features/units/components/unit-read";
 import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
 import { getUnitById, listUnitStatusHistory } from "@/features/units/queries";
@@ -11,9 +14,17 @@ import { assertCan, can } from "@/lib/permissions";
 
 export const instant = false;
 
-export const metadata = {
-  title: "Unit",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const row = await getUnitById(id);
+  return {
+    title: row ? row.unit.unitCode : "Unit",
+  };
+}
 
 export default async function UnitDetailPage({
   params,
@@ -30,7 +41,7 @@ export default async function UnitDetailPage({
   }
 
   const canManage = can(session.user.role, "units.manage");
-  const inventoryHref = `/inventory?unit=${row.unit.id}&mode=edit` as Route;
+  const inventoryHref = `/inventory?unitId=${row.unit.id}&mode=edit` as Route;
   const unit = {
     id: row.unit.id,
     unitCode: row.unit.unitCode,
@@ -60,30 +71,50 @@ export default async function UnitDetailPage({
   };
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
-      <div className="mb-3 flex items-baseline justify-between border-b border-line pb-3">
+    <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col space-y-6">
+      <BreadcrumbSet parent="Inventory" current={row.unit.unitCode} />
+      <div>
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/inventory" className="text-ink-muted hover:text-ink">
+            <ArrowLeft weight="light" className="mr-1 size-3.5" />
+            Back to Inventory
+          </Link>
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-baseline sm:justify-between">
         <div>
-          <p className="unit-code text-[13px] text-ink-muted">{row.unit.unitCode}</p>
-          <h2 className="font-display text-[28px] text-ink">{row.unit.unitNumber}</h2>
+          <span className="unit-code font-mono text-[13px] font-semibold text-primary">
+            {row.unit.unitCode}
+          </span>
+          <h1 className="mt-0.5 text-[20px] font-semibold tracking-tight text-ink sm:text-[24px]">
+            Unit {row.unit.unitNumber}
+          </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <Badge tone={row.unit.status === "SOLD" ? "sold" : "available"}>
             {row.unit.status === "SOLD" ? "Sold" : "Available"}
           </Badge>
           {canManage ? (
-            <Button asChild variant="outline">
-              <Link href={inventoryHref}>Edit</Link>
+            <Button asChild variant="secondary" size="md">
+              <Link href={inventoryHref}>
+                <PencilSimple weight="light" className="mr-1.5 size-3.5" />
+                Edit unit
+              </Link>
             </Button>
           ) : null}
         </div>
       </div>
-      <UnitStatusActions
-        unit={unit}
-        canSell={can(session.user.role, "units.sell")}
-        canReverse={can(session.user.role, "units.reverse_sale")}
-      >
-        <UnitRead unit={unit} history={history} />
-      </UnitStatusActions>
+
+      <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
+        <UnitStatusActions
+          unit={unit}
+          canSell={can(session.user.role, "units.sell")}
+          canReverse={can(session.user.role, "units.reverse_sale")}
+        >
+          <UnitRead unit={unit} history={history} />
+        </UnitStatusActions>
+      </div>
     </div>
   );
 }

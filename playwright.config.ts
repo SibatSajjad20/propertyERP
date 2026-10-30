@@ -1,4 +1,7 @@
+import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
+
+process.env.ALLOW_TEST_DB ??= "1";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -10,8 +13,11 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
+  metadata: {
+    allowTestDb: true,
+  },
   webServer: {
-    command: "pnpm dev",
+    command: process.env.PLAYWRIGHT_START ? "pnpm start" : "pnpm dev",
     url: "http://localhost:3000/login",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -4,20 +4,26 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-accent: var(--accent);
   --color-available: var(--available);
   --color-sold: var(--sold);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-newsreader);
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-md);
   --radius-xl: var(--radius-md);
+
   --shadow: 0 0 #0000;
   --shadow-sm: 0 0 #0000;
   --shadow-md: 0 0 #0000;
@@ -33,38 +39,195 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.45;
-  -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
 h2,
-.font-display {
-  font-family: var(--font-display), ui-serif, Georgia, serif;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.015em;
 }
 
-.unit-code {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-weight: 400;
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
 }
 
-.tabular-nums {
+/* Wordmark */
+.wordmark {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* Monospace for unit codes, IDs, hashes */
+.unit-code,
+.font-mono {
+  font-family:
+    var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Enable font-feature-settings "ss01", "cv11" and font-variant-numeric: tabular-nums on tables, KPIs, prices and areas */
+table,
+th,
+td,
+.tabular-nums,
+.kpi,
+.price,
+.area {
+  font-feature-settings: "ss01", "cv11";
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
 }
 
+/* Focus ring: 2px brass at 40% opacity, offset 2px */
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 28%, white);
+  background: color-mix(in srgb, var(--accent) 24%, white);
   color: var(--ink);
+}
+
+/* Floating shadow class for popovers, dialogs, dropdowns, toasts */
+.shadow-floating {
+  box-shadow: var(--shadow-floating);
+}
+
+/* Fix autofill blue/yellow background to match surface */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface) inset;
+  box-shadow: 0 0 0px 1000px var(--surface) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Keyframes for calm, precise Radix primitives */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slideOutToLeft {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes slideDownAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slideUpAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-popover) var(--ease-ledger) forwards;
+}
+.animate-fade-out {
+  animation: fadeOut var(--duration-hover) var(--ease-ledger) forwards;
+}
+.animate-slide-down {
+  animation: slideDownAndFade var(--duration-popover) var(--ease-ledger) forwards;
+}
+.animate-slide-up {
+  animation: slideUpAndFade var(--duration-popover) var(--ease-ledger) forwards;
+}
+.animate-panel-in {
+  animation: slideInFromRight var(--duration-panel) var(--ease-ledger) forwards;
+}
+.animate-panel-out {
+  animation: slideOutToRight var(--duration-panel) var(--ease-ledger) forwards;
+}
+.animate-panel-in-left {
+  animation: slideInFromLeft var(--duration-panel) var(--ease-ledger) forwards;
+}
+.animate-panel-out-left {
+  animation: slideOutToLeft var(--duration-panel) var(--ease-ledger) forwards;
+}
+.animate-scale-in {
+  animation: scaleIn var(--duration-popover) var(--ease-ledger) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -74,5 +237,6 @@ h2,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

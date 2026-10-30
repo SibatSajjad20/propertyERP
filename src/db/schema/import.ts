@@ -14,5 +14,9 @@ export const importBatches = pgTable("import_batches", {
   warnings: jsonb("warnings").$type<string[]>().default([]).notNull(),
   errors: jsonb("errors").$type<string[]>().default([]).notNull(),
   actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+  rolledBackAt: timestamp("rolled_back_at"),
+  rolledBackBy: text("rolled_back_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

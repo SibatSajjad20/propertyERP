@@ -37,8 +37,8 @@ Customers, bookings, payments, and leasing come next. For each:
 
 ## Auth and jobs
 
-- Better Auth email/password. Session on the server via `auth.api.getSession`.
-- `src/proxy.ts` only checks that a session cookie exists.
+- Better Auth email/password. Session on the server via `auth.api.getSession`. Public sign-up is disabled; ADMIN creates users at `/settings/users`.
+- `src/proxy.ts` only checks that a session cookie exists. Pages, server actions, and `/api/users` still call `requireSession` + `assertCan`.
 - `pg-boss` shares the Postgres instance. Start it with `getBoss()` from `src/lib/jobs.ts` when a job is first needed.
 
 ## Caching

@@ -49,6 +49,7 @@ export type InventoryTotals = {
 export type InventoryFilterOption = {
   id: string;
   name: string;
+  level?: number;
 };
 
 export type InventoryFilterOptions = {

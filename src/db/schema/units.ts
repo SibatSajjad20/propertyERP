@@ -53,6 +53,13 @@ export const units = pgTable(
   },
   (table) => [
     uniqueIndex("units_property_unit_code_idx").on(table.propertyId, table.unitCode),
+    index("units_floor_id_idx").on(table.floorId),
+    index("units_property_id_idx").on(table.propertyId),
+    index("units_category_id_idx").on(table.categoryId),
+    index("units_status_idx").on(table.status),
+    index("units_archived_at_idx").on(table.archivedAt),
+    index("units_updated_at_idx").on(table.updatedAt),
+    index("units_floor_status_idx").on(table.floorId, table.status),
   ],
 );
 
@@ -85,20 +92,28 @@ export const unitStatusHistory = pgTable(
   },
   (table) => [
     index("unit_status_history_unit_id_created_at_idx").on(table.unitId, table.createdAt),
+    index("unit_status_history_to_status_created_at_idx").on(
+      table.toStatus,
+      table.createdAt,
+    ),
   ],
 );
 
-export const rateHistory = pgTable("rate_history", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  unitId: uuid("unit_id")
-    .notNull()
-    .references(() => units.id, { onDelete: "cascade" }),
-  oldRatePerSqftPkr: numeric("old_rate_per_sqft_pkr", {
-    precision: 14,
-    scale: 2,
-  }).notNull(),
-  ratePerSqftPkr: numeric("rate_per_sqft_pkr", { precision: 14, scale: 2 }).notNull(),
-  reason: text("reason").notNull(),
-  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const rateHistory = pgTable(
+  "rate_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    unitId: uuid("unit_id")
+      .notNull()
+      .references(() => units.id, { onDelete: "cascade" }),
+    oldRatePerSqftPkr: numeric("old_rate_per_sqft_pkr", {
+      precision: 14,
+      scale: 2,
+    }).notNull(),
+    ratePerSqftPkr: numeric("rate_per_sqft_pkr", { precision: 14, scale: 2 }).notNull(),
+    reason: text("reason").notNull(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("rate_history_unit_id_idx").on(table.unitId)],
+);

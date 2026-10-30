@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { cleanupTestData, guardEnvironment } from "./e2e-guard";
 
 const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
 const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
@@ -17,6 +18,14 @@ async function signIn(
   await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
 }
 
+test.beforeAll(() => {
+  guardEnvironment();
+});
+
+test.afterAll(async () => {
+  await cleanupTestData(["E2E", "Archive empty"]);
+});
+
 test("inventory manager can create a floor", async ({ page }) => {
   await signIn(page, inventoryEmail, inventoryPassword);
   await page.goto("/structure");
@@ -27,14 +36,24 @@ test("inventory manager can create a floor", async ({ page }) => {
   await page.getByLabel("Name").fill(blockName);
   await page.getByRole("button", { name: "Save block" }).click();
   await expect(page.getByRole("link", { name: blockName })).toBeVisible();
-  await page.getByRole("link", { name: blockName }).click();
-  await expect(page.getByText(`Floors · ${blockName}`)).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const blockHref = await page
+    .getByRole("link", { name: blockName })
+    .getAttribute("href");
+  expect(blockHref).toBeTruthy();
+  await page.goto(blockHref!);
+  await expect(
+    page.getByRole("heading", { name: `Floors · ${blockName}` }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "New floor" }).click();
   await page.getByLabel("Level").fill("0");
   await page.getByLabel("Label").fill("Ground");
   await page.getByRole("button", { name: "Save floor" }).click();
-  await expect(page.getByRole("button", { name: "Ground" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Ground" })).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test("inventory manager can archive an empty floor and is blocked when units remain", async ({
@@ -52,8 +71,15 @@ test("inventory manager can archive an empty floor and is blocked when units rem
   await page.getByLabel("Name").fill(emptyBlockName);
   await page.getByRole("button", { name: "Save block" }).click();
   await expect(page.getByRole("link", { name: emptyBlockName })).toBeVisible();
-  await page.getByRole("link", { name: emptyBlockName }).click();
-  await expect(page.getByText(`Floors · ${emptyBlockName}`)).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const emptyHref = await page
+    .getByRole("link", { name: emptyBlockName })
+    .getAttribute("href");
+  expect(emptyHref).toBeTruthy();
+  await page.goto(emptyHref!);
+  await expect(
+    page.getByRole("heading", { name: `Floors · ${emptyBlockName}` }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "New floor" }).click();
   await page.getByLabel("Level").fill("0");

@@ -15,18 +15,37 @@ export default async function LoginPage() {
   }
 
   return (
-    <main
-      id="main"
-      className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col justify-center px-6 py-16"
-    >
-      <p className="text-[11px] tracking-[0.18em] text-ink-muted">LEDGER ACCESS</p>
-      <h1 className="mt-2 font-display text-[36px] leading-none text-ink">
-        Sardar&apos;s Mall
-      </h1>
-      <p className="mt-3 border-t border-line pt-3 text-[13px] text-ink-muted">
-        Property and inventory management. Sign in with your staff account.
-      </p>
-      <LoginForm />
-    </main>
+    <div className="flex min-h-screen w-full items-center justify-center bg-bg px-4 py-12">
+      {/* Centered 380px panel on ivory bg with subtle brass hairline */}
+      <main
+        id="main"
+        className="shadow-floating relative w-full max-w-[380px] overflow-hidden rounded-[8px] border border-line bg-surface p-7"
+      >
+        {/* Subtle brass hairline top accent */}
+        <div
+          className="absolute top-0 right-0 left-0 h-[2px] bg-accent"
+          aria-hidden="true"
+        />
+
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="size-2 rounded-[2px] bg-accent" aria-hidden="true" />
+            <span className="font-mono text-[11px] tracking-widest text-ink-muted uppercase">
+              Private Ledger
+            </span>
+          </div>
+
+          <h1 className="text-[26px] font-semibold text-ink">Sardar&apos;s Mall</h1>
+
+          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+            Property &amp; commercial inventory access
+          </p>
+        </div>
+
+        <div className="mt-6 border-t border-line/70 pt-6">
+          <LoginForm />
+        </div>
+      </main>
+    </div>
   );
 }

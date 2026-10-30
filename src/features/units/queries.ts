@@ -206,7 +206,7 @@ export async function getInventoryFilterOptions(): Promise<InventoryFilterOption
     .orderBy(asc(categories.name));
 
   return {
-    floors: floorRows.map((row) => ({ id: row.id, name: row.name })),
+    floors: floorRows.map((row) => ({ id: row.id, name: row.name, level: row.level })),
     categories: categoryRows,
   };
 }

@@ -27,7 +27,17 @@ Next.js App Router, strict TS, Drizzle, Better Auth (email/password), Tailwind v
 
 ## Conventions
 
-- Server-side `requireSession` + `assertCan`. Roles: ADMIN, INVENTORY_MANAGER, SALES.
+- Server-side `requireSession` + `assertCan`. Roles: ADMIN, INVENTORY_MANAGER, SALES. Matrix: `src/lib/permissions.ts`.
+- Preview auth: `src/lib/auth-origin.ts` (dynamic `baseURL`, `trustedOrigins` includes `VERCEL_URL`).
+- Tests never use production DB (`src/lib/test-db-guard.ts`). Review leftovers: `pnpm db:cleanup-e2e`.
+- Users: `/settings/users` (ADMIN). Create with a temporary password (`must_change_password`). No self-demote/disable; keep one active ADMIN. Profile: `/settings/profile`.
+- Login: in-memory failed-attempt limit (5 / 15 min per email). Better Auth request rate limit is on in production only (off when `ALLOW_TEST_DB=1` so Playwright can sign in repeatedly). Disabled users cannot sign in; sessions revoked.
+- Client docs: `docs/USER_GUIDE.md`. Handover: `docs/HANDOVER.md`.
+- Dashboard: `/` (alias `/dashboard`). Title is **Dashboard**. Hairline layout, no cards, Geist Mono tabular figures, visx sales-over-time chart. Role SALES sees dashboard but no audit trail.
+- UX: breadcrumbs in the top bar, `PageHeader` on list pages, cmdk (`⌘/Ctrl+K`), toasts on mutations, `ErrorState` / 404, Neon waking copy. Sign out lives in the **Account menu**.
+- Aggregations: Dashboard KPIs, floor ledger, block breakdown, and monthly sales are aggregated strictly in SQL (never load units into memory).
+- Exports: `/api/export` generates formatted `.xlsx` (exceljs) and `.csv` for Inventory (current filters), Sold Units, and Floor Summary with frozen headers, PKR currency format (`"Rs "#,##0`), and dates in filenames (`YYYY-MM-DD`).
+- Import: `/import` (ADMIN and INVENTORY_MANAGER). Ingest `.xlsx`/`.csv` (max 5 MB) parsed server-side via SheetJS/exceljs. Auto-detect headers, remap with Radix selects, apply cleaning rules (trim/uppercase unit codes, normalize floors, strip Rs/commas, map AVAILABLE/SOLD). Virtualized validation preview (TanStack) flagging duplicates, non-matching floor/block, conflicting data (6F-RA33 cases), and SOLD units without price. Atomic single-transaction commit recording audit_log, rate_history, status history, and `import_batches` row with audit-log-based soft-rollback for latest batch. Error rows downloadable as `.xlsx`. Client data files (*.xlsx, *.csv) are gitignored.
 - Money: `numeric` / decimal strings. `computeTotalPrice`. Freeze `sold_price_pkr` on sale.
 - One status-change action, optimistic `version` lock, history + audit in the same transaction.
 - Design: `src/styles/tokens.css`. No gradients, shadows, cards, emoji, Lucide, Recharts.

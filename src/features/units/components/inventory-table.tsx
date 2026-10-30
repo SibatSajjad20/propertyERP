@@ -1,8 +1,16 @@
 "use client";
 
+import { useMemo, useRef } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef } from "react";
+import { DotsThree, Eye, PencilSimple } from "@phosphor-icons/react";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/cn";
 import { formatKarachiDate } from "@/lib/datetime";
 import { formatPkrLedger } from "@/lib/money";
@@ -10,7 +18,6 @@ import type { InventoryQuery, InventorySortField } from "../schema";
 import type { InventoryRow, InventoryTotals } from "../types";
 
 export const inventoryTableFeatures = tableFeatures({});
-
 const helper = createColumnHelper<typeof inventoryTableFeatures, InventoryRow>();
 
 const numericAccessors = new Set([
@@ -19,72 +26,6 @@ const numericAccessors = new Set([
   "ratePerSqftPkr",
   "bookPricePkr",
 ]);
-
-function StatusCell({ status }: { status: InventoryRow["status"] }) {
-  const sold = status === "SOLD";
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className={cn("size-1.5 rounded-full", sold ? "bg-sold" : "bg-available")}
-        aria-hidden="true"
-      />
-      <span className={sold ? "text-sold" : "text-available"}>
-        {sold ? "Sold" : "Available"}
-      </span>
-    </span>
-  );
-}
-
-const coreColumns = [
-  helper.accessor("unitCode", {
-    header: "Unit code",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("unitNumber", {
-    header: "Unit no.",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("floorName", {
-    header: "Floor",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("categoryName", {
-    header: "Category",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("netAreaSqft", {
-    header: "Net sq ft",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("grossAreaSqft", {
-    header: "Gross sq ft",
-    cell: (info) => info.getValue() ?? "—",
-  }),
-  helper.accessor("ratePerSqftPkr", {
-    header: "Rate/sq ft",
-    cell: (info) => formatPkrLedger(info.getValue()),
-  }),
-  helper.accessor("bookPricePkr", {
-    header: "Total price",
-    cell: (info) => formatPkrLedger(info.getValue()),
-  }),
-  helper.accessor("status", {
-    header: "Status",
-    cell: (info) => <StatusCell status={info.getValue()} />,
-  }),
-  helper.accessor("ownershipGroup", {
-    header: "Ownership group",
-    cell: (info) => info.getValue() ?? "—",
-  }),
-];
-
-const soldOnColumn = helper.accessor("soldAt", {
-  header: "Sold on",
-  cell: (info) => {
-    const value = info.getValue();
-    return value ? formatKarachiDate(value) : "—";
-  },
-});
 
 const sortByColumn: Record<string, InventorySortField> = {
   unitCode: "unitCode",
@@ -100,16 +41,20 @@ const sortByColumn: Record<string, InventorySortField> = {
   soldAt: "soldAt",
 };
 
-type InventoryTableProps = {
+export interface InventoryTableProps {
   data: InventoryRow[];
   totals: InventoryTotals;
   query: InventoryQuery;
   selectedId?: string;
   showSoldOn?: boolean;
+  canManage?: boolean;
+  canSell?: boolean;
+  canReverse?: boolean;
   onRowClick: (row: InventoryRow) => void;
+  onEdit?: (row: InventoryRow) => void;
   onSort: (field: InventorySortField) => void;
   emptyMessage: string;
-};
+}
 
 export function InventoryTable({
   data,
@@ -117,41 +62,180 @@ export function InventoryTable({
   query,
   selectedId,
   showSoldOn = false,
+  canManage = false,
   onRowClick,
+  onEdit,
   onSort,
   emptyMessage,
 }: InventoryTableProps) {
-  const columns = useMemo(
-    () =>
-      helper.columns(
-        showSoldOn
-          ? [...coreColumns.slice(0, 9), soldOnColumn, ...coreColumns.slice(9)]
-          : coreColumns,
-      ),
-    [showSoldOn],
-  );
+  const columns = useMemo(() => {
+    const cols = [
+      helper.accessor("unitCode", {
+        header: "Unit code",
+        cell: (info) => (
+          <span className="unit-code font-mono font-medium text-ink">
+            {info.getValue()}
+          </span>
+        ),
+      }),
+      helper.accessor("unitNumber", {
+        header: "Unit no.",
+        cell: (info) => info.getValue(),
+      }),
+      helper.accessor("floorName", {
+        header: "Floor",
+        cell: (info) => info.getValue(),
+      }),
+      helper.accessor("categoryName", {
+        header: "Category",
+        cell: (info) => info.getValue(),
+      }),
+      helper.accessor("netAreaSqft", {
+        header: "Net sq ft",
+        cell: (info) => (
+          <span className="area font-mono tabular-nums">{info.getValue()}</span>
+        ),
+      }),
+      helper.accessor("grossAreaSqft", {
+        header: "Gross sq ft",
+        cell: (info) => (
+          <span className="area font-mono tabular-nums">{info.getValue() ?? "—"}</span>
+        ),
+      }),
+      helper.accessor("ratePerSqftPkr", {
+        header: "Rate/sq ft",
+        cell: (info) => (
+          <span className="price font-mono tabular-nums">
+            {formatPkrLedger(info.getValue())}
+          </span>
+        ),
+      }),
+      helper.accessor("bookPricePkr", {
+        header: "Total price",
+        cell: (info) => (
+          <span className="price font-mono font-medium text-ink tabular-nums">
+            {formatPkrLedger(info.getValue())}
+          </span>
+        ),
+      }),
+      helper.accessor("status", {
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue();
+          return (
+            <Badge tone={status === "SOLD" ? "sold" : "available"}>
+              {status === "SOLD" ? "Sold" : "Available"}
+            </Badge>
+          );
+        },
+      }),
+    ];
+
+    if (showSoldOn) {
+      cols.push(
+        helper.accessor("soldAt", {
+          header: "Sold on",
+          cell: (info) => {
+            const val = info.getValue();
+            return (
+              <span className="font-mono text-ink-muted tabular-nums">
+                {val ? formatKarachiDate(val) : "—"}
+              </span>
+            );
+          },
+        }),
+      );
+    }
+
+    cols.push(
+      helper.accessor("ownershipGroup", {
+        header: "Ownership group",
+        cell: (info) => (
+          <span className="truncate text-ink-muted">{info.getValue() ?? "—"}</span>
+        ),
+      }),
+    );
+
+    // Row Actions column "⋯"
+    cols.push(
+      helper.accessor("id", {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div
+            className="flex items-center justify-end pr-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Actions"
+                  className="flex size-7 items-center justify-center rounded-[4px] text-ink-muted opacity-70 transition-colors group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                >
+                  <DotsThree weight="bold" className="size-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem onClick={() => onRowClick(row.original)}>
+                  <Eye weight="light" className="mr-2 size-3.5 text-ink-muted" />
+                  View details
+                </DropdownMenuItem>
+                {canManage && onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(row.original)}>
+                    <PencilSimple
+                      weight="light"
+                      className="mr-2 size-3.5 text-ink-muted"
+                    />
+                    Edit unit
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ),
+      }),
+    );
+
+    return helper.columns(cols);
+  }, [showSoldOn, canManage, onRowClick, onEdit]);
+
   const table = useTable({
     features: inventoryTableFeatures,
     columns,
     data,
   });
+
   const parentRef = useRef<HTMLDivElement>(null);
   const rows = table.getRowModel().rows;
   // eslint-disable-next-line react-hooks/incompatible-library -- required virtualizer API
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
+    estimateSize: () => 36,
     overscan: 12,
   });
 
+  function columnClass(id: string) {
+    if (id === "grossAreaSqft" || id === "ownershipGroup" || id === "soldAt") {
+      return "hidden xl:table-cell";
+    }
+    if (id === "ratePerSqftPkr" || id === "unitNumber" || id === "categoryName") {
+      return "hidden md:table-cell";
+    }
+    if (id === "netAreaSqft") {
+      return "hidden sm:table-cell";
+    }
+    return undefined;
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-line bg-surface">
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full border-collapse text-[13px]">
-          <thead className="sticky top-0 bg-bg">
+        <table className="w-full min-w-[540px] border-collapse text-[13px]">
+          <thead className="sticky top-0 z-20 border-b border-line-strong bg-surface select-none">
             {table.getHeaderGroups().map((group) => (
-              <tr key={group.id} className="border-b border-line">
+              <tr key={group.id} className="h-9">
                 {group.headers.map((header) => {
                   const numeric = numericAccessors.has(header.column.id);
                   const sortField = sortByColumn[header.column.id];
@@ -160,24 +244,30 @@ export function InventoryTable({
                     <th
                       key={header.id}
                       className={cn(
-                        "h-8 px-2 text-left text-[11px] font-medium tracking-wide text-ink-muted",
+                        "h-9 px-3 text-left text-[11px] font-medium tracking-wide text-ink-muted uppercase",
                         numeric && "text-right",
+                        header.column.id === "actions" && "w-10 px-1",
+                        columnClass(header.column.id),
                       )}
                     >
-                      {header.isPlaceholder || !sortField ? null : (
+                      {header.isPlaceholder || !sortField ? (
+                        header.column.id === "actions" ? null : (
+                          <table.FlexRender header={header} />
+                        )
+                      ) : (
                         <button
                           type="button"
                           className={cn(
-                            "inline-flex h-8 items-center gap-1",
+                            "inline-flex h-9 cursor-pointer items-center gap-1 transition-colors hover:text-ink",
                             numeric && "w-full justify-end",
-                            active && "text-ink",
+                            active && "font-semibold text-primary",
                           )}
                           onClick={() => onSort(sortField)}
                         >
                           <table.FlexRender header={header} />
                           {active ? (
-                            <span className="text-[10px]">
-                              {query.dir === "desc" ? "desc" : "asc"}
+                            <span className="ml-0.5 text-[10px]">
+                              {query.dir === "desc" ? "↓" : "↑"}
                             </span>
                           ) : null}
                         </button>
@@ -188,16 +278,57 @@ export function InventoryTable({
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-line">
             {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="h-24 px-2 text-center text-ink-muted"
+                  className="h-32 px-4 text-center text-ink-muted"
                 >
                   {emptyMessage}
                 </td>
               </tr>
+            ) : rows.length <= 60 ? (
+              rows.map((row) => {
+                const selected = row.original.id === selectedId;
+                return (
+                  <tr
+                    key={row.id}
+                    tabIndex={0}
+                    aria-selected={selected}
+                    className={cn(
+                      "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
+                      selected
+                        ? "bg-subtle font-medium text-ink"
+                        : "text-ink hover:bg-subtle/70",
+                    )}
+                    onClick={() => onRowClick(row.original)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    }}
+                  >
+                    {row.getAllCells().map((cell) => {
+                      const numeric = numericAccessors.has(cell.column.id);
+                      return (
+                        <td
+                          key={cell.id}
+                          className={cn(
+                            "h-9 px-3 align-middle",
+                            numeric && "text-right",
+                            cell.column.id === "actions" && "w-10 px-1",
+                            columnClass(cell.column.id),
+                          )}
+                        >
+                          <table.FlexRender cell={cell} />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             ) : (
               <>
                 {virtualizer.getVirtualItems().length > 0 ? (
@@ -205,15 +336,13 @@ export function InventoryTable({
                     <td
                       colSpan={columns.length}
                       style={{ height: virtualizer.getVirtualItems()[0]?.start ?? 0 }}
-                      className="p-0"
+                      className="border-none p-0"
                     />
                   </tr>
                 ) : null}
                 {virtualizer.getVirtualItems().map((virtualRow) => {
                   const row = rows[virtualRow.index];
-                  if (!row) {
-                    return null;
-                  }
+                  if (!row) return null;
                   const selected = row.original.id === selectedId;
                   return (
                     <tr
@@ -221,8 +350,10 @@ export function InventoryTable({
                       tabIndex={0}
                       aria-selected={selected}
                       className={cn(
-                        "h-8 cursor-pointer border-b border-line transition-colors duration-[var(--duration-fast)] ease-[var(--ease-ledger)]",
-                        selected ? "bg-surface" : "hover:bg-surface",
+                        "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
+                        selected
+                          ? "bg-subtle font-medium text-ink"
+                          : "text-ink hover:bg-subtle/70",
                       )}
                       onClick={() => onRowClick(row.original)}
                       onKeyDown={(event) => {
@@ -234,14 +365,14 @@ export function InventoryTable({
                     >
                       {row.getAllCells().map((cell) => {
                         const numeric = numericAccessors.has(cell.column.id);
-                        const isCode = cell.column.id === "unitCode";
                         return (
                           <td
                             key={cell.id}
                             className={cn(
-                              "h-8 px-2 align-middle",
-                              numeric && "text-right tabular-nums",
-                              isCode && "unit-code",
+                              "h-9 px-3 align-middle",
+                              numeric && "text-right",
+                              cell.column.id === "actions" && "w-10 px-1",
+                              columnClass(cell.column.id),
                             )}
                           >
                             <table.FlexRender cell={cell} />
@@ -254,16 +385,16 @@ export function InventoryTable({
               </>
             )}
           </tbody>
-          <tfoot className="sticky bottom-0 bg-bg">
-            <tr className="border-t border-line">
-              <td className="h-8 px-2 text-[12px] text-ink-muted" colSpan={4}>
+          <tfoot className="sticky bottom-0 z-20 border-t border-line-strong bg-surface select-none">
+            <tr className="h-9">
+              <td className="h-9 px-3 text-[12px] font-medium text-ink-muted" colSpan={4}>
                 {totals.count === 1 ? "1 unit" : `${totals.count} units`}
               </td>
-              <td className="h-8 px-2 text-right text-[12px] text-ink tabular-nums">
+              <td className="area h-9 px-3 text-right font-mono text-[12px] font-medium text-ink tabular-nums">
                 {totals.netAreaSqft}
               </td>
               <td colSpan={2} />
-              <td className="h-8 px-2 text-right text-[12px] text-ink tabular-nums">
+              <td className="price h-9 px-3 text-right font-mono text-[12px] font-semibold text-ink tabular-nums">
                 {formatPkrLedger(totals.valuePkr)}
               </td>
               <td colSpan={showSoldOn ? 3 : 2} />

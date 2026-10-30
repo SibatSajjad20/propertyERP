@@ -1,3 +1,10 @@
+import { ZodError } from "zod";
+import { WAKING_DB_MESSAGE, isTransientDbError } from "./db-errors";
+
+const LEAKY_PATTERN = /password|secret|DATABASE_URL|ECONN|postgres:\/\//i;
+const FORBIDDEN_PATTERN = /forbidden|not allowed|permission/i;
+const UNAUTHORIZED_PATTERN = /unauthorized|sign in required|unauthenticated/i;
+
 export class AppError extends Error {
   readonly code: string;
   readonly status: number;
@@ -47,12 +54,47 @@ export class ValidationError extends AppError {
   }
 }
 
+export function errorStatus(error: unknown): number {
+  if (error instanceof AppError) {
+    return error.status;
+  }
+  if (error instanceof ZodError) {
+    return 422;
+  }
+  return 500;
+}
+
+export function errorCode(error: unknown): string {
+  if (error instanceof AppError) {
+    return error.code;
+  }
+  if (error instanceof ZodError) {
+    return "VALIDATION";
+  }
+  return "INTERNAL";
+}
+
 export function errorMessage(error: unknown): string {
+  if (isTransientDbError(error)) {
+    return WAKING_DB_MESSAGE;
+  }
   if (error instanceof AppError) {
     return error.message;
   }
-  if (error instanceof Error) {
-    return error.message;
+  if (error instanceof ZodError) {
+    return error.issues[0]?.message ?? "Invalid input";
   }
-  return "Something went wrong";
+  if (typeof error === "object" && error && "message" in error) {
+    const message = String((error as { message: unknown }).message);
+    if (FORBIDDEN_PATTERN.test(message)) {
+      return "You do not have permission to do that";
+    }
+    if (UNAUTHORIZED_PATTERN.test(message)) {
+      return "Sign in required";
+    }
+    if (message && !LEAKY_PATTERN.test(message)) {
+      return message;
+    }
+  }
+  return "Something went wrong. Try again, or ask an administrator.";
 }

@@ -1,5 +1,6 @@
 import { ForbiddenError } from "./errors";
 import type { UserRole } from "@/db/schema/enums";
+import { userRoles } from "@/db/schema/enums";
 
 export const actions = [
   "units.read",
@@ -9,30 +10,38 @@ export const actions = [
   "units.change_status",
   "units.update_rate",
   "units.import",
+  "units.export",
+  "data.export",
   "structure.read",
   "structure.manage",
   "users.read",
   "users.manage",
   "audit.read",
   "dashboard.read",
+  "profile.update",
 ] as const;
 
 export type Action = (typeof actions)[number];
 
+const allRoles = userRoles;
+
 const matrix: Record<Action, readonly UserRole[]> = {
-  "units.read": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "units.read": allRoles,
   "units.manage": ["ADMIN", "INVENTORY_MANAGER"],
-  "units.sell": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "units.sell": allRoles,
   "units.reverse_sale": ["ADMIN"],
-  "units.change_status": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "units.change_status": allRoles,
   "units.update_rate": ["ADMIN", "INVENTORY_MANAGER"],
   "units.import": ["ADMIN", "INVENTORY_MANAGER"],
-  "structure.read": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "units.export": ["ADMIN", "INVENTORY_MANAGER"],
+  "data.export": ["ADMIN"],
+  "structure.read": allRoles,
   "structure.manage": ["ADMIN", "INVENTORY_MANAGER"],
   "users.read": ["ADMIN"],
   "users.manage": ["ADMIN"],
   "audit.read": ["ADMIN"],
-  "dashboard.read": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "dashboard.read": allRoles,
+  "profile.update": allRoles,
 };
 
 export function can(role: UserRole, action: Action): boolean {

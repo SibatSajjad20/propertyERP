@@ -1,7 +1,8 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
+import { PencilSimple } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { UserRole } from "@/db/schema/enums";
 import type { CreateUnitInput, UpdateUnitInput } from "../schema";
 import type { InventoryFilterOptions, InventoryRow, StatusHistoryEntry } from "../types";
@@ -11,7 +12,7 @@ import { UnitStatusActions } from "./unit-status-actions";
 
 export type UnitPanelMode = "view" | "edit" | "create";
 
-type UnitPanelProps = {
+interface UnitPanelProps {
   open: boolean;
   mode: UnitPanelMode;
   unit: InventoryRow | null;
@@ -27,7 +28,7 @@ type UnitPanelProps = {
   onEdit: () => void;
   onSubmit: (values: CreateUnitInput | UpdateUnitInput) => Promise<void>;
   onArchive?: () => Promise<void>;
-};
+}
 
 function titleFor(mode: UnitPanelMode, unit: InventoryRow | null): string {
   if (mode === "create") {
@@ -57,28 +58,30 @@ export function UnitPanel({
   onArchive,
 }: UnitPanelProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--ink)_24%,transparent)] duration-[var(--duration)] ease-[var(--ease-ledger)]" />
-        <Dialog.Content
-          className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,400px)] flex-col border-l border-line bg-surface duration-[var(--duration)] ease-[var(--ease-ledger)]"
-          aria-describedby={undefined}
-        >
-          <div className="flex h-[var(--topbar-height)] items-center justify-between border-b border-line px-4">
-            <Dialog.Title className="font-display text-[18px] text-ink">
-              {titleFor(mode, unit)}
-            </Dialog.Title>
-            <div className="flex items-center gap-2">
-              {mode === "view" && canManage && unit ? (
-                <Button variant="outline" onClick={onEdit}>
-                  Edit
-                </Button>
-              ) : null}
-              <Dialog.Close asChild>
-                <Button variant="ghost">Close</Button>
-              </Dialog.Close>
-            </div>
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent widthClass="w-full max-w-[480px]">
+        {/* Header */}
+        <SheetHeader>
+          <div className="flex items-center gap-2">
+            <SheetTitle>{titleFor(mode, unit)}</SheetTitle>
+            {mode === "view" && unit && (
+              <span className="font-mono text-[11px] text-ink-muted">
+                #{unit.unitNumber}
+              </span>
+            )}
           </div>
+          <div className="mr-6 flex items-center gap-2">
+            {mode === "view" && canManage && unit ? (
+              <Button variant="secondary" size="sm" onClick={onEdit}>
+                <PencilSimple weight="light" className="mr-1 size-3.5" />
+                Edit
+              </Button>
+            ) : null}
+          </div>
+        </SheetHeader>
+
+        {/* Content body */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {mode === "view" && unit ? (
             <UnitStatusActions
               key={unit.id}
@@ -89,6 +92,7 @@ export function UnitPanel({
               <UnitRead unit={unit} history={history} />
             </UnitStatusActions>
           ) : null}
+
           {mode === "create" ? (
             <UnitForm
               key="create"
@@ -101,6 +105,7 @@ export function UnitPanel({
               onCancel={onClose}
             />
           ) : null}
+
           {mode === "edit" && unit ? (
             <UnitForm
               key={unit.id}
@@ -115,8 +120,8 @@ export function UnitPanel({
               onArchive={onArchive}
             />
           ) : null}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

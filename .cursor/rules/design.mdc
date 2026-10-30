@@ -9,7 +9,7 @@ alwaysApply: true
 Tokens live in `src/styles/tokens.css`: `--bg #F7F5F0`, `--surface #FFFFFF`, `--line #E4E0D6`, `--ink #1A1A17`, `--ink-muted #6B675E`, `--primary #0E3A5B`, `--accent #9A7B4F`, `--available #2F5D46`, `--sold #7A2E2A`.
 
 - Radius 2–4px. Spacing on a 4px scale. Table row height 32px.
-- Geist = UI. Geist Mono = unit codes. Newsreader = headings and big numbers only.
+- Geist = UI, headings and big numbers. Geist Mono = unit codes. No serifs.
 - Numbers: `tabular-nums`, right-aligned. PKR via `formatPkr` / `formatPkrLedger` (lakh/crore).
 - Motion 150–200ms ease-out only.
 - Icons only in navigation.

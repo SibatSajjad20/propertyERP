@@ -14,7 +14,7 @@
 1. Excel import (SheetJS) against `docs/IMPORT_RULES.md`
 2. Excel export (exceljs)
 3. Rate changes + `rate_history`
-4. Users admin (invite, role change)
+4. Users admin (invite, role change) — done (`/settings/users`)
 5. Customers
 6. Bookings / reservations
 7. Payments and receipts

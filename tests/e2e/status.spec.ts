@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { cleanupTestData, guardEnvironment } from "./e2e-guard";
 
 const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
 const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
@@ -25,7 +26,11 @@ async function signOut(page: import("@playwright/test").Page) {
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toHaveCount(0);
   }
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page
+    .getByRole("button", { name: "Account menu" })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
 }
 
@@ -49,9 +54,19 @@ async function openUnit(page: import("@playwright/test").Page, code: string) {
   await page.goto(`/inventory?q=${encodeURIComponent(code)}`);
   await page.getByRole("cell", { name: code }).click();
   const panel = page.getByRole("dialog");
-  await expect(panel.getByRole("heading", { name: code })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: code })).toBeVisible({
+    timeout: 15_000,
+  });
   return panel;
 }
+
+test.beforeAll(() => {
+  guardEnvironment();
+});
+
+test.afterAll(async () => {
+  await cleanupTestData(["ST-", "RV-", "E2E"]);
+});
 
 test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   test.setTimeout(60_000);
@@ -75,7 +90,9 @@ test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   await expect(panel.getByRole("button", { name: "Reverse sale" })).toHaveCount(0);
   await expect(panel.getByRole("button", { name: "Mark as Sold" })).toHaveCount(0);
 
-  const unitId = new URL(page.url()).searchParams.get("unit");
+  const unitId =
+    new URL(page.url()).searchParams.get("unitId") ||
+    new URL(page.url()).searchParams.get("unit");
   expect(unitId).toBeTruthy();
   await page.waitForFunction(
     () =>

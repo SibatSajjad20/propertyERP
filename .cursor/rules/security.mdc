@@ -8,7 +8,8 @@ alwaysApply: true
 
 - Proxy cookie checks are optimistic only. Every page and action must call `requireSession` (or `getSession`) and `assertCan`.
 - Zod-parse every server action input. Do not trust client field names for role.
-- User `role` is not writable from sign-up (`input: false`). Only ADMIN manages users.
+- User `role` is not writable from sign-up (`input: false`). Only ADMIN manages users at `/settings/users`. Public sign-up is disabled.
+- An admin cannot demote or disable themselves. At least one active ADMIN must remain.
 - Only ADMIN can reverse a sale, and a reason is required.
 - Never log passwords, cookies, or secrets. Sentry is disabled unless `SENTRY_DSN` is set.
 - Do not expose `DATABASE_URL` or `BETTER_AUTH_SECRET` to the client.

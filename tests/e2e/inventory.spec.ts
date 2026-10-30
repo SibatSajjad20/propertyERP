@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { cleanupTestData, guardEnvironment } from "./e2e-guard";
 
 const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
 const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
@@ -16,6 +17,14 @@ async function signIn(
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
 }
+
+test.beforeAll(() => {
+  guardEnvironment();
+});
+
+test.afterAll(async () => {
+  await cleanupTestData(["E2E", "SALES-"]);
+});
 
 test("inventory manager creates a unit and sees the computed total", async ({ page }) => {
   await signIn(page, inventoryEmail, inventoryPassword);

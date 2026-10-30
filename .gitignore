@@ -24,6 +24,10 @@ graphify-out/*
 # uploads
 /uploads/
 
+# excel & csv client data
+*.xlsx
+*.csv
+
 # next.js
 /.next/
 /out/

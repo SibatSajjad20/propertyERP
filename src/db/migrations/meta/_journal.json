@@ -29,6 +29,20 @@
       "when": 1793368198256,
       "tag": "0003_thin_talkback",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793377535929,
+      "tag": "0004_quick_cargill",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793377766906,
+      "tag": "0005_broad_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

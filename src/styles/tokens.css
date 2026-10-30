@@ -1,21 +1,60 @@
 :root {
+  /* Typography */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  /* Foundations Palette */
   --bg: #f7f5f0;
   --surface: #ffffff;
+  --subtle: #f1eee7;
   --line: #e4e0d6;
+  --line-strong: #d6d1c4;
   --ink: #1a1a17;
   --ink-muted: #6b675e;
+  --ink-faint: #9c978c;
   --primary: #0e3a5b;
+  --primary-hover: #0a2c46;
   --accent: #9a7b4f;
   --available: #2f5d46;
   --sold: #7a2e2a;
-  --focus: #0e3a5b;
-  --row-height: 32px;
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --ease-ledger: cubic-bezier(0, 0, 0.2, 1);
-  --duration-fast: 150ms;
-  --duration: 180ms;
-  --duration-slow: 200ms;
-  --sidebar-width: 224px;
-  --topbar-height: 48px;
+
+  /* Focus ring: 2px brass at 40% opacity, offset 2px */
+  --focus-ring: rgba(154, 123, 79, 0.4);
+  --focus-ring-offset: 2px;
+
+  /* Radius: 6px controls, 8px panels/popovers */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+
+  /* Floating layer shadow only (never on page content) */
+  --shadow-floating: 0 1px 2px rgba(26, 26, 23, 0.04), 0 8px 24px rgba(26, 26, 23, 0.08);
+
+  /* Layout dimensions */
+  --sidebar-width: 232px;
+  --topbar-height: 52px;
+  --row-height: 36px;
+
+  /* Motion tokens: 120ms (hover), 180ms (popover/menu), 240ms (side panel), easing cubic-bezier(.2,.8,.2,1) */
+  --duration-hover: 120ms;
+  --duration-popover: 180ms;
+  --duration-panel: 240ms;
+  --ease-ledger: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Transitions-dev semantic tokens */
+  --resize-dur: 240ms;
+  --resize-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --digit-dur: 240ms;
+  --digit-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --badge-slide-dur: 180ms;
+  --badge-pop-dur: 240ms;
+  --dropdown-open-dur: 180ms;
+  --dropdown-close-dur: 120ms;
+  --dropdown-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --modal-open-dur: 200ms;
+  --modal-close-dur: 140ms;
+  --modal-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --panel-open-dur: 240ms;
+  --panel-close-dur: 200ms;
+  --panel-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
