@@ -28,6 +28,7 @@ test("inventory manager can create a floor", async ({ page }) => {
   await page.getByRole("button", { name: "Save block" }).click();
   await expect(page.getByRole("link", { name: blockName })).toBeVisible();
   await page.getByRole("link", { name: blockName }).click();
+  await expect(page.getByText(`Floors · ${blockName}`)).toBeVisible();
 
   await page.getByRole("button", { name: "New floor" }).click();
   await page.getByLabel("Level").fill("0");

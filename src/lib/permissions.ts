@@ -3,6 +3,7 @@ import type { UserRole } from "@/db/schema/enums";
 
 export const actions = [
   "units.read",
+  "units.manage",
   "units.sell",
   "units.reverse_sale",
   "units.change_status",
@@ -20,6 +21,7 @@ export type Action = (typeof actions)[number];
 
 const matrix: Record<Action, readonly UserRole[]> = {
   "units.read": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
+  "units.manage": ["ADMIN", "INVENTORY_MANAGER"],
   "units.sell": ["ADMIN", "SALES"],
   "units.reverse_sale": ["ADMIN"],
   "units.change_status": ["ADMIN", "INVENTORY_MANAGER", "SALES"],

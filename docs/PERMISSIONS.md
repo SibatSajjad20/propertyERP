@@ -6,6 +6,7 @@ Roles: `ADMIN`, `INVENTORY_MANAGER`, `SALES`. Enforced in server actions and pag
 | --------------------- | ----- | ----------------- | ----- |
 | `dashboard.read`      | Y     | Y                 | Y     |
 | `units.read`          | Y     | Y                 | Y     |
+| `units.manage`        | Y     | Y                 | N     |
 | `units.change_status` | Y     | Y                 | Y     |
 | `units.sell`          | Y     | N                 | Y     |
 | `units.reverse_sale`  | Y     | N                 | N     |
@@ -16,6 +17,8 @@ Roles: `ADMIN`, `INVENTORY_MANAGER`, `SALES`. Enforced in server actions and pag
 | `users.read`          | Y     | N                 | N     |
 | `users.manage`        | Y     | N                 | N     |
 | `audit.read`          | Y     | N                 | N     |
+
+`units.manage` covers create, update, and archive of unit records. SALES is read-only on `/inventory`. Rate, area, and adjustment on a `SOLD` unit stay locked unless the actor is ADMIN.
 
 Reverse sale requires a non-empty reason. Sale freezes `sold_price_pkr`. Re-import must not overwrite `SOLD` without ADMIN.
 

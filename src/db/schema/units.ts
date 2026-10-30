@@ -58,7 +58,7 @@ export const unitPricing = pgView("unit_pricing").as((qb) =>
     .select({
       unitId: sql<string>`${units.id}`.as("unit_id"),
       computedPricePkr:
-        sql<string>`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 2)`.as(
+        sql<string>`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`.as(
           "computed_price_pkr",
         ),
     })
@@ -82,7 +82,12 @@ export const rateHistory = pgTable("rate_history", {
   unitId: uuid("unit_id")
     .notNull()
     .references(() => units.id, { onDelete: "cascade" }),
+  oldRatePerSqftPkr: numeric("old_rate_per_sqft_pkr", {
+    precision: 14,
+    scale: 2,
+  }).notNull(),
   ratePerSqftPkr: numeric("rate_per_sqft_pkr", { precision: 14, scale: 2 }).notNull(),
+  reason: text("reason").notNull(),
   actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,4 +1,7 @@
 const PAISA_SCALE = 100n;
+const FOUR_DECIMALS = 10_000n;
+const CRORE_RUPEES = 10_000_000n;
+const LAKH_RUPEES = 100_000n;
 
 export function parseDecimal(value: string): bigint {
   const trimmed = value.trim();
@@ -36,9 +39,26 @@ function divRoundHalfUp(numerator: bigint, denominator: bigint): bigint {
   return negative ? -rounded : rounded;
 }
 
+function decimalsEqual(left: string, right: string): boolean {
+  return parseDecimal(left) === parseDecimal(right);
+}
+
+export function moneyEquals(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  if (left == null || left.trim() === "") {
+    return right == null || right.trim() === "";
+  }
+  if (right == null || right.trim() === "") {
+    return false;
+  }
+  return decimalsEqual(left, right);
+}
+
 /**
- * Total price = round(rate × net area, 2) + adjustment.
- * Matches the SQL view `unit_pricing`.
+ * Asking price = round(rate × net area + adjustment, 0) to whole rupees.
+ * Matches the SQL view `unit_pricing`. Decimal strings only — no JS floats.
  */
 export function computeTotalPrice(
   ratePerSqftPkr: string,
@@ -48,38 +68,56 @@ export function computeTotalPrice(
   const ratePaisa = parseDecimal(ratePerSqftPkr);
   const areaPaisa = parseDecimal(netAreaSqft);
   const adjustmentPaisa = parseDecimal(priceAdjustmentPkr);
-  const productPaisa = divRoundHalfUp(ratePaisa * areaPaisa, PAISA_SCALE);
-  return formatDecimal(productPaisa + adjustmentPaisa);
+  const productFour = ratePaisa * areaPaisa;
+  const adjustmentFour = adjustmentPaisa * PAISA_SCALE;
+  const rupees = divRoundHalfUp(productFour + adjustmentFour, FOUR_DECIMALS);
+  return formatDecimal(rupees * PAISA_SCALE);
+}
+
+function indianGroup(whole: string): string {
+  return whole.replace(/(\d)(?=(\d{2})+\d$)/g, "$1,");
 }
 
 export function formatPkrLedger(amount: string): string {
-  const negative = amount.trim().startsWith("-");
-  const unsigned = negative ? amount.trim().slice(1) : amount.trim();
-  const [wholeRaw, fraction = "00"] = unsigned.split(".");
+  const trimmed = amount.trim();
+  const negative = trimmed.startsWith("-");
+  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const [wholeRaw, fractionRaw = "00"] = unsigned.split(".");
   const whole = (wholeRaw ?? "0").replace(/^0+(?=\d)/, "") || "0";
-  const withSeparators = whole.replace(/(\d)(?=(\d{2})+\d$)/g, "$1,");
+  const fraction = (fractionRaw + "00").slice(0, 2);
+  const grouped = indianGroup(whole);
   const sign = negative ? "-" : "";
-  return `${sign}${withSeparators}.${fraction.padEnd(2, "0").slice(0, 2)}`;
+  const body = fraction === "00" ? grouped : `${grouped}.${fraction}`;
+  return `${sign}Rs ${body}`;
+}
+
+function formatTenths(tenths: bigint): string {
+  const whole = tenths / 10n;
+  const frac = tenths % 10n;
+  if (frac === 0n) {
+    return whole.toString();
+  }
+  return `${whole.toString()}.${frac.toString()}`;
 }
 
 export function formatPkrCompact(amount: string): string {
   const paisa = parseDecimal(amount);
   const negative = paisa < 0n;
   const absolute = negative ? -paisa : paisa;
-  const rupees = Number(absolute / PAISA_SCALE);
+  const rupees = absolute / PAISA_SCALE;
   const sign = negative ? "-" : "";
 
-  if (rupees >= 10_000_000) {
-    const crore = rupees / 10_000_000;
-    return `${sign}${crore.toFixed(2)} crore`;
+  if (rupees >= CRORE_RUPEES) {
+    const tenths = divRoundHalfUp(rupees * 10n, CRORE_RUPEES);
+    return `${sign}${formatTenths(tenths)} Cr`;
   }
-  if (rupees >= 100_000) {
-    const lakh = rupees / 100_000;
-    return `${sign}${lakh.toFixed(2)} lakh`;
+  if (rupees >= LAKH_RUPEES) {
+    const tenths = divRoundHalfUp(rupees * 10n, LAKH_RUPEES);
+    return `${sign}${formatTenths(tenths)} Lac`;
   }
-  return `${sign}${formatPkrLedger(formatDecimal(absolute))}`;
+  return formatPkrLedger(formatDecimal(negative ? -absolute : absolute));
 }
 
 export function formatPkr(amount: string): string {
-  return `PKR ${formatPkrCompact(amount)}`;
+  return formatPkrLedger(amount);
 }

@@ -14,55 +14,64 @@ export type InventoryRow = {
   floorName: string;
   categoryName: string;
   netAreaSqft: string;
+  grossAreaSqft: string | null;
   ratePerSqftPkr: string;
-  computedPricePkr: string;
+  bookPricePkr: string;
   status: "AVAILABLE" | "SOLD";
+  ownershipGroup: string | null;
 };
 
 const helper = createColumnHelper<typeof inventoryTableFeatures, InventoryRow>();
 
 export const inventoryColumns = helper.columns([
-  helper.accessor("unitCode", {
-    header: "Code",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("unitNumber", {
-    header: "Unit",
-    cell: (info) => info.getValue(),
-  }),
-  helper.accessor("floorName", {
-    header: "Floor",
-    cell: (info) => info.getValue(),
-  }),
+  helper.accessor("unitCode", { header: "Unit code", cell: (info) => info.getValue() }),
+  helper.accessor("unitNumber", { header: "Unit no.", cell: (info) => info.getValue() }),
+  helper.accessor("floorName", { header: "Floor", cell: (info) => info.getValue() }),
   helper.accessor("categoryName", {
     header: "Category",
     cell: (info) => info.getValue(),
   }),
   helper.accessor("netAreaSqft", {
-    header: "Net sqft",
+    header: "Net sq ft",
     cell: (info) => info.getValue(),
+  }),
+  helper.accessor("grossAreaSqft", {
+    header: "Gross sq ft",
+    cell: (info) => info.getValue() ?? "—",
   }),
   helper.accessor("ratePerSqftPkr", {
-    header: "Rate",
+    header: "Rate/sq ft",
     cell: (info) => info.getValue(),
   }),
-  helper.accessor("computedPricePkr", {
-    header: "Price",
+  helper.accessor("bookPricePkr", {
+    header: "Total price",
     cell: (info) => info.getValue(),
   }),
-  helper.accessor("status", {
-    header: "Status",
-    cell: (info) => info.getValue(),
+  helper.accessor("status", { header: "Status", cell: (info) => info.getValue() }),
+  helper.accessor("ownershipGroup", {
+    header: "Ownership group",
+    cell: (info) => info.getValue() ?? "—",
   }),
 ]);
 
-const numericAccessors = new Set(["netAreaSqft", "ratePerSqftPkr", "computedPricePkr"]);
+const numericAccessors = new Set([
+  "netAreaSqft",
+  "grossAreaSqft",
+  "ratePerSqftPkr",
+  "bookPricePkr",
+]);
 
 type DataTableProps = {
   data: InventoryRow[];
+  onRowClick?: (row: InventoryRow) => void;
+  emptyMessage?: string;
 };
 
-export function DataTable({ data }: DataTableProps) {
+export function DataTable({
+  data,
+  onRowClick,
+  emptyMessage = "No units on the ledger yet.",
+}: DataTableProps) {
   const table = useTable({
     features: inventoryTableFeatures,
     columns: inventoryColumns,
@@ -109,7 +118,7 @@ export function DataTable({ data }: DataTableProps) {
                   colSpan={inventoryColumns.length}
                   className="h-24 px-2 text-center text-ink-muted"
                 >
-                  No units on the ledger yet. Import the schedule to populate inventory.
+                  {emptyMessage}
                 </td>
               </tr>
             ) : (
@@ -132,6 +141,7 @@ export function DataTable({ data }: DataTableProps) {
                     <tr
                       key={row.id}
                       className="h-8 border-b border-line transition-colors duration-[var(--duration-fast)] ease-[var(--ease-ledger)] hover:bg-surface"
+                      onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getAllCells().map((cell) => {
                         const numeric = numericAccessors.has(cell.column.id);

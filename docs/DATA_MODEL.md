@@ -12,8 +12,8 @@ Hierarchy: **Property > Block > Floor > Unit**. One property in production: Sard
 | `categories`                                    | uuid | `is_sellable_default` copied onto new units                                                  |
 | `units`                                         | uuid | `unit_code` unique per property                                                              |
 | `unit_status_history`                           | uuid | One row per status change                                                                    |
-| `rate_history`                                  | uuid | One row per rate change                                                                      |
-| `unit_pricing`                                  | view | `round(rate * net_area + adjustment, 2)`                                                     |
+| `rate_history`                                  | uuid | One row per rate change: old rate, new rate, actor, reason, timestamp                        |
+| `unit_pricing`                                  | view | `round(rate * net_area + adjustment, 0)` — whole rupees                                      |
 | `user` / `session` / `account` / `verification` | text | Better Auth                                                                                  |
 | `audit_log`                                     | uuid | `before` / `after` jsonb                                                                     |
 | `import_batches`                                | uuid | Original path, raw rows, counts, warnings, errors                                            |
@@ -25,7 +25,10 @@ Hierarchy: **Property > Block > Floor > Unit**. One property in production: Sard
 ## Invariants
 
 - Money is numeric. Never float.
-- Live asking price = rate × net area + adjustment (SQL view + `computeTotalPrice`).
+- Live asking price = round(rate × net area + adjustment) to whole rupees (SQL view + `computeTotalPrice`). Decimal strings only; never JS floats.
+- Changing `rate_per_sqft_pkr` writes `rate_history` (old, new, actor, reason, timestamp) in the same transaction as the unit update.
+- Unit create/edit/archive uses an optimistic `version` lock. A stale submit is rejected with "This unit was changed by someone else. Reload to see the latest."
+- Rate, net/gross area, and price adjustment on a `SOLD` unit are locked for everyone except `ADMIN`.
 - On sale, copy that amount into `sold_price_pkr` and stop using the live formula for that unit.
 - Status changes go through `changeUnitStatus`: `SELECT … FOR UPDATE`, compare `version`, bump it, write history + audit in the same transaction.
 - Only `ADMIN` can reverse `SOLD` → `AVAILABLE`, and a reason is required.

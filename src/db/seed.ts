@@ -6,6 +6,7 @@ import { account, user } from "./schema/auth";
 import { blocks, categories, floors, properties } from "./schema/property";
 import type { UserRole } from "./schema/enums";
 import { SARDARS_MALL_FLOORS } from "../features/structure/floor-labels";
+import { seedDevUnits } from "./seed-units";
 
 const DEFAULT_CATEGORIES = [
   { name: "Shop", isSellableDefault: true },
@@ -158,10 +159,15 @@ async function seed() {
     role: "SALES",
   });
 
+  const seededUnits = await seedDevUnits(propertyId, blockId);
+
   console.log("Seed complete.");
   console.log(`Property: Sardar's Mall (${propertyId})`);
   console.log(`Floors: Ground, 1st–10th on Main`);
   console.log(`Admin: ${adminEmail.toLowerCase()}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`Dev units inserted this run: ${seededUnits}`);
+  }
 }
 
 seed()

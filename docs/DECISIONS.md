@@ -2,6 +2,18 @@
 
 ADR log. Newest first.
 
+## ADR-0008 — Optimistic version lock on unit writes
+
+Status: accepted
+
+Every unit create is version 1. Updates and archives submit the loaded `version`. The row is locked `FOR UPDATE`, compared, and bumped in the same transaction as `audit_log` (and `rate_history` when the rate changes). A mismatch is rejected with "This unit was changed by someone else. Reload to see the latest." so two clerks cannot silently overwrite each other.
+
+## ADR-0007 — Whole-rupee asking price
+
+Status: accepted
+
+Asking price is `round(rate_per_sqft_pkr × net_area_sqft + coalesce(price_adjustment_pkr, 0), 0)` in both the `unit_pricing` view and `computeTotalPrice`. Math stays on decimal strings / numeric / bigint — never JS floats. Display uses Indian grouping (`Rs 84,00,000`) and a short form (`8.4 Cr` / `45 Lac`). Sale still freezes that whole-rupee amount into `sold_price_pkr`.
+
 ## ADR-0006 — Graphify for the code graph
 
 Status: accepted

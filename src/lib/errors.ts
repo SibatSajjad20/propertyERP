@@ -32,7 +32,9 @@ export class NotFoundError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message = "This record changed. Refresh and try again.") {
+  constructor(
+    message = "This unit was changed by someone else. Reload to see the latest.",
+  ) {
     super(message, "CONFLICT", 409);
     this.name = "ConflictError";
   }

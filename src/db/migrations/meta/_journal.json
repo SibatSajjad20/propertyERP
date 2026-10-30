@@ -15,6 +15,13 @@
       "when": 1793363604688,
       "tag": "0001_hot_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793365839892,
+      "tag": "0002_fluffy_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }
