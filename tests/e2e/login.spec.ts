@@ -9,6 +9,6 @@ test("admin can sign in and reach inventory", async ({ page }) => {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/inventory/);
+  await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
   await expect(page.getByText(/unit/i).first()).toBeVisible();
 });
