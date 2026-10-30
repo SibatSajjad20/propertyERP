@@ -4,9 +4,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/db/schema/enums";
 import type { CreateUnitInput, UpdateUnitInput } from "../schema";
-import type { InventoryFilterOptions, InventoryRow } from "../types";
+import type { InventoryFilterOptions, InventoryRow, StatusHistoryEntry } from "../types";
 import { UnitForm } from "./unit-form";
 import { UnitRead } from "./unit-read";
+import { UnitStatusActions } from "./unit-status-actions";
 
 export type UnitPanelMode = "view" | "edit" | "create";
 
@@ -17,6 +18,9 @@ type UnitPanelProps = {
   options: InventoryFilterOptions;
   role: UserRole;
   canManage: boolean;
+  canSell: boolean;
+  canReverse: boolean;
+  history?: StatusHistoryEntry[];
   error?: string | null;
   pending?: boolean;
   onClose: () => void;
@@ -42,6 +46,9 @@ export function UnitPanel({
   options,
   role,
   canManage,
+  canSell,
+  canReverse,
+  history = [],
   error,
   pending,
   onClose,
@@ -72,7 +79,16 @@ export function UnitPanel({
               </Dialog.Close>
             </div>
           </div>
-          {mode === "view" && unit ? <UnitRead unit={unit} /> : null}
+          {mode === "view" && unit ? (
+            <UnitStatusActions
+              key={unit.id}
+              unit={unit}
+              canSell={canSell}
+              canReverse={canReverse}
+            >
+              <UnitRead unit={unit} history={history} />
+            </UnitStatusActions>
+          ) : null}
           {mode === "create" ? (
             <UnitForm
               key="create"

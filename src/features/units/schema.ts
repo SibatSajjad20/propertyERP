@@ -143,7 +143,18 @@ export const changeUnitStatusSchema = z.object({
   unitId: z.uuid(),
   expectedVersion: z.number().int().positive(),
   toStatus: z.enum(unitStatuses),
-  reason: z.string().trim().min(1).max(500).optional(),
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((value) => (value.length === 0 ? undefined : value))
+    .optional(),
+  bookingRef: z
+    .string()
+    .trim()
+    .max(200)
+    .transform((value) => (value.length === 0 ? undefined : value))
+    .optional(),
 });
 
 export const searchUnitsSchema = z.object({
@@ -161,6 +172,8 @@ export const inventorySortFields = [
   "totalPrice",
   "status",
   "ownershipGroup",
+  "soldAt",
+  "updatedAt",
 ] as const;
 
 export type InventorySortField = (typeof inventorySortFields)[number];

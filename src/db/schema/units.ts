@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   numeric,
   pgTable,
@@ -37,6 +38,8 @@ export const units = pgTable(
       .notNull(),
     priceAdjustmentReason: text("price_adjustment_reason"),
     soldPricePkr: numeric("sold_price_pkr", { precision: 14, scale: 2 }),
+    soldAt: timestamp("sold_at"),
+    soldBy: text("sold_by").references(() => user.id, { onDelete: "set null" }),
     status: unitStatusEnum("status").default("AVAILABLE").notNull(),
     isSellable: boolean("is_sellable").default(true).notNull(),
     ownershipGroup: text("ownership_group"),
@@ -65,17 +68,25 @@ export const unitPricing = pgView("unit_pricing").as((qb) =>
     .from(units),
 );
 
-export const unitStatusHistory = pgTable("unit_status_history", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  unitId: uuid("unit_id")
-    .notNull()
-    .references(() => units.id, { onDelete: "cascade" }),
-  fromStatus: unitStatusEnum("from_status").notNull(),
-  toStatus: unitStatusEnum("to_status").notNull(),
-  reason: text("reason"),
-  actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const unitStatusHistory = pgTable(
+  "unit_status_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    unitId: uuid("unit_id")
+      .notNull()
+      .references(() => units.id, { onDelete: "cascade" }),
+    fromStatus: unitStatusEnum("from_status").notNull(),
+    toStatus: unitStatusEnum("to_status").notNull(),
+    reason: text("reason"),
+    bookingRef: text("booking_ref"),
+    soldPricePkr: numeric("sold_price_pkr", { precision: 14, scale: 2 }),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("unit_status_history_unit_id_created_at_idx").on(table.unitId, table.createdAt),
+  ],
+);
 
 export const rateHistory = pgTable("rate_history", {
   id: uuid("id").defaultRandom().primaryKey(),

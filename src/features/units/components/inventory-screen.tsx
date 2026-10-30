@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { UserRole } from "@/db/schema/enums";
 import { errorMessage } from "@/lib/errors";
-import { archiveUnit, createUnit, updateUnit } from "../actions";
+import { archiveUnit, changeUnitStatus, createUnit, updateUnit } from "../actions";
 import {
   inventoryQueryString,
   type CreateUnitInput,
@@ -16,7 +16,12 @@ import {
   type InventorySortField,
   type UpdateUnitInput,
 } from "../schema";
-import type { InventoryFilterOptions, InventoryRow, InventoryTotals } from "../types";
+import type {
+  InventoryFilterOptions,
+  InventoryRow,
+  InventoryTotals,
+  StatusHistoryEntry,
+} from "../types";
 import { InventoryTable } from "./inventory-table";
 import { UnitPanel, type UnitPanelMode } from "./unit-panel";
 
@@ -28,7 +33,10 @@ type InventoryScreenProps = {
   totals: InventoryTotals;
   options: InventoryFilterOptions;
   query: InventoryQuery;
+  history: StatusHistoryEntry[];
   canManage: boolean;
+  canSell: boolean;
+  canReverse: boolean;
   role: UserRole;
 };
 
@@ -42,13 +50,17 @@ export function InventoryScreen({
   totals,
   options,
   query,
+  history,
   canManage,
+  canSell,
+  canReverse,
   role,
 }: InventoryScreenProps) {
   const router = useRouter();
   const [search, setSearch] = useState(query.q ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showSoldOn, setShowSoldOn] = useState(false);
 
   const selected = useMemo(
     () => rows.find((row) => row.id === query.unitId) ?? null,
@@ -68,6 +80,10 @@ export function InventoryScreen({
   }
 
   function handleSort(field: InventorySortField) {
+    if (field === "updatedAt" && query.sort !== "updatedAt") {
+      push({ sort: field, dir: "desc" });
+      return;
+    }
     const dir = query.sort === field && query.dir === "asc" ? "desc" : "asc";
     push({ sort: field, dir });
   }
@@ -121,10 +137,15 @@ export function InventoryScreen({
   }
 
   useEffect(() => {
-    const host = window as Window & { __erpCreateUnit?: typeof createUnit };
+    const host = window as Window & {
+      __erpCreateUnit?: typeof createUnit;
+      __erpChangeUnitStatus?: typeof changeUnitStatus;
+    };
     host.__erpCreateUnit = createUnit;
+    host.__erpChangeUnitStatus = changeUnitStatus;
     return () => {
       delete host.__erpCreateUnit;
+      delete host.__erpChangeUnitStatus;
     };
   }, []);
 
@@ -211,6 +232,31 @@ export function InventoryScreen({
           />
           Missing gross area
         </label>
+        <label
+          htmlFor="filter-sold-on"
+          className="flex h-8 items-center gap-2 text-[13px]"
+        >
+          <input
+            id="filter-sold-on"
+            type="checkbox"
+            className="size-3.5 accent-primary"
+            checked={showSoldOn}
+            onChange={(event) => setShowSoldOn(event.target.checked)}
+          />
+          Sold on
+        </label>
+        <Button
+          variant="ghost"
+          className={query.sort === "updatedAt" ? "text-ink" : undefined}
+          onClick={() => handleSort("updatedAt")}
+        >
+          Recently changed
+          {query.sort === "updatedAt" ? (
+            <span className="text-[10px] text-ink-muted">
+              {query.dir === "desc" ? "desc" : "asc"}
+            </span>
+          ) : null}
+        </Button>
         <div className="ml-auto flex gap-2">
           {canManage ? (
             <Button onClick={() => push({ mode: "create", unitId: undefined })}>
@@ -225,6 +271,7 @@ export function InventoryScreen({
         totals={totals}
         query={query}
         selectedId={selected?.id}
+        showSoldOn={showSoldOn}
         onRowClick={(row) => push({ unitId: row.id, mode: "view" })}
         onSort={handleSort}
         emptyMessage={emptyMessage}
@@ -237,6 +284,9 @@ export function InventoryScreen({
         options={options}
         role={role}
         canManage={canManage}
+        canSell={canSell}
+        canReverse={canReverse}
+        history={history}
         error={error}
         pending={pending}
         onClose={() => push({ unitId: undefined, mode: "view" })}

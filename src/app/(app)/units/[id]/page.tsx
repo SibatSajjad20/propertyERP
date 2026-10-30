@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UnitRead } from "@/features/units/components/unit-read";
-import { getUnitById } from "@/features/units/queries";
+import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
+import { getUnitById, listUnitStatusHistory } from "@/features/units/queries";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
 
@@ -23,13 +24,40 @@ export default async function UnitDetailPage({
   assertCan(session.user.role, "units.read");
 
   const { id } = await params;
-  const row = await getUnitById(id);
+  const [row, history] = await Promise.all([getUnitById(id), listUnitStatusHistory(id)]);
   if (!row) {
     notFound();
   }
 
   const canManage = can(session.user.role, "units.manage");
   const inventoryHref = `/inventory?unit=${row.unit.id}&mode=edit` as Route;
+  const unit = {
+    id: row.unit.id,
+    unitCode: row.unit.unitCode,
+    unitNumber: row.unit.unitNumber,
+    floorId: row.unit.floorId,
+    floorName: row.floorName,
+    floorLevel: row.floorLevel,
+    categoryId: row.unit.categoryId,
+    categoryName: row.categoryName,
+    netAreaSqft: row.unit.netAreaSqft,
+    grossAreaSqft: row.unit.grossAreaSqft,
+    ratePerSqftPkr: row.unit.ratePerSqftPkr,
+    priceAdjustmentPkr: row.unit.priceAdjustmentPkr,
+    priceAdjustmentReason: row.unit.priceAdjustmentReason,
+    computedPricePkr: row.computedPricePkr,
+    soldPricePkr: row.unit.soldPricePkr,
+    bookPricePkr: row.bookPricePkr,
+    status: row.unit.status,
+    isSellable: row.unit.isSellable,
+    ownershipGroup: row.unit.ownershipGroup,
+    subOwner: row.unit.subOwner,
+    bookingRef: row.unit.bookingRef,
+    notes: row.unit.notes,
+    version: row.unit.version,
+    soldAt: row.unit.soldAt ? row.unit.soldAt.toISOString() : null,
+    soldBy: row.unit.soldBy,
+  };
 
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
@@ -49,33 +77,13 @@ export default async function UnitDetailPage({
           ) : null}
         </div>
       </div>
-      <UnitRead
-        unit={{
-          id: row.unit.id,
-          unitCode: row.unit.unitCode,
-          unitNumber: row.unit.unitNumber,
-          floorId: row.unit.floorId,
-          floorName: row.floorName,
-          floorLevel: row.floorLevel,
-          categoryId: row.unit.categoryId,
-          categoryName: row.categoryName,
-          netAreaSqft: row.unit.netAreaSqft,
-          grossAreaSqft: row.unit.grossAreaSqft,
-          ratePerSqftPkr: row.unit.ratePerSqftPkr,
-          priceAdjustmentPkr: row.unit.priceAdjustmentPkr,
-          priceAdjustmentReason: row.unit.priceAdjustmentReason,
-          computedPricePkr: row.computedPricePkr,
-          soldPricePkr: row.unit.soldPricePkr,
-          bookPricePkr: row.bookPricePkr,
-          status: row.unit.status,
-          isSellable: row.unit.isSellable,
-          ownershipGroup: row.unit.ownershipGroup,
-          subOwner: row.unit.subOwner,
-          bookingRef: row.unit.bookingRef,
-          notes: row.unit.notes,
-          version: row.unit.version,
-        }}
-      />
+      <UnitStatusActions
+        unit={unit}
+        canSell={can(session.user.role, "units.sell")}
+        canReverse={can(session.user.role, "units.reverse_sale")}
+      >
+        <UnitRead unit={unit} history={history} />
+      </UnitStatusActions>
     </div>
   );
 }

@@ -25,6 +25,19 @@ export type InventoryRow = {
   bookingRef: string | null;
   notes: string | null;
   version: number;
+  soldAt: string | null;
+  soldBy: string | null;
+};
+
+export type StatusHistoryEntry = {
+  id: string;
+  fromStatus: UnitStatus;
+  toStatus: UnitStatus;
+  reason: string | null;
+  bookingRef: string | null;
+  soldPricePkr: string | null;
+  actorName: string | null;
+  createdAt: string;
 };
 
 export type InventoryTotals = {

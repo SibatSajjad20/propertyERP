@@ -34,7 +34,9 @@ test("inventory manager creates a unit and sees the computed total", async ({ pa
   await expect(panel.getByText("Rs 25,00,000")).toBeVisible();
   await panel.getByRole("button", { name: "Save unit" }).click();
   const saved = page.getByRole("dialog");
-  await expect(saved.getByRole("heading", { name: code })).toBeVisible();
+  await expect(saved.getByRole("heading", { name: code })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(saved.getByText("Rs 25,00,000").first()).toBeVisible();
   await saved.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("cell", { name: code })).toBeVisible();

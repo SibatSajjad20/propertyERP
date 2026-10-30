@@ -2,6 +2,14 @@
 
 ADR log. Newest first.
 
+## ADR-0009 — Single status service and transition map
+
+Status: accepted
+
+`changeUnitStatus` is the only writer of `units.status`. It locks the row `FOR UPDATE`, checks `version`, validates the transition, bumps the version, and writes `unit_status_history` plus `audit_log` in the same transaction. Allowed transitions live in one map (`STATUS_TRANSITIONS` in `src/features/units/status.ts`): `AVAILABLE → SOLD` and `SOLD → AVAILABLE`. Extend that map (and the enum) when `RESERVED` / `BOOKED` arrive — do not add a second status writer.
+
+Sale requires `units.sell` (ADMIN, INVENTORY_MANAGER, SALES), a booking ref, and a sellable live unit; it freezes `sold_price_pkr` from `computeTotalPrice`. Reverse requires `units.reverse_sale` (ADMIN) and a reason of at least 10 characters; it clears sold price / date / seller and keeps `booking_ref`.
+
 ## ADR-0008 — Optimistic version lock on unit writes
 
 Status: accepted

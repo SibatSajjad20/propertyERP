@@ -1,12 +1,14 @@
 import { formatSqft } from "@/lib/area";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
-import type { InventoryRow } from "../types";
+import type { InventoryRow, StatusHistoryEntry } from "../types";
+import { StatusHistory } from "./status-history";
 
 type UnitReadProps = {
   unit: InventoryRow;
+  history?: StatusHistoryEntry[];
 };
 
-export function UnitRead({ unit }: UnitReadProps) {
+export function UnitRead({ unit, history = [] }: UnitReadProps) {
   const live = computeTotalPrice(
     unit.ratePerSqftPkr,
     unit.netAreaSqft,
@@ -66,12 +68,7 @@ export function UnitRead({ unit }: UnitReadProps) {
         </p>
       </div>
 
-      <div className="mt-6 border-t border-line pt-4">
-        <p className="text-[11px] tracking-wide text-ink-muted">Status history</p>
-        <p className="mt-2 text-[13px] text-ink-muted">
-          Status history lands in the next round.
-        </p>
-      </div>
+      <StatusHistory entries={history} />
     </div>
   );
 }

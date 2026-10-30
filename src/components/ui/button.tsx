@@ -15,6 +15,8 @@ const buttonVariants = cva(
         outline: "border-line bg-surface text-ink hover:border-ink-muted",
         danger:
           "border-sold bg-sold text-surface hover:bg-[color-mix(in_srgb,var(--sold)_92%,black)]",
+        dangerOutline:
+          "border-sold bg-surface text-sold hover:bg-[color-mix(in_srgb,var(--sold)_8%,var(--surface))]",
       },
     },
     defaultVariants: {

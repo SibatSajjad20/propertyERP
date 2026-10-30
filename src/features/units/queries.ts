@@ -2,13 +2,15 @@ import "server-only";
 
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
+import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
-import { unitPricing, units } from "@/db/schema/units";
+import { unitPricing, unitStatusHistory, units } from "@/db/schema/units";
 import type { InventoryQuery, InventorySortField } from "./schema";
 import type {
   InventoryFilterOptions,
   InventoryRow,
   InventoryTotals,
+  StatusHistoryEntry,
   UnitDetail,
   UnitJumpTarget,
 } from "./types";
@@ -18,6 +20,7 @@ export type {
   InventoryFilterOptions,
   InventoryRow,
   InventoryTotals,
+  StatusHistoryEntry,
   UnitDetail,
   UnitJumpTarget,
 } from "./types";
@@ -83,6 +86,10 @@ function sortColumn(sort: InventorySortField) {
       return units.status;
     case "ownershipGroup":
       return units.ownershipGroup;
+    case "soldAt":
+      return units.soldAt;
+    case "updatedAt":
+      return units.updatedAt;
     default:
       return units.unitCode;
   }
@@ -112,6 +119,8 @@ const inventorySelect = {
   bookingRef: units.bookingRef,
   notes: units.notes,
   version: units.version,
+  soldAt: units.soldAt,
+  soldBy: units.soldBy,
 };
 
 export async function listInventory(query: InventoryQuery): Promise<{
@@ -144,7 +153,10 @@ export async function listInventory(query: InventoryQuery): Promise<{
     .where(where);
 
   return {
-    rows,
+    rows: rows.map((row) => ({
+      ...row,
+      soldAt: row.soldAt ? row.soldAt.toISOString() : null,
+    })),
     totals: {
       count: Number(totalsRow?.count ?? 0),
       netAreaSqft: totalsRow?.netAreaSqft ?? "0.00",
@@ -224,6 +236,31 @@ export async function getUnitById(id: string): Promise<UnitDetail | null> {
     ...row,
     bookPricePkr: row.unit.soldPricePkr ?? row.computedPricePkr,
   };
+}
+
+export async function listUnitStatusHistory(
+  unitId: string,
+): Promise<StatusHistoryEntry[]> {
+  const rows = await db
+    .select({
+      id: unitStatusHistory.id,
+      fromStatus: unitStatusHistory.fromStatus,
+      toStatus: unitStatusHistory.toStatus,
+      reason: unitStatusHistory.reason,
+      bookingRef: unitStatusHistory.bookingRef,
+      soldPricePkr: unitStatusHistory.soldPricePkr,
+      actorName: user.name,
+      createdAt: unitStatusHistory.createdAt,
+    })
+    .from(unitStatusHistory)
+    .leftJoin(user, eq(user.id, unitStatusHistory.actorId))
+    .where(eq(unitStatusHistory.unitId, unitId))
+    .orderBy(desc(unitStatusHistory.createdAt), desc(unitStatusHistory.id));
+
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function searchUnitsByCode(q: string): Promise<UnitJumpTarget[]> {

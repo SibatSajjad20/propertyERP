@@ -67,6 +67,8 @@ function currentUnit(overrides: Record<string, unknown> = {}) {
     priceAdjustmentPkr: "0",
     priceAdjustmentReason: null,
     soldPricePkr: null,
+    soldAt: null,
+    soldBy: null,
     status: "AVAILABLE",
     isSellable: true,
     ownershipGroup: "Sardar Group",

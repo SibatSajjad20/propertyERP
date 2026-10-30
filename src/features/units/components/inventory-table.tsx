@@ -2,8 +2,9 @@
 
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { formatKarachiDate } from "@/lib/datetime";
 import { formatPkrLedger } from "@/lib/money";
 import type { InventoryQuery, InventorySortField } from "../schema";
 import type { InventoryRow, InventoryTotals } from "../types";
@@ -34,7 +35,7 @@ function StatusCell({ status }: { status: InventoryRow["status"] }) {
   );
 }
 
-export const inventoryColumns = helper.columns([
+const coreColumns = [
   helper.accessor("unitCode", {
     header: "Unit code",
     cell: (info) => info.getValue(),
@@ -75,7 +76,15 @@ export const inventoryColumns = helper.columns([
     header: "Ownership group",
     cell: (info) => info.getValue() ?? "—",
   }),
-]);
+];
+
+const soldOnColumn = helper.accessor("soldAt", {
+  header: "Sold on",
+  cell: (info) => {
+    const value = info.getValue();
+    return value ? formatKarachiDate(value) : "—";
+  },
+});
 
 const sortByColumn: Record<string, InventorySortField> = {
   unitCode: "unitCode",
@@ -88,6 +97,7 @@ const sortByColumn: Record<string, InventorySortField> = {
   bookPricePkr: "totalPrice",
   status: "status",
   ownershipGroup: "ownershipGroup",
+  soldAt: "soldAt",
 };
 
 type InventoryTableProps = {
@@ -95,6 +105,7 @@ type InventoryTableProps = {
   totals: InventoryTotals;
   query: InventoryQuery;
   selectedId?: string;
+  showSoldOn?: boolean;
   onRowClick: (row: InventoryRow) => void;
   onSort: (field: InventorySortField) => void;
   emptyMessage: string;
@@ -105,13 +116,23 @@ export function InventoryTable({
   totals,
   query,
   selectedId,
+  showSoldOn = false,
   onRowClick,
   onSort,
   emptyMessage,
 }: InventoryTableProps) {
+  const columns = useMemo(
+    () =>
+      helper.columns(
+        showSoldOn
+          ? [...coreColumns.slice(0, 9), soldOnColumn, ...coreColumns.slice(9)]
+          : coreColumns,
+      ),
+    [showSoldOn],
+  );
   const table = useTable({
     features: inventoryTableFeatures,
-    columns: inventoryColumns,
+    columns,
     data,
   });
   const parentRef = useRef<HTMLDivElement>(null);
@@ -171,7 +192,7 @@ export function InventoryTable({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={inventoryColumns.length}
+                  colSpan={columns.length}
                   className="h-24 px-2 text-center text-ink-muted"
                 >
                   {emptyMessage}
@@ -182,7 +203,7 @@ export function InventoryTable({
                 {virtualizer.getVirtualItems().length > 0 ? (
                   <tr aria-hidden="true">
                     <td
-                      colSpan={inventoryColumns.length}
+                      colSpan={columns.length}
                       style={{ height: virtualizer.getVirtualItems()[0]?.start ?? 0 }}
                       className="p-0"
                     />
@@ -245,7 +266,7 @@ export function InventoryTable({
               <td className="h-8 px-2 text-right text-[12px] text-ink tabular-nums">
                 {formatPkrLedger(totals.valuePkr)}
               </td>
-              <td colSpan={2} />
+              <td colSpan={showSoldOn ? 3 : 2} />
             </tr>
           </tfoot>
         </table>

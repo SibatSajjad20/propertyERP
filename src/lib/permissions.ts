@@ -22,7 +22,7 @@ export type Action = (typeof actions)[number];
 const matrix: Record<Action, readonly UserRole[]> = {
   "units.read": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
   "units.manage": ["ADMIN", "INVENTORY_MANAGER"],
-  "units.sell": ["ADMIN", "SALES"],
+  "units.sell": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
   "units.reverse_sale": ["ADMIN"],
   "units.change_status": ["ADMIN", "INVENTORY_MANAGER", "SALES"],
   "units.update_rate": ["ADMIN", "INVENTORY_MANAGER"],

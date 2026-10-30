@@ -1,26 +1,26 @@
 # Graph Report - PropertyERP  (2026-10-30)
 
 ## Corpus Check
-- 135 files · ~40,694 words
+- 144 files · ~46,567 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 814 nodes · 1424 edges · 124 communities (51 shown, 73 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 5 edges (avg confidence: 0.85)
+- 856 nodes · 1563 edges · 138 communities (65 shown, 73 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 6 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c65aedce`
+- Built from commit: `12866674`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- units/queries.ts
+- units.ts
 - units/actions.ts
 - dashboard/page.tsx
 - Agent instructions
 - compilerOptions
-- cn
+- unit-status-actions.tsx
 - scripts
 - transitions-dev/SKILL.md
 - structure/actions.ts
@@ -118,53 +118,67 @@
 - Web Interface Guidelines
 - Import rules
 - Roadmap
-- units/schema.ts
+- unit-form.tsx
 - PERMISSIONS.md
 - @playwright/test
 - @testing-library/dom
 - InventoryScreen
-- class-variance-authority
+- units/queries.ts
+- units/schema.ts
+- inventory-screen.tsx
+- lib/auth.ts
+- permissions.ts
+- status.test.ts
+- structure-panel.tsx
+- db/index.ts
+- button.tsx
+- errors.ts
+- UserRole
+- enums.ts
+- units.test.ts
+- users/page.tsx
+- clsx
 
 ## God Nodes (most connected - your core abstractions)
-1. `requireSession()` - 40 edges
-2. `assertCan()` - 34 edges
+1. `requireSession()` - 42 edges
+2. `assertCan()` - 35 edges
 3. `cn()` - 20 edges
 4. `compilerOptions` - 18 edges
-5. `can()` - 16 edges
-6. `scripts` - 14 edges
-7. `db` - 14 edges
-8. `updateUnit()` - 14 edges
-9. `computeTotalPrice()` - 13 edges
-10. `Button` - 12 edges
+5. `can()` - 17 edges
+6. `computeTotalPrice()` - 16 edges
+7. `db` - 15 edges
+8. `formatPkrLedger()` - 15 edges
+9. `scripts` - 14 edges
+10. `updateUnit()` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
+  tests/unit/status.test.ts → src/lib/auth.ts
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/units.test.ts → src/lib/auth.ts
 - `mockSession()` --indirect_call--> `requireSession()`  [INFERRED]
   tests/unit/structure.test.ts → src/lib/auth.ts
+- `getDashboardStats()` --calls--> `sql`  [EXTRACTED]
+  src/features/dashboard/queries.ts → src/db/index.ts
 - `StatusCell()` --calls--> `cn()`  [EXTRACTED]
   src/features/units/components/inventory-table.tsx → src/lib/cn.ts
-- `DashboardPage()` --calls--> `formatPkr()`  [EXTRACTED]
-  src/app/(app)/dashboard/page.tsx → src/lib/money.ts
-- `InventoryRoute()` --calls--> `listInventory()`  [EXTRACTED]
-  src/app/(app)/inventory/page.tsx → src/features/units/queries.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (124 total, 73 thin omitted)
+## Communities (138 total, 73 thin omitted)
 
-### Community 0 - "units/queries.ts"
-Cohesion: 0.06
-Nodes (48): { GET, POST }, ImportPage(), instant, metadata, Database, db, globalForDb, account (+40 more)
+### Community 0 - "units.ts"
+Cohesion: 0.15
+Nodes (19): UnitStatus, blocks, categories, floors, properties, rateHistory, unitPricing, DEFAULT_CATEGORIES (+11 more)
 
 ### Community 1 - "units/actions.ts"
-Cohesion: 0.07
-Nodes (38): CommandMenu(), routes, rateHistory, unitStatusHistory, archiveUnit(), asAuditJson(), assertUniqueCode(), changeUnitStatus() (+30 more)
+Cohesion: 0.23
+Nodes (15): archiveUnit(), asAuditJson(), assertUniqueCode(), changeUnitStatus(), createUnit(), loadCategory(), loadFloorProperty(), revalidateUnits() (+7 more)
 
 ### Community 2 - "dashboard/page.tsx"
-Cohesion: 0.18
-Nodes (11): DashboardPage(), instant, metadata, sql, loadDashboard(), margin, OccupancyChart(), OccupancyChartProps (+3 more)
+Cohesion: 0.19
+Nodes (10): DashboardPage(), instant, metadata, loadDashboard(), margin, OccupancyChart(), OccupancyChartProps, OccupancyPoint (+2 more)
 
 ### Community 3 - "Agent instructions"
 Cohesion: 0.20
@@ -174,9 +188,9 @@ Nodes (9): Agent instructions, Code graph, Commit attribution, Conventions, File
 Cohesion: 0.06
 Nodes (30): dom, dom.iterable, esnext, **/*.mts, .next/dev/types/**/*.ts, next-env.d.ts, .next/types/**/*.ts, node_modules (+22 more)
 
-### Community 5 - "cn"
-Cohesion: 0.05
-Nodes (43): AppGroupLayout(), instant, LoginForm(), loginSchema, LoginValues, instant, LoginPage(), metadata (+35 more)
+### Community 5 - "unit-status-actions.tsx"
+Cohesion: 0.14
+Nodes (15): DataTable(), DataTableProps, helper, inventoryColumns, InventoryRow, inventoryTableFeatures, numericAccessors, Badge() (+7 more)
 
 ### Community 6 - "scripts"
 Cohesion: 0.11
@@ -187,12 +201,12 @@ Cohesion: 0.22
 Nodes (7): Calibrating `stroke-dasharray` for your path, CSS, HTML usage, JavaScript orchestration, Success check, Tunable variables, When to use
 
 ### Community 8 - "structure/actions.ts"
-Cohesion: 0.05
-Nodes (79): AuditPage(), instant, metadata, instant, InventoryRoute(), metadata, instant, metadata (+71 more)
+Cohesion: 0.09
+Nodes (53): previewImport(), importPreviewSchema, archiveBlock(), archiveFloor(), archiveProperty(), asAuditJson(), AuditAction, countActiveUnitsOnBlock() (+45 more)
 
 ### Community 9 - "dependencies"
 Cohesion: 0.15
-Nodes (13): clsx, dependencies, clsx, pg-boss, @radix-ui/react-checkbox, @radix-ui/react-popover, @radix-ui/react-scroll-area, @radix-ui/react-tooltip (+5 more)
+Nodes (13): class-variance-authority, dependencies, class-variance-authority, pg-boss, @radix-ui/react-checkbox, @radix-ui/react-popover, @radix-ui/react-scroll-area, @radix-ui/react-tooltip (+5 more)
 
 ### Community 10 - "Avatar group hover"
 Cohesion: 0.22
@@ -211,8 +225,8 @@ Cohesion: 0.22
 Nodes (8): CSS, Error state shake, HTML usage, JavaScript orchestration, Recomputing the keyframe stops, Tunable variables, When to use, Why three classes (`.is-error` on wrap + input, `.is-shaking` on input)
 
 ### Community 22 - "Decisions"
-Cohesion: 0.20
-Nodes (9): ADR-0001 — Next.js App Router monolith, monorepo-ready, ADR-0002 — Numeric money, frozen sold price, ADR-0003 — Better Auth + Drizzle, ADR-0004 — visx, not Recharts, ADR-0005 — Phosphor light, no Lucide, ADR-0006 — Graphify for the code graph, ADR-0007 — Whole-rupee asking price, ADR-0008 — Optimistic version lock on unit writes (+1 more)
+Cohesion: 0.18
+Nodes (10): ADR-0001 — Next.js App Router monolith, monorepo-ready, ADR-0002 — Numeric money, frozen sold price, ADR-0003 — Better Auth + Drizzle, ADR-0004 — visx, not Recharts, ADR-0005 — Phosphor light, no Lucide, ADR-0006 — Graphify for the code graph, ADR-0007 — Whole-rupee asking price, ADR-0008 — Optimistic version lock on unit writes (+2 more)
 
 ### Community 23 - "Design"
 Cohesion: 0.25
@@ -290,33 +304,89 @@ Nodes (4): Cleaning, Import rules, Money, Re-import (diff mode)
 Cohesion: 0.50
 Nodes (3): MVP (this scaffold), Next, Roadmap
 
-### Community 115 - "units/schema.ts"
-Cohesion: 0.05
-Nodes (66): Button, ButtonProps, buttonVariants, unitStatuses, UserRole, InventoryScreenProps, helper, inventoryColumns (+58 more)
+### Community 115 - "unit-form.tsx"
+Cohesion: 0.14
+Nodes (26): soldOnColumn, StatusHistory(), StatusHistoryProps, statusLabel(), toDefaults(), UnitForm(), UnitFormProps, UnitRead() (+18 more)
 
 ### Community 120 - "InventoryScreen"
 Cohesion: 0.54
 Nodes (8): hrefFor(), InventoryScreen(), handleArchive(), handleSort(), handleSubmit(), push(), run(), inventoryQueryString()
 
+### Community 121 - "units/queries.ts"
+Cohesion: 0.10
+Nodes (28): instant, InventoryRoute(), metadata, instant, metadata, UnitDetailPage(), CommandMenu(), routes (+20 more)
+
+### Community 124 - "units/schema.ts"
+Cohesion: 0.09
+Nodes (21): unitStatuses, ArchiveUnitInput, archiveUnitSchema, areaSchema, ChangeUnitStatusInput, changeUnitStatusSchema, DECIMAL_PATTERN, defaultInventoryQuery (+13 more)
+
+### Community 125 - "inventory-screen.tsx"
+Cohesion: 0.13
+Nodes (18): InventoryScreenProps, coreColumns, helper, InventoryTable(), inventoryTableFeatures, InventoryTableProps, numericAccessors, sortByColumn (+10 more)
+
+### Community 126 - "lib/auth.ts"
+Cohesion: 0.13
+Nodes (14): { GET, POST }, AppGroupLayout(), LoginForm(), instant, LoginPage(), metadata, HomePage(), instant (+6 more)
+
+### Community 127 - "permissions.ts"
+Cohesion: 0.18
+Nodes (13): AuditPage(), instant, metadata, instant, metadata, StructurePage(), loadAuditLog(), listAuditLog() (+5 more)
+
+### Community 128 - "status.test.ts"
+Cohesion: 0.18
+Nodes (14): unitStatusHistory, assertTransition(), BOOKING_REF_REQUIRED_MESSAGE, canTransition(), NOT_SELLABLE_MESSAGE, REVERSE_REASON_MESSAGE, REVERSE_REASON_MIN, STATUS_TRANSITIONS (+6 more)
+
+### Community 129 - "structure-panel.tsx"
+Cohesion: 0.21
+Nodes (14): initialLevel(), initialName(), panelKey(), StructurePanel(), StructurePanelForm(), handleArchive(), handleSubmit(), StructurePanelProps (+6 more)
+
+### Community 130 - "db/index.ts"
+Cohesion: 0.19
+Nodes (9): ImportPage(), instant, metadata, Database, db, globalForDb, sql, importBatches (+1 more)
+
+### Community 131 - "button.tsx"
+Cohesion: 0.24
+Nodes (7): loginSchema, LoginValues, TopBarProps, Button, ButtonProps, buttonVariants, authClient
+
+### Community 132 - "errors.ts"
+Cohesion: 0.22
+Nodes (6): AppError, ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
+
+### Community 133 - "UserRole"
+Cohesion: 0.23
+Nodes (8): instant, AppShell(), AppShellProps, items, Sidebar(), SidebarProps, TopBar(), UserRole
+
+### Community 134 - "enums.ts"
+Cohesion: 0.23
+Nodes (9): account, session, user, verification, AuditAction, auditActionEnum, auditActions, unitStatusEnum (+1 more)
+
+### Community 135 - "units.test.ts"
+Cohesion: 0.20
+Nodes (10): auditLog, createUnitSchema, STALE_UNIT_MESSAGE, unitCodeSchema, updateUnitSchema, baseFields, currentUnit(), mockSession() (+2 more)
+
+### Community 136 - "users/page.tsx"
+Cohesion: 0.47
+Nodes (4): instant, metadata, UsersPage(), listUsers()
+
 ## Knowledge Gaps
-- **343 isolated node(s):** `eslintConfig`, `lintStagedConfig`, `nextConfig`, `sentryEnabled`, `name` (+338 more)
+- **351 isolated node(s):** `eslintConfig`, `lintStagedConfig`, `nextConfig`, `sentryEnabled`, `name` (+346 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **73 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `dependencies` to `scripts`, `better-auth`, `@better-auth/drizzle-adapter`, `@radix-ui/react-select`, `cmdk`, `drizzle-orm`, `exceljs`, `@hookform/resolvers`, `motion`, `next`, `@phosphor-icons/react`, `pino`, `postgres`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-separator`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-visually-hidden`, `react`, `react-dom`, `react-hook-form`, `@sentry/nextjs`, `server-only`, `sonner`, `tailwind-merge`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@visx/axis`, `@visx/event`, `@visx/grid`, `@visx/group`, `@visx/legend`, `@visx/responsive`, `@visx/scale`, `@visx/shape`, `@visx/tooltip`, `xlsx`, `zod`, `class-variance-authority`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `dependencies` to `scripts`, `clsx`, `better-auth`, `@better-auth/drizzle-adapter`, `@radix-ui/react-select`, `cmdk`, `drizzle-orm`, `exceljs`, `@hookform/resolvers`, `motion`, `next`, `@phosphor-icons/react`, `pino`, `postgres`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-separator`, `@radix-ui/react-slot`, `@radix-ui/react-switch`, `@radix-ui/react-tabs`, `@radix-ui/react-visually-hidden`, `react`, `react-dom`, `react-hook-form`, `@sentry/nextjs`, `server-only`, `sonner`, `tailwind-merge`, `@tanstack/react-table`, `@tanstack/react-virtual`, `@visx/axis`, `@visx/event`, `@visx/grid`, `@visx/group`, `@visx/legend`, `@visx/responsive`, `@visx/scale`, `@visx/shape`, `@visx/tooltip`, `xlsx`, `zod`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Why does `devDependencies` connect `devDependencies` to `scripts`, `eslint`, `eslint-config-next`, `eslint-config-prettier`, `husky`, `jsdom`, `lint-staged`, `pino-pretty`, `prettier`, `prettier-plugin-tailwindcss`, `tailwindcss`, `@tailwindcss/turbopack`, `@testing-library/react`, `@testing-library/user-event`, `tsx`, `@types/node`, `@types/react`, `@types/react-dom`, `typescript`, `@vitejs/plugin-react`, `vitest`, `@playwright/test`, `@testing-library/dom`?**
-  _High betweenness centrality (0.021) - this node is a cross-community bridge._
-- **Why does `requireSession()` connect `structure/actions.ts` to `units/queries.ts`, `units/actions.ts`, `dashboard/page.tsx`, `cn`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Are the 2 inferred relationships involving `requireSession()` (e.g. with `mockSession()` and `mockSession()`) actually correct?**
-  _`requireSession()` has 2 INFERRED edges - model-reasoned connections that need verification._
+  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Why does `requireSession()` connect `structure/actions.ts` to `status.test.ts`, `units/actions.ts`, `dashboard/page.tsx`, `units.test.ts`, `users/page.tsx`, `units/queries.ts`, `lib/auth.ts`, `permissions.ts`?**
+  _High betweenness centrality (0.017) - this node is a cross-community bridge._
+- **Are the 3 inferred relationships involving `requireSession()` (e.g. with `mockSession()` and `mockSession()`) actually correct?**
+  _`requireSession()` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `eslintConfig`, `lintStagedConfig`, `nextConfig` to the rest of the system?**
-  _343 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `units/queries.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06277436347673397 - nodes in this community are weakly interconnected._
-- **Should `units/actions.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06966618287373004 - nodes in this community are weakly interconnected._
+  _351 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `units.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.14666666666666667 - nodes in this community are weakly interconnected._
+- **Should `compilerOptions` be split into smaller, more focused modules?**
+  _Cohesion score 0.06451612903225806 - nodes in this community are weakly interconnected._
