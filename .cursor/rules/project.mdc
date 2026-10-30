@@ -1,0 +1,27 @@
+---
+description: Stack, folder structure, and coding conventions for Sardar's Mall ERP
+alwaysApply: true
+---
+
+# Project
+
+- Next.js App Router, TypeScript strict, pnpm, PostgreSQL 16, Drizzle, Better Auth.
+- Feature folders: `src/features/<name>/{actions.ts,queries.ts,schema.ts,components/}`.
+- Server actions own mutations. Queries are server-only. Zod parses every action input.
+- Roles: `ADMIN`, `INVENTORY_MANAGER`, `SALES`. Check with `assertCan` / `can` on the server.
+- Do not install `lucide-react`. Icons: `@phosphor-icons/react` weight `light`, navigation only.
+- Charts: `@visx/*`. Import: `xlsx`. Export: `exceljs`. Jobs: `pg-boss`. Logs: `pino`.
+- New modules (customers, bookings, payments, leasing) follow the same feature-folder pattern. See `docs/ARCHITECTURE.md`.
+- Money is `numeric` / decimal strings. Never `number` floats for PKR or area.
+- Read `graphify-out/GRAPH_REPORT.md` before large structural changes.
+
+```ts
+// action template
+"use server";
+export async function doThing(input: unknown) {
+  const parsed = thingSchema.parse(input);
+  const session = await requireSession();
+  assertCan(session.user.role, "units.read");
+  // ...
+}
+```

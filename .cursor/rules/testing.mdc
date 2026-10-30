@@ -1,0 +1,14 @@
+---
+description: Vitest and Playwright conventions
+globs: tests/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Testing
+
+- Unit tests: `tests/unit`, Vitest, `pnpm test`.
+- E2E: `tests/e2e`, Playwright, `pnpm test:e2e`.
+- Money math must be tested with decimal strings, not floats.
+- Login e2e uses seeded `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+- Prefer assertions on visible ledger copy over class names.
+- New mutations need a unit or integration test for the invariant they protect (version lock, sale freeze, permission deny).

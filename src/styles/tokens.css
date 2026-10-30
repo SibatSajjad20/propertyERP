@@ -1,0 +1,21 @@
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --line: #e4e0d6;
+  --ink: #1a1a17;
+  --ink-muted: #6b675e;
+  --primary: #0e3a5b;
+  --accent: #9a7b4f;
+  --available: #2f5d46;
+  --sold: #7a2e2a;
+  --focus: #0e3a5b;
+  --row-height: 32px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --ease-ledger: cubic-bezier(0, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration: 180ms;
+  --duration-slow: 200ms;
+  --sidebar-width: 224px;
+  --topbar-height: 48px;
+}

@@ -1,0 +1,14 @@
+---
+description: Drizzle, migrations, and money rules
+globs: src/db/**/*.{ts,sql}
+alwaysApply: false
+---
+
+# Database
+
+- Drizzle schema in `src/db/schema/`. Migrations in `src/db/migrations/`. Never edit applied SQL by hand; generate a new migration.
+- PKR and area columns are `numeric`. JS treats them as strings. Compute totals with `computeTotalPrice` (matches `unit_pricing` view).
+- `sold_price_pkr` is frozen on sale. Do not recompute sold units from live rate.
+- `units.unit_code` is unique per property. Optimistic lock on `units.version`.
+- Status changes go through `changeUnitStatus` only: lock row, bump version, write `unit_status_history` and `audit_log` in the same transaction.
+- Commands: `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`.

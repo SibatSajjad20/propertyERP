@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-available: var(--available);
+  --color-sold: var(--sold);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-newsreader);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-md);
+  --radius-xl: var(--radius-md);
+  --shadow: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+h1,
+h2,
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.unit-code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 400;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, white);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
