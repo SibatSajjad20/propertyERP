@@ -3,6 +3,8 @@ import { listAuditLog } from "@/features/audit/queries";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
+export const instant = false;
+
 export const metadata = {
   title: "Audit",
 };

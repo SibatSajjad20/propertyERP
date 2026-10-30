@@ -11,7 +11,7 @@ const routes = [
   { href: "/import", label: "Import" },
   { href: "/users", label: "Users" },
   { href: "/audit", label: "Audit" },
-];
+] as const;
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);

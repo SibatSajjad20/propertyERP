@@ -4,6 +4,8 @@ import { getUnitById } from "@/features/units/queries";
 import { formatSqft } from "@/lib/area";
 import { formatPkr, formatPkrLedger } from "@/lib/money";
 
+export const instant = false;
+
 export const metadata = {
   title: "Unit",
 };

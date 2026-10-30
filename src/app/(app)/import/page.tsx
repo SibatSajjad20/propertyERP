@@ -1,5 +1,7 @@
 import { listImportBatches } from "@/features/import/queries";
 
+export const instant = false;
+
 export const metadata = {
   title: "Import",
 };

@@ -11,6 +11,7 @@ alwaysApply: true
 - Roles: `ADMIN`, `INVENTORY_MANAGER`, `SALES`. Check with `assertCan` / `can` on the server.
 - Do not install `lucide-react`. Icons: `@phosphor-icons/react` weight `light`, navigation only.
 - Charts: `@visx/*`. Import: `xlsx`. Export: `exceljs`. Jobs: `pg-boss`. Logs: `pino`.
+- Authenticated pages export `instant = false` (Cache Components). Session and DB reads cannot prerender.
 - New modules (customers, bookings, payments, leasing) follow the same feature-folder pattern. See `docs/ARCHITECTURE.md`.
 - Money is `numeric` / decimal strings. Never `number` floats for PKR or area.
 - Read `graphify-out/GRAPH_REPORT.md` before large structural changes.

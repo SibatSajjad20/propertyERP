@@ -2,6 +2,8 @@ import { OccupancyChart } from "@/features/dashboard/components/occupancy-chart"
 import { getDashboardStats, getOccupancySeries } from "@/features/dashboard/queries";
 import { formatPkr } from "@/lib/money";
 
+export const instant = false;
+
 export const metadata = {
   title: "Dashboard",
 };
