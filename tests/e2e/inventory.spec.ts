@@ -11,6 +11,7 @@ async function signIn(
   email: string,
   password: string,
 ) {
+  await page.context().clearCookies();
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -53,7 +54,7 @@ test("inventory manager creates a unit and sees the computed total", async ({ pa
 test("inventory filters are shareable via the URL", async ({ page }) => {
   await signIn(page, inventoryEmail, inventoryPassword);
   await page.goto("/inventory?status=SOLD&missingGross=1");
-  await expect(page.getByLabel("Status")).toHaveValue("SOLD");
+  await expect(page.getByLabel("Status", { exact: true })).toHaveValue("SOLD");
   await expect(page.getByLabel("Missing gross area")).toBeChecked();
   await expect(page).toHaveURL(/status=SOLD/);
   await expect(page).toHaveURL(/missingGross=1/);

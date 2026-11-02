@@ -21,6 +21,9 @@ export default defineConfig({
     url: "http://localhost:3000/login",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ALLOW_TEST_DB: "1",
+    },
   },
   projects: [
     {

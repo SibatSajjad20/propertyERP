@@ -2,17 +2,21 @@ import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, PencilSimple } from "@phosphor-icons/react/dist/ssr";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BreadcrumbSet } from "@/components/app-shell/breadcrumb-set";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { UnitRead } from "@/features/units/components/unit-read";
+import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
+import { UnitOwnershipTimeline } from "@/features/sales/components/unit-ownership-timeline";
+import { getUnitOwnershipTimeline } from "@/features/sales/queries";
 import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
 import { getUnitById, listUnitStatusHistory } from "@/features/units/queries";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
 import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { formatSqft } from "@/lib/area";
+
+export const instant = false;
 
 export async function generateMetadata({
   params,
@@ -35,7 +39,11 @@ export default async function UnitDetailPage({
   assertCan(session.user.role, "units.read");
 
   const { id } = await params;
-  const [row, history] = await Promise.all([getUnitById(id), listUnitStatusHistory(id)]);
+  const [row, history, timeline] = await Promise.all([
+    getUnitById(id),
+    listUnitStatusHistory(id),
+    getUnitOwnershipTimeline(id),
+  ]);
   if (!row) {
     notFound();
   }
@@ -93,9 +101,7 @@ export default async function UnitDetailPage({
             <span className="unit-code font-mono text-[22px] font-semibold text-primary">
               {row.unit.unitCode}
             </span>
-            <Badge tone={isSold ? "sold" : "available"}>
-              {isSold ? "Sold" : "Available"}
-            </Badge>
+            <UnitStatusBadge status={unit.status} />
           </div>
           <h1 className="mt-1 text-[15px] font-medium text-ink-muted">
             Unit {row.unit.unitNumber} · {row.floorName} (Level {row.floorLevel}) ·{" "}
@@ -113,6 +119,40 @@ export default async function UnitDetailPage({
           ) : null}
         </div>
       </div>
+
+      {/* Active Sales Lifecycle Banner */}
+      {unit.status === "RESERVED" && (
+        <div className="flex items-center justify-between rounded-[8px] border border-accent/30 bg-accent/10 px-4 py-3">
+          <span className="text-[13px] font-medium text-accent">
+            This unit is currently RESERVED under prospective buyer hold.
+          </span>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={`/reservations?q=${unit.unitCode}` as never}>
+              View Reservation
+            </Link>
+          </Button>
+        </div>
+      )}
+      {unit.status === "BOOKED" && (
+        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
+          <span className="text-[13px] font-medium text-primary">
+            This unit is currently BOOKED under an active installment payment plan.
+          </span>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={`/bookings?q=${unit.unitCode}` as never}>View Booking</Link>
+          </Button>
+        </div>
+      )}
+      {unit.status === "SOLD" && (
+        <div className="flex items-center justify-between rounded-[8px] border border-sold/30 bg-sold/10 px-4 py-3">
+          <span className="text-[13px] font-medium text-sold">
+            This unit is SOLD. Ownership details and sale record are finalized.
+          </span>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={`/sold?q=${unit.unitCode}` as never}>View Sold Record</Link>
+          </Button>
+        </div>
+      )}
 
       {/* KPI Cards (Area, Rate, Price) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -180,11 +220,26 @@ export default async function UnitDetailPage({
       <div className="card overflow-hidden">
         <UnitStatusActions
           unit={unit}
+          history={history}
           canSell={can(session.user.role, "units.sell")}
           canReverse={can(session.user.role, "units.reverse_sale")}
         >
           <UnitRead unit={unit} history={history} />
         </UnitStatusActions>
+      </div>
+
+      {/* Ownership & Transactions Timeline */}
+      <div className="card space-y-4 p-5">
+        <div>
+          <h3 className="text-[14px] font-semibold text-ink">
+            Ownership & Transactions Timeline
+          </h3>
+          <p className="text-[12px] text-ink-muted">
+            Audited history of reservations, bookings, payments, sales, returns, and
+            buybacks.
+          </p>
+        </div>
+        <UnitOwnershipTimeline events={timeline} />
       </div>
     </div>
   );

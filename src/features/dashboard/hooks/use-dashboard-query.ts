@@ -5,6 +5,7 @@ import { getDashboardData } from "../actions";
 import type {
   BlockBreakdownRow,
   DashboardFilterOptions,
+  DashboardNeedsAttention,
   DashboardStats,
   FloorLedgerRow,
   RecentActivityItem,
@@ -13,6 +14,7 @@ import type {
 
 export interface DashboardData {
   stats: DashboardStats;
+  attention?: DashboardNeedsAttention;
   floors: FloorLedgerRow[];
   blocks: BlockBreakdownRow[];
   salesOverTime: SalesOverTimePoint[];

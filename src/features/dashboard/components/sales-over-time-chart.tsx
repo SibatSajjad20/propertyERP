@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
+import { curveMonotoneX } from "@visx/curve";
 import { GridRows } from "@visx/grid";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
-import { scaleBand, scaleLinear } from "@visx/scale";
-import { LinePath } from "@visx/shape";
-import { motion } from "motion/react";
+import { scaleBand, scaleLinear, scalePoint } from "@visx/scale";
+import { AreaClosed, LinePath } from "@visx/shape";
 import { formatPkrCompact } from "@/lib/money";
 import type { SalesOverTimePoint } from "../queries";
 
@@ -17,73 +17,145 @@ interface SalesChartInnerProps {
   height: number;
 }
 
-function SalesChartInner({ data, width, height }: SalesChartInnerProps) {
+function getDisplaySalesData(rawData: SalesOverTimePoint[]): SalesOverTimePoint[] {
+  if (rawData.length <= 6) return rawData;
+  const firstSaleIdx = rawData.findIndex(
+    (d) => d.count > 0 || (Number(d.volumePkr) || 0) > 0,
+  );
+  if (firstSaleIdx !== -1) {
+    const fromFirstSale = rawData.slice(firstSaleIdx);
+    if (fromFirstSale.length < 6) {
+      return rawData.slice(-6);
+    }
+    return fromFirstSale;
+  }
+  return rawData.slice(-6);
+}
+
+function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps) {
   const [activePoint, setActivePoint] = React.useState<SalesOverTimePoint | null>(null);
 
-  const margin = { top: 28, right: 16, bottom: 32, left: 36 };
+  // Range from the first sale or the last 6 months
+  const data = getDisplaySalesData(rawData);
+
+  const isBarChart = data.length < 4;
+
+  const margin = { top: 24, right: 20, bottom: 32, left: 52 };
   const innerWidth = Math.max(0, width - margin.left - margin.right);
   const innerHeight = Math.max(0, height - margin.top - margin.bottom);
 
-  const xScale = React.useMemo(
+  const months = React.useMemo(() => data.map((d) => d.month), [data]);
+
+  const xPointScale = React.useMemo(
     () =>
-      scaleBand<string>({
+      scalePoint<string>({
+        domain: months,
         range: [0, innerWidth],
-        domain: data.map((d) => d.month),
-        padding: 0.35,
+        padding: 0.1,
       }),
-    [data, innerWidth],
+    [months, innerWidth],
   );
 
-  const maxCount = Math.max(1, ...data.map((d) => d.count));
+  const xBandScale = React.useMemo(
+    () =>
+      scaleBand<string>({
+        domain: months,
+        range: [0, innerWidth],
+        padding: 0.35,
+      }),
+    [months, innerWidth],
+  );
+
+  const maxVolume = React.useMemo(
+    () => Math.max(1, ...data.map((d) => Number(d.volumePkr) || 0)),
+    [data],
+  );
+
   const yScale = React.useMemo(
     () =>
       scaleLinear<number>({
-        range: [innerHeight, 0],
-        domain: [0, Math.ceil(maxCount * 1.2)],
-        nice: true,
-      }),
-    [innerHeight, maxCount],
-  );
-
-  const maxVolume = Math.max(1, ...data.map((d) => Number(d.volumePkr) || 0));
-  const yVolumeScale = React.useMemo(
-    () =>
-      scaleLinear<number>({
-        range: [innerHeight - 10, 10],
         domain: [0, maxVolume * 1.15],
+        range: [innerHeight, 0],
+        nice: true,
       }),
     [innerHeight, maxVolume],
   );
 
-  if (data.length === 0) {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-[12px] text-ink-muted">
-        No sales recorded in this period.
-      </div>
-    );
-  }
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<SVGSVGElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left - margin.left;
+      if (mouseX < 0 || mouseX > innerWidth) {
+        setActivePoint(null);
+        return;
+      }
+
+      let closestPoint = data[0] ?? null;
+      let minDistance = Infinity;
+
+      for (const d of data) {
+        const x = isBarChart
+          ? (xBandScale(d.month) ?? 0) + xBandScale.bandwidth() / 2
+          : (xPointScale(d.month) ?? 0);
+        const dist = Math.abs(x - mouseX);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestPoint = d;
+        }
+      }
+
+      setActivePoint(closestPoint);
+    },
+    [data, innerWidth, margin.left, isBarChart, xBandScale, xPointScale],
+  );
+
+  const handlePointerLeave = React.useCallback(() => {
+    setActivePoint(null);
+  }, []);
+
+  const activeX = activePoint
+    ? isBarChart
+      ? (xBandScale(activePoint.month) ?? 0) + xBandScale.bandwidth() / 2
+      : (xPointScale(activePoint.month) ?? 0)
+    : null;
+  const activeY = activePoint ? yScale(Number(activePoint.volumePkr) || 0) : null;
 
   return (
-    <div className="relative">
+    <div className="relative h-full w-full select-none">
       {activePoint && (
-        <div className="absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[6px] border border-line bg-surface/95 px-2.5 py-1 font-sans text-[11px] text-ink tabular-nums shadow-xs backdrop-blur-xs">
-          <span className="font-medium text-primary">{activePoint.label}:</span>
-          <span>
+        <div className="pointer-events-none absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[6px] border border-line bg-surface/95 px-2.5 py-1 font-sans text-[11px] text-ink tabular-nums shadow-xs backdrop-blur-xs">
+          <span className="font-medium text-ink-muted">{activePoint.label}:</span>
+          <span className="font-semibold text-primary">
             {activePoint.count} unit{activePoint.count === 1 ? "" : "s"}
           </span>
           <span className="text-ink-muted">·</span>
-          <span className="font-semibold text-accent">
+          <span className="font-semibold text-ink">
             {formatPkrCompact(activePoint.volumePkr)}
           </span>
         </div>
       )}
+
       <svg
         width={width}
         height={height}
-        className="overflow-visible"
+        className="cursor-crosshair overflow-visible"
         role="img"
         aria-label="Sales volume over time"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
       >
+        <defs>
+          <style>{`
+            @keyframes salesLineDraw {
+              0% { stroke-dashoffset: 1400; }
+              100% { stroke-dashoffset: 0; }
+            }
+            .sales-line-animated {
+              stroke-dasharray: 1400;
+              animation: salesLineDraw 800ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            }
+          `}</style>
+        </defs>
         <Group left={margin.left} top={margin.top}>
           <GridRows
             scale={yScale}
@@ -91,12 +163,14 @@ function SalesChartInner({ data, width, height }: SalesChartInnerProps) {
             stroke="var(--line)"
             strokeDasharray="2 3"
             strokeOpacity={0.8}
+            numTicks={4}
           />
           <AxisLeft
             scale={yScale}
             numTicks={4}
             stroke="var(--line)"
             tickStroke="var(--line)"
+            tickFormat={(val) => formatPkrCompact(String(Math.round(Number(val) || 0)))}
             tickLabelProps={{
               fill: "var(--ink-muted)",
               fontSize: 10,
@@ -108,7 +182,7 @@ function SalesChartInner({ data, width, height }: SalesChartInnerProps) {
           />
           <AxisBottom
             top={innerHeight}
-            scale={xScale}
+            scale={isBarChart ? xBandScale : xPointScale}
             stroke="var(--line)"
             tickStroke="var(--line)"
             tickFormat={(monthStr) => {
@@ -124,63 +198,76 @@ function SalesChartInner({ data, width, height }: SalesChartInnerProps) {
             }}
           />
 
-          {/* Optional volume trend line */}
-          {data.length > 1 && (
-            <LinePath<SalesOverTimePoint>
-              data={data}
-              x={(d) => (xScale(d.month) ?? 0) + xScale.bandwidth() / 2}
-              y={(d) => yVolumeScale(Number(d.volumePkr) || 0)}
-              stroke="var(--accent)"
-              strokeWidth={1.5}
-              strokeOpacity={0.5}
-              strokeDasharray="3 3"
-            />
+          {isBarChart ? (
+            /* Bar chart for fewer than 4 months of data */
+            data.map((d) => {
+              const barX = xBandScale(d.month) ?? 0;
+              const barWidth = xBandScale.bandwidth();
+              const val = Number(d.volumePkr) || 0;
+              const barY = yScale(val);
+              const barHeight = Math.max(0, innerHeight - barY);
+              const isHovered = activePoint?.month === d.month;
+
+              return (
+                <rect
+                  key={d.month}
+                  x={barX}
+                  y={barY}
+                  width={barWidth}
+                  height={barHeight}
+                  fill="var(--primary)"
+                  opacity={isHovered ? 1 : 0.85}
+                  rx={4}
+                  className="transition-all duration-150"
+                />
+              );
+            })
+          ) : (
+            /* Smooth area chart with animated line draw-in */
+            <>
+              <AreaClosed<SalesOverTimePoint>
+                data={data}
+                x={(d) => xPointScale(d.month) ?? 0}
+                y={(d) => yScale(Number(d.volumePkr) || 0)}
+                yScale={yScale}
+                curve={curveMonotoneX}
+                fill="rgba(11, 85, 139, 0.10)"
+              />
+
+              <LinePath<SalesOverTimePoint>
+                data={data}
+                x={(d) => xPointScale(d.month) ?? 0}
+                y={(d) => yScale(Number(d.volumePkr) || 0)}
+                curve={curveMonotoneX}
+                stroke="var(--primary)"
+                strokeWidth={2}
+                className="sales-line-animated"
+              />
+            </>
           )}
 
-          {data.map((d, index) => {
-            const barWidth = xScale.bandwidth();
-            const barHeight = Math.max(2, innerHeight - (yScale(d.count) ?? 0));
-            const barX = xScale(d.month) ?? 0;
-            const barY = innerHeight - barHeight;
-            const isHovered = activePoint?.month === d.month;
-
-            return (
-              <g key={d.month}>
-                <motion.rect
-                  x={barX}
-                  width={barWidth}
-                  rx={4}
-                  initial={{ y: innerHeight, height: 0 }}
-                  animate={{
-                    y: isHovered ? barY - 2 : barY,
-                    height: isHovered ? barHeight + 2 : barHeight,
-                  }}
-                  transition={{
-                    duration: 0.35,
-                    delay: index * 0.05,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  fill={isHovered ? "var(--primary-hover)" : "var(--primary)"}
-                  className="cursor-pointer transition-colors duration-150"
-                  onMouseEnter={() => setActivePoint(d)}
-                  onMouseLeave={() => setActivePoint(null)}
-                />
-                <motion.text
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.05 + 0.2 }}
-                  x={barX + barWidth / 2}
-                  y={barY - 5}
-                  textAnchor="middle"
-                  fill={isHovered ? "var(--primary)" : "var(--ink-muted)"}
-                  fontSize={10}
-                  className="font-sans tabular-nums select-none"
-                >
-                  {d.count}
-                </motion.text>
-              </g>
-            );
-          })}
+          {/* Hover crosshair and data point */}
+          {activeX !== null && activeY !== null && (
+            <g>
+              <line
+                x1={activeX}
+                x2={activeX}
+                y1={0}
+                y2={innerHeight}
+                stroke="var(--line-strong)"
+                strokeDasharray="3 3"
+                strokeWidth={1.5}
+              />
+              <circle
+                cx={activeX}
+                cy={activeY}
+                r={4.5}
+                fill="var(--primary)"
+                stroke="var(--surface)"
+                strokeWidth={2}
+              />
+            </g>
+          )}
         </Group>
       </svg>
     </div>
@@ -189,7 +276,7 @@ function SalesChartInner({ data, width, height }: SalesChartInnerProps) {
 
 export function SalesOverTimeChart({ data }: { data: SalesOverTimePoint[] }) {
   return (
-    <div className="h-[210px] w-full">
+    <div className="h-full min-h-[220px] w-full">
       <ParentSize debounceTime={50}>
         {({ width, height }) =>
           width > 0 && height > 0 ? (

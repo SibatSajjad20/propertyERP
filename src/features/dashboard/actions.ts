@@ -3,12 +3,10 @@
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 import {
-  getBlocksBreakdown,
+  getDashboardBundle,
   getDashboardFilterOptions,
   getDashboardStats,
-  getFloorsLedger,
   getRecentActivity,
-  getSalesOverTime,
 } from "./queries";
 
 export async function loadDashboard() {
@@ -25,15 +23,19 @@ export async function getDashboardData(filter?: {
   assertCan(session.user.role, "dashboard.read");
   const isSales = session.user.role === "SALES";
 
-  const [stats, floors, blocks, salesOverTime, activities, filterOptions] =
-    await Promise.all([
-      getDashboardStats(filter),
-      getFloorsLedger(filter),
-      getBlocksBreakdown(filter),
-      getSalesOverTime(filter),
-      isSales ? Promise.resolve([]) : getRecentActivity(10),
-      getDashboardFilterOptions(),
-    ]);
+  const [bundle, activities, filterOptions] = await Promise.all([
+    getDashboardBundle(filter),
+    isSales ? Promise.resolve([]) : getRecentActivity(8),
+    getDashboardFilterOptions(),
+  ]);
 
-  return { stats, floors, blocks, salesOverTime, activities, filterOptions };
+  return {
+    stats: bundle.stats,
+    attention: bundle.attention,
+    floors: bundle.floors,
+    blocks: bundle.blocks,
+    salesOverTime: bundle.salesOverTime,
+    activities,
+    filterOptions,
+  };
 }

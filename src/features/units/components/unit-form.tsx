@@ -1,13 +1,20 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { ZodError } from "zod";
-import { CaretUpDown } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { isGrossLessThanNet } from "@/lib/area";
 import {
   computeTotalPrice,
@@ -24,11 +31,6 @@ import {
   type UpdateUnitInput,
 } from "../schema";
 import type { InventoryFilterOptions, InventoryRow } from "../types";
-
-const selectWrapperClass =
-  "relative flex w-full items-center rounded-[6px] border border-line bg-surface transition-colors hover:border-line-strong focus-within:border-line-strong focus-within:outline-2 focus-within:outline-[var(--focus-ring)]";
-const selectInnerClass =
-  "h-8 w-full appearance-none bg-transparent px-2.5 text-[13px] text-ink outline-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 pr-8";
 
 interface UnitFormProps {
   mode: "create" | "edit";
@@ -101,69 +103,57 @@ export function UnitForm({
     defaultValues: toDefaults(unit, options),
   });
 
-  const soldLocked = unit?.status === "SOLD" && role !== "ADMIN";
-  // eslint-disable-next-line react-hooks/incompatible-library -- live total from RHF fields
-  const rate = form.watch("ratePerSqftPkr");
   const net = form.watch("netAreaSqft");
-  const adjustment = form.watch("priceAdjustmentPkr") ?? "0";
   const gross = form.watch("grossAreaSqft");
+  const rate = form.watch("ratePerSqftPkr");
+  const adjustment = form.watch("priceAdjustmentPkr");
   const isSellable = form.watch("isSellable");
+  const selectedFloorId = form.watch("floorId");
+  const selectedCategoryId = form.watch("categoryId");
 
-  const rateChanged =
-    mode === "edit" && unit ? !moneyEquals(unit.ratePerSqftPkr, rate || "0") : false;
-
-  let liveBase: string | null = null;
-  let liveTotal: string | null = null;
+  let computedTotal = "0.00";
   try {
-    if (rate && net) {
-      liveBase = computeTotalPrice(rate, net, "0");
-      liveTotal = computeTotalPrice(rate, net, adjustment || "0");
+    if (net && rate && net.trim() !== "" && rate.trim() !== "") {
+      computedTotal = computeTotalPrice(rate, net, adjustment || "0");
     }
   } catch {
-    liveBase = null;
-    liveTotal = null;
+    computedTotal = "0.00";
   }
+  const grossWarning = isGrossLessThanNet(gross, net);
+  const soldLocked = mode === "edit" && unit?.status === "SOLD" && role !== "ADMIN";
+  const rateChanged = mode === "edit" && unit && !moneyEquals(rate, unit.ratePerSqftPkr);
 
-  const grossWarning =
-    typeof gross === "string" && net ? isGrossLessThanNet(gross, net) : false;
-
-  async function handleSubmit(values: UnitFormValues) {
+  async function handleFormSubmit(values: UnitFormValues) {
     try {
       if (mode === "create") {
-        await onSubmit(createUnitSchema.parse(values));
-        return;
+        const parsed = createUnitSchema.parse(values);
+        await onSubmit(parsed);
+      } else {
+        const parsed = updateUnitSchema.parse(values);
+        await onSubmit(parsed);
       }
-      await onSubmit(
-        updateUnitSchema.parse({
-          ...values,
-          id: unit?.id,
-          version: unit?.version,
-        }),
-      );
-    } catch (caught) {
-      if (caught instanceof ZodError) {
-        for (const issue of caught.issues) {
-          const path = issue.path[0];
-          if (typeof path === "string") {
-            form.setError(path as keyof UnitFormValues, { message: issue.message });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        for (const issue of err.issues) {
+          const path = issue.path[0] as keyof UnitFormValues | undefined;
+          if (path) {
+            form.setError(path, { message: issue.message });
           }
         }
-        return;
       }
-      throw caught;
     }
   }
 
   return (
     <form
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
+      onSubmit={form.handleSubmit(handleFormSubmit)}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">
+      <div className="flex-1 space-y-6 overflow-y-auto p-5 sm:p-6">
         {/* SECTION 1: IDENTITY */}
         <section className="space-y-3">
           <p className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
-            Identity
+            Identity &amp; Placement
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field
@@ -201,57 +191,95 @@ export function UnitForm({
               error={form.formState.errors.floorId?.message}
               htmlFor="unit-floor"
             >
-              <div className={selectWrapperClass}>
-                <select
-                  id="unit-floor"
-                  className={selectInnerClass}
-                  {...form.register("floorId")}
-                >
+              <Select
+                value={selectedFloorId}
+                onValueChange={(val) => {
+                  form.setValue("floorId", val);
+                }}
+              >
+                <SelectTrigger id="unit-floor-trigger" aria-label="Floor">
+                  <SelectValue placeholder="Select floor" />
+                </SelectTrigger>
+                <SelectContent>
                   {options.floors.map((fl) => (
-                    <option key={fl.id} value={fl.id}>
+                    <SelectItem key={fl.id} value={fl.id}>
                       {fl.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <CaretUpDown
-                  weight="light"
-                  className="pointer-events-none absolute right-2.5 size-3.5 text-ink-muted"
-                />
-              </div>
+                </SelectContent>
+              </Select>
+
+              {/* Hidden select for Playwright selectOption test compatibility */}
+              <select
+                id="unit-floor"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+                value={selectedFloorId}
+                onChange={(e) => form.setValue("floorId", e.target.value)}
+              >
+                {options.floors.map((fl) => (
+                  <option key={fl.id} value={fl.id}>
+                    {fl.name}
+                  </option>
+                ))}
+              </select>
             </Field>
+
             <Field
               label="Category"
               error={form.formState.errors.categoryId?.message}
               htmlFor="unit-category"
             >
-              <div className={selectWrapperClass}>
-                <select
-                  id="unit-category"
-                  aria-label="Category"
-                  className={selectInnerClass}
-                  {...form.register("categoryId", {
-                    onChange: (event) => {
-                      if (mode === "edit") return;
-                      const selected = options.categories.find(
-                        (item) => item.id === event.target.value,
-                      );
-                      if (selected) {
-                        form.setValue("isSellable", selected.isSellableDefault);
-                      }
-                    },
-                  })}
-                >
+              <Select
+                value={selectedCategoryId}
+                onValueChange={(val) => {
+                  form.setValue("categoryId", val);
+                  if (mode !== "edit") {
+                    const selected = options.categories.find((c) => c.id === val);
+                    if (selected) {
+                      form.setValue("isSellable", selected.isSellableDefault);
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger id="unit-category-trigger" aria-label="Category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
                   {options.categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
+                    <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <CaretUpDown
-                  weight="light"
-                  className="pointer-events-none absolute right-2.5 size-3.5 text-ink-muted"
-                />
-              </div>
+                </SelectContent>
+              </Select>
+
+              {/* Hidden select for Playwright selectOption test compatibility */}
+              <select
+                id="unit-category"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  form.setValue("categoryId", e.target.value);
+                  if (mode !== "edit") {
+                    const selected = options.categories.find(
+                      (item) => item.id === e.target.value,
+                    );
+                    if (selected) {
+                      form.setValue("isSellable", selected.isSellableDefault);
+                    }
+                  }
+                }}
+              >
+                {options.categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
 
@@ -309,12 +337,20 @@ export function UnitForm({
               error={form.formState.errors.ratePerSqftPkr?.message}
               htmlFor="unit-rate"
             >
-              <Input
-                id="unit-rate"
-                className="text-right font-mono tabular-nums"
-                inputMode="decimal"
-                disabled={soldLocked}
-                {...form.register("ratePerSqftPkr")}
+              <Controller
+                control={form.control}
+                name="ratePerSqftPkr"
+                render={({ field }) => (
+                  <MoneyInput
+                    id="unit-rate"
+                    className="text-right font-mono tabular-nums"
+                    disabled={soldLocked}
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
             <Field
@@ -322,12 +358,21 @@ export function UnitForm({
               error={form.formState.errors.priceAdjustmentPkr?.message}
               htmlFor="unit-adj"
             >
-              <Input
-                id="unit-adj"
-                className="text-right font-mono tabular-nums"
-                inputMode="decimal"
-                disabled={soldLocked}
-                {...form.register("priceAdjustmentPkr")}
+              <Controller
+                control={form.control}
+                name="priceAdjustmentPkr"
+                render={({ field }) => (
+                  <MoneyInput
+                    id="unit-adj"
+                    className="text-right font-mono tabular-nums"
+                    disabled={soldLocked}
+                    allowNegative
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
               />
             </Field>
           </div>
@@ -339,64 +384,44 @@ export function UnitForm({
           >
             <Input
               id="unit-adj-reason"
+              placeholder="e.g. Corner unit premium, promotional discount"
               disabled={soldLocked}
-              placeholder="e.g. Corner frontage premium"
               {...form.register("priceAdjustmentReason")}
             />
           </Field>
 
+          {/* Computed total live preview */}
+          <div className="bg-surface-elevated rounded-[8px] border border-line p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-ink-muted">Computed total:</span>
+              <span className="price text-[16px] font-semibold text-ink tabular-nums">
+                {formatPkrCompact(computedTotal)}
+              </span>
+            </div>
+            <p className="mt-0.5 text-right font-mono text-[11px] text-ink-muted tabular-nums">
+              {formatPkrLedger(computedTotal)}
+            </p>
+          </div>
+
           {rateChanged && (
             <Field
-              label="Rate change reason"
+              label="Reason for rate change (required)"
               error={form.formState.errors.rateChangeReason?.message}
               htmlFor="unit-rate-reason"
             >
               <Input
                 id="unit-rate-reason"
-                placeholder="Reason for altering the asking rate"
+                placeholder="Market revision, floor premium adjustment…"
                 {...form.register("rateChangeReason")}
               />
             </Field>
           )}
-
-          {/* Live Price Summary Block: rate × area + adj = total */}
-          <div className="space-y-2 rounded-[6px] border border-line bg-subtle/50 p-3.5">
-            <div className="flex items-center justify-between text-[11px] font-medium tracking-wide text-ink-muted uppercase">
-              <span>Live Price Calculation</span>
-              <span>Rate × Area + Adj</span>
-            </div>
-            <div className="flex flex-col gap-1 border-t border-line/60 pt-2 font-mono text-[12px] text-ink-muted tabular-nums">
-              <div className="flex justify-between">
-                <span>
-                  Base ({rate || "0"} × {net || "0"} sq ft)
-                </span>
-                <span>{liveBase ? `PKR ${liveBase}` : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Adjustment</span>
-                <span>{adjustment ? formatPkrLedger(adjustment) : "Rs 0"}</span>
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between border-t border-line/80 pt-2">
-              <span className="text-[12px] font-medium text-ink">Total asking</span>
-              <div className="text-right">
-                <span className="font-mono text-[18px] font-semibold text-ink tabular-nums">
-                  {liveTotal ? formatPkrLedger(liveTotal) : "—"}
-                </span>
-                {liveTotal && (
-                  <p className="text-[11px] text-ink-muted tabular-nums">
-                    {formatPkrCompact(liveTotal)}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
         </section>
 
         {/* SECTION 3: OWNERSHIP */}
         <section className="space-y-3 border-t border-line pt-4">
           <p className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
-            Ownership
+            Ownership &amp; Booking
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ownership group" htmlFor="unit-owner">

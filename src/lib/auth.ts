@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { nextCookies } from "better-auth/next-js";
@@ -12,7 +13,6 @@ import * as schema from "@/db/schema";
 import { user } from "@/db/schema/auth";
 import { userRoles, type UserRole } from "@/db/schema/enums";
 import { resolveAuthBaseURL, resolveTrustedOrigins } from "./auth-origin";
-import { withDbRetry } from "./db-errors";
 import { ForbiddenError, UnauthorizedError } from "./errors";
 import {
   LOGIN_RATE_LIMIT_MESSAGE,
@@ -59,6 +59,12 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     disableSignUp: true,
+  },
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
   },
   rateLimit: {
     // Better Auth counts every /api/auth hit. Keep production tight; skip in
@@ -140,10 +146,11 @@ export const auth = betterAuth({
         return;
       }
       clearLoginFailures(email);
-      await db
+      void db
         .update(user)
         .set({ lastLoginAt: new Date(), updatedAt: new Date() })
-        .where(eq(user.email, email.trim().toLowerCase()));
+        .where(eq(user.email, email.trim().toLowerCase()))
+        .catch(() => {});
     }),
   },
   databaseHooks: {
@@ -181,14 +188,12 @@ type RequireSessionOptions = {
   redirect?: boolean;
 };
 
-export async function getSession() {
+export const getSession = cache(async () => {
   const resolvedHeaders = await headers();
-  return withDbRetry(() =>
-    auth.api.getSession({
-      headers: resolvedHeaders,
-    }),
-  );
-}
+  return auth.api.getSession({
+    headers: resolvedHeaders,
+  });
+});
 
 export async function requireSession(options: RequireSessionOptions = {}) {
   const session = await getSession();

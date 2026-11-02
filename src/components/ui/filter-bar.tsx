@@ -58,7 +58,7 @@ export function FilterChip({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={4}
-          className="shadow-floating animate-slide-down z-50 w-48 rounded-[8px] border border-line bg-surface p-1 text-ink outline-none"
+          className="animate-slide-down z-50 w-48 rounded-[8px] border border-line bg-surface p-1 text-ink shadow-floating outline-none"
         >
           <div className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-muted">
             {label}
@@ -112,7 +112,7 @@ export function FilterBar({
           variant="ghost"
           size="sm"
           onClick={onClearAll}
-          className="h-7 px-2 text-[12px] text-ink-muted hover:text-ink"
+          className="text-ink-muted hover:text-ink"
         >
           <X weight="light" className="mr-1 size-3" />
           Clear all ({activeCount})

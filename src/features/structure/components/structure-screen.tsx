@@ -14,6 +14,14 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -175,69 +183,67 @@ export function StructureScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
-      {/* Top Header Row */}
-      <div className="flex flex-col gap-4 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-tight text-ink">Structure</h1>
-          <p className="mt-0.5 text-[13px] text-ink-muted">
-            Configure properties, architectural blocks, and vertical levels.
-          </p>
-        </div>
+      <PageHeader
+        title="Structure"
+        description="Configure properties, architectural blocks, and vertical levels."
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {properties.length > 0 && (
+              <div className="w-52">
+                <Select
+                  value={selectedProperty?.id ?? ""}
+                  onValueChange={(val) => router.push(hrefFor(val))}
+                >
+                  <SelectTrigger aria-label="Property" size="md">
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-        {/* Property Selector & Action */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {properties.length > 0 && (
-            <div className="relative">
-              <select
-                aria-label="Property"
-                className="h-8 min-w-[200px] cursor-pointer appearance-none rounded-[6px] border border-line bg-surface px-3 pr-8 text-[13px] font-medium text-ink outline-none hover:border-line-strong focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-                value={selectedProperty?.id ?? ""}
-                onChange={(event) => router.push(hrefFor(event.target.value))}
-              >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {canManage ? (
-            <>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => setPanel({ kind: "property", mode: "create" })}
-              >
-                <Plus weight="light" className="mr-1 size-3.5" />
-                New property
-              </Button>
-              {selectedProperty && (
+            {canManage ? (
+              <>
                 <Button
                   variant="secondary"
                   size="md"
-                  onClick={() =>
-                    setPanel({
-                      kind: "property",
-                      mode: "edit",
-                      id: selectedProperty.id,
-                      name: selectedProperty.name,
-                    })
-                  }
+                  onClick={() => setPanel({ kind: "property", mode: "create" })}
                 >
-                  <PencilSimple weight="light" className="mr-1 size-3.5" />
-                  Edit property
+                  <Plus weight="light" className="mr-1 size-3.5" />
+                  New property
                 </Button>
-              )}
-            </>
-          ) : (
-            <p className="text-[12px] text-ink-muted">
-              This ledger is read-only for Sales.
-            </p>
-          )}
-        </div>
-      </div>
+                {selectedProperty && (
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() =>
+                      setPanel({
+                        kind: "property",
+                        mode: "edit",
+                        id: selectedProperty.id,
+                        name: selectedProperty.name,
+                      })
+                    }
+                  >
+                    <PencilSimple weight="light" className="mr-1 size-3.5" />
+                    Edit property
+                  </Button>
+                )}
+              </>
+            ) : (
+              <p className="text-[12px] text-ink-muted">
+                This ledger is read-only for Sales.
+              </p>
+            )}
+          </div>
+        }
+      />
 
       {/* Two-pane layout */}
       <div className="grid min-h-[540px] flex-1 grid-cols-1 gap-6 lg:grid-cols-12">
@@ -305,7 +311,7 @@ export function StructureScreen({
                               <button
                                 type="button"
                                 aria-label="Block options"
-                                className="flex size-7 items-center justify-center rounded text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                                className="flex size-8 items-center justify-center rounded-[8px] text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                               >
                                 <DotsThree weight="bold" className="size-3.5" />
                               </button>
@@ -434,7 +440,7 @@ export function StructureScreen({
                                 <button
                                   type="button"
                                   aria-label="Floor actions"
-                                  className="flex size-7 items-center justify-center rounded text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                                  className="flex size-8 items-center justify-center rounded-[8px] text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                                 >
                                   <DotsThree weight="bold" className="size-3.5" />
                                 </button>

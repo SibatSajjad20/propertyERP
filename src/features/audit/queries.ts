@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -28,11 +28,21 @@ export type AuditLogFilter = {
   action?: AuditAction;
   from?: Date;
   to?: Date;
+  page?: number;
+  pageSize?: number;
 };
+
+export interface AuditLogResult {
+  rows: AuditLogRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 
 const subjectUser = alias(user, "subject_user");
 
-export async function listAuditLog(filter: AuditLogFilter = {}): Promise<AuditLogRow[]> {
+export async function listAuditLog(filter: AuditLogFilter = {}): Promise<AuditLogResult> {
   const conditions = [];
   if (filter.actorId) {
     conditions.push(eq(auditLog.actorId, filter.actorId));
@@ -50,45 +60,78 @@ export async function listAuditLog(filter: AuditLogFilter = {}): Promise<AuditLo
     conditions.push(lte(auditLog.createdAt, filter.to));
   }
 
-  const rows = await db
-    .select({
-      id: auditLog.id,
-      actorId: auditLog.actorId,
-      actorName: user.name,
-      action: auditLog.action,
-      entity: auditLog.entity,
-      entityId: auditLog.entityId,
-      subjectName: subjectUser.name,
-      unitCode: sql<
-        string | null
-      >`case when ${auditLog.entity} = 'unit' then coalesce(${units.unitCode}, (${auditLog.after}->>'unitCode'), (${auditLog.before}->>'unitCode')) else null end`,
-      before: auditLog.before,
-      after: auditLog.after,
-      createdAt: auditLog.createdAt,
-    })
-    .from(auditLog)
-    .leftJoin(user, eq(auditLog.actorId, user.id))
-    .leftJoin(
-      subjectUser,
-      and(eq(auditLog.entity, "user"), eq(auditLog.entityId, subjectUser.id)),
-    )
-    .leftJoin(
-      units,
-      sql`${auditLog.entity} = 'unit' and ${auditLog.entityId} = ${units.id}::text`,
-    )
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(auditLog.createdAt))
-    .limit(200);
+  const page = Math.max(1, filter.page ?? 1);
+  const pageSize = Math.max(1, Math.min(200, filter.pageSize ?? 50));
+  const offset = (page - 1) * pageSize;
 
-  return rows.map((r) => {
-    const unitCode = r.unitCode;
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [[countRow], rows] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(auditLog)
+      .where(whereClause),
+    db
+      .select({
+        id: auditLog.id,
+        actorId: auditLog.actorId,
+        actorName: user.name,
+        action: auditLog.action,
+        entity: auditLog.entity,
+        entityId: auditLog.entityId,
+        subjectName: subjectUser.name,
+        before: auditLog.before,
+        after: auditLog.after,
+        createdAt: auditLog.createdAt,
+      })
+      .from(auditLog)
+      .leftJoin(user, eq(auditLog.actorId, user.id))
+      .leftJoin(
+        subjectUser,
+        and(eq(auditLog.entity, "user"), eq(auditLog.entityId, subjectUser.id)),
+      )
+      .where(whereClause)
+      .orderBy(desc(auditLog.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
+
+  const total = Number(countRow?.count ?? 0);
+  const totalPages = Math.ceil(total / pageSize) || 1;
+
+  const missingUnitIds = rows
+    .filter(
+      (r) =>
+        r.entity === "unit" &&
+        !(r.after as Record<string, unknown> | null)?.unitCode &&
+        !(r.before as Record<string, unknown> | null)?.unitCode,
+    )
+    .map((r) => r.entityId);
+
+  const unitRows =
+    missingUnitIds.length > 0
+      ? await db
+          .select({ id: units.id, unitCode: units.unitCode })
+          .from(units)
+          .where(inArray(units.id, missingUnitIds))
+      : [];
+  const unitMap = new Map(unitRows.map((u) => [u.id, u.unitCode]));
+
+  const mappedRows = rows.map((r) => {
+    const after = r.after as Record<string, unknown> | null;
+    const before = r.before as Record<string, unknown> | null;
+    const unitCode =
+      (typeof after?.unitCode === "string" ? after.unitCode : undefined) ??
+      (typeof before?.unitCode === "string" ? before.unitCode : undefined) ??
+      unitMap.get(r.entityId) ??
+      null;
     const entityLabel =
       r.entity === "unit"
         ? (unitCode ?? r.entityId.slice(0, 8))
         : r.entity === "user"
           ? (r.subjectName ??
-            (typeof r.after?.name === "string" ? r.after.name : null) ??
-            (typeof r.before?.name === "string" ? r.before.name : null) ??
+            (typeof after?.name === "string" ? after.name : null) ??
+            (typeof before?.name === "string" ? before.name : null) ??
             r.entityId.slice(0, 8))
           : ((typeof r.after?.name === "string" ? r.after.name : null) ??
             (typeof r.before?.name === "string" ? r.before.name : null) ??
@@ -107,4 +150,12 @@ export async function listAuditLog(filter: AuditLogFilter = {}): Promise<AuditLo
       createdAt: r.createdAt,
     };
   });
+
+  return {
+    rows: mappedRows,
+    total,
+    page,
+    pageSize,
+    totalPages,
+  };
 }

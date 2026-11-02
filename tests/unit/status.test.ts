@@ -157,14 +157,26 @@ const sellInput = {
 };
 
 describe("status transition map", () => {
-  it("allows AVAILABLE → SOLD and SOLD → AVAILABLE only", () => {
-    expect(STATUS_TRANSITIONS.AVAILABLE).toEqual(["SOLD"]);
+  it("enforces allowed sales lifecycle transitions", () => {
+    expect(STATUS_TRANSITIONS.AVAILABLE).toEqual(["RESERVED", "BOOKED", "SOLD"]);
+    expect(STATUS_TRANSITIONS.RESERVED).toEqual(["AVAILABLE", "BOOKED"]);
+    expect(STATUS_TRANSITIONS.BOOKED).toEqual(["SOLD", "AVAILABLE"]);
     expect(STATUS_TRANSITIONS.SOLD).toEqual(["AVAILABLE"]);
+
+    expect(canTransition("AVAILABLE", "RESERVED")).toBe(true);
+    expect(canTransition("AVAILABLE", "BOOKED")).toBe(true);
     expect(canTransition("AVAILABLE", "SOLD")).toBe(true);
+    expect(canTransition("RESERVED", "AVAILABLE")).toBe(true);
+    expect(canTransition("RESERVED", "BOOKED")).toBe(true);
+    expect(canTransition("BOOKED", "SOLD")).toBe(true);
+    expect(canTransition("BOOKED", "AVAILABLE")).toBe(true);
     expect(canTransition("SOLD", "AVAILABLE")).toBe(true);
+
+    expect(canTransition("RESERVED", "SOLD")).toBe(false);
+    expect(canTransition("SOLD", "BOOKED")).toBe(false);
     expect(canTransition("AVAILABLE", "AVAILABLE")).toBe(false);
-    expect(canTransition("SOLD", "SOLD")).toBe(false);
     expect(() => assertTransition("SOLD", "SOLD")).toThrow(ValidationError);
+    expect(() => assertTransition("RESERVED", "SOLD")).toThrow(ValidationError);
   });
 });
 

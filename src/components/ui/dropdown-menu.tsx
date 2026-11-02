@@ -5,7 +5,13 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, CaretRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 
-export const DropdownMenu = DropdownMenuPrimitive.Root;
+export function DropdownMenu({
+  modal = false,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>) {
+  return <DropdownMenuPrimitive.Root modal={modal} {...props} />;
+}
+
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
@@ -21,7 +27,7 @@ export const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default items-center rounded-[4px] px-2.5 py-1.5 text-[13px] outline-none select-none hover:bg-subtle focus:bg-subtle data-[state=open]:bg-subtle",
+      "flex cursor-default items-center rounded-[6px] px-2.5 py-1.5 text-[13px] outline-none select-none hover:bg-subtle focus:bg-subtle data-[state=open]:bg-subtle",
       inset && "pl-8",
       className,
     )}
@@ -40,7 +46,7 @@ export const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "shadow-floating data-[state=open]:animate-slide-down data-[state=closed]:animate-fade-out z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-line bg-surface p-1 text-ink",
+      "data-[state=open]:animate-slide-down data-[state=closed]:animate-fade-out z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-line bg-surface p-1 text-ink shadow-floating",
       className,
     )}
     {...props}
@@ -57,7 +63,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "shadow-floating data-[state=open]:animate-slide-down data-[state=closed]:animate-fade-out z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-line bg-surface p-1 text-ink",
+        "data-[state=open]:animate-slide-down data-[state=closed]:animate-fade-out z-50 min-w-[8rem] overflow-hidden rounded-[8px] border border-line bg-surface p-1 text-ink shadow-floating",
         className,
       )}
       {...props}
@@ -76,7 +82,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer items-center gap-2 rounded-[4px] px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       variant === "danger"
         ? "text-sold hover:bg-[color-mix(in_srgb,var(--sold)_8%,transparent)] focus:bg-[color-mix(in_srgb,var(--sold)_8%,transparent)]"
         : "text-ink",
@@ -95,7 +101,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer items-center rounded-[4px] py-1.5 pr-2 pl-8 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer items-center rounded-[6px] py-1.5 pr-2 pl-8 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     checked={checked}

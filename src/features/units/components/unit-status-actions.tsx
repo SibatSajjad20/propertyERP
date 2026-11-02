@@ -12,30 +12,50 @@ import { errorMessage } from "@/lib/errors";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { changeUnitStatus } from "../actions";
 import { REVERSE_REASON_MIN } from "../status";
-import type { InventoryRow } from "../types";
+import type { InventoryRow, StatusHistoryEntry } from "../types";
+import { UnitRead } from "./unit-read";
 
 type StatusMode = "idle" | "sell" | "reverse";
 
 interface UnitStatusActionsProps {
   unit: InventoryRow;
+  history?: StatusHistoryEntry[];
   canSell: boolean;
   canReverse: boolean;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export function UnitStatusActions({
   unit,
+  history,
   canSell,
   canReverse,
   children,
 }: UnitStatusActionsProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [prevUnit, setPrevUnit] = useState(unit);
+  const [currentUnit, setCurrentUnit] = useState<InventoryRow>(unit);
+  if (unit !== prevUnit) {
+    setPrevUnit(unit);
+    setCurrentUnit(unit);
+  }
+
+  const [prevHistory, setPrevHistory] = useState(history);
+  const [currentHistory, setCurrentHistory] = useState<StatusHistoryEntry[]>(
+    history ?? [],
+  );
+  if (history !== prevHistory) {
+    setPrevHistory(history);
+    setCurrentHistory(history ?? []);
+  }
+
   const [mode, setMode] = useState<StatusMode>("idle");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const showSell = unit.status === "AVAILABLE" && canSell && unit.isSellable;
-  const showReverse = unit.status === "SOLD" && canReverse;
+  const showSell =
+    currentUnit.status === "AVAILABLE" && canSell && currentUnit.isSellable;
+  const showReverse = currentUnit.status === "SOLD" && canReverse;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -53,18 +73,39 @@ export function UnitStatusActions({
     setError(null);
     try {
       await changeUnitStatus({
-        unitId: unit.id,
-        expectedVersion: unit.version,
+        unitId: currentUnit.id,
+        expectedVersion: currentUnit.version,
         toStatus: "SOLD",
         bookingRef: input.bookingRef,
         reason: input.reason,
       });
+      setCurrentUnit((prev) => ({
+        ...prev,
+        status: "SOLD",
+        bookingRef: input.bookingRef,
+        version: prev.version + 1,
+      }));
+      setCurrentHistory((prev) => [
+        {
+          id: "opt-" + Date.now(),
+          unitId: currentUnit.id,
+          fromStatus: "AVAILABLE",
+          toStatus: "SOLD",
+          reason: input.reason ?? null,
+          bookingRef: input.bookingRef ?? null,
+          soldPricePkr: currentUnit.soldPricePkr,
+          actorId: "",
+          actorName: "Current User",
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
       setMode("idle");
       setPending(false);
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["unit-detail", unit.id] });
-      toast.success(`Unit ${unit.unitCode} marked as Sold`);
+      queryClient.invalidateQueries({ queryKey: ["unit-detail", currentUnit.id] });
+      toast.success(`Unit ${currentUnit.unitCode} marked as Sold`);
       router.refresh();
     } catch (caught) {
       const message = errorMessage(caught);
@@ -79,17 +120,38 @@ export function UnitStatusActions({
     setError(null);
     try {
       await changeUnitStatus({
-        unitId: unit.id,
-        expectedVersion: unit.version,
+        unitId: currentUnit.id,
+        expectedVersion: currentUnit.version,
         toStatus: "AVAILABLE",
         reason: input.reason,
       });
+      setCurrentUnit((prev) => ({
+        ...prev,
+        status: "AVAILABLE",
+        soldPricePkr: null,
+        version: prev.version + 1,
+      }));
+      setCurrentHistory((prev) => [
+        {
+          id: "opt-" + Date.now(),
+          unitId: currentUnit.id,
+          fromStatus: "SOLD",
+          toStatus: "AVAILABLE",
+          reason: input.reason,
+          bookingRef: currentUnit.bookingRef,
+          soldPricePkr: null,
+          actorId: "",
+          actorName: "Current User",
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
       setMode("idle");
       setPending(false);
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["unit-detail", unit.id] });
-      toast.success(`Sale reversed for unit ${unit.unitCode}`);
+      queryClient.invalidateQueries({ queryKey: ["unit-detail", currentUnit.id] });
+      toast.success(`Sale reversed for unit ${currentUnit.unitCode}`);
       router.refresh();
     } catch (caught) {
       const message = errorMessage(caught);
@@ -102,7 +164,7 @@ export function UnitStatusActions({
   if (mode === "sell") {
     return (
       <SellConfirm
-        unit={unit}
+        unit={currentUnit}
         pending={pending}
         error={error}
         onCancel={() => {
@@ -117,7 +179,7 @@ export function UnitStatusActions({
   if (mode === "reverse") {
     return (
       <ReverseConfirm
-        unit={unit}
+        unit={currentUnit}
         pending={pending}
         error={error}
         onCancel={() => {
@@ -131,7 +193,7 @@ export function UnitStatusActions({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {children}
+      {history ? <UnitRead unit={currentUnit} history={currentHistory} /> : children}
       {showSell || showReverse ? (
         <div className="flex h-[56px] shrink-0 items-center justify-end gap-2.5 border-t border-line bg-surface px-5">
           {showSell ? (

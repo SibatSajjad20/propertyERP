@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { randomUUID } from "node:crypto";
 import { db } from "./index";
 import { account, user } from "./schema/auth";
 import { blocks, categories, floors, properties } from "./schema/property";
+import { units } from "./schema/units";
 import type { UserRole } from "./schema/enums";
 import { SARDARS_MALL_FLOORS } from "../features/structure/floor-labels";
 import { seedDevUnits } from "./seed-units";
@@ -32,10 +33,10 @@ function envOr(name: string, fallback: string): string {
 async function ensureUser(spec: SeedUser) {
   const email = spec.email.toLowerCase();
   const [existing] = await db.select().from(user).where(eq(user.email, email)).limit(1);
+  const passwordHash = await hashPassword(spec.password);
 
   if (!existing) {
     const userId = randomUUID();
-    const passwordHash = await hashPassword(spec.password);
     await db.insert(user).values({
       id: userId,
       name: spec.name,
@@ -52,6 +53,11 @@ async function ensureUser(spec: SeedUser) {
     });
     return;
   }
+
+  await db
+    .update(account)
+    .set({ password: passwordHash })
+    .where(and(eq(account.userId, existing.id), eq(account.providerId, "credential")));
 
   if (existing.role !== spec.role) {
     await db.update(user).set({ role: spec.role }).where(eq(user.id, existing.id));
@@ -85,10 +91,30 @@ async function seed() {
     propertyId = created.id;
   }
 
+  // Drop empty "Main Block" if it exists as leftover test data
+  const emptyMainBlocks = await db
+    .select({ id: blocks.id })
+    .from(blocks)
+    .where(and(eq(blocks.propertyId, propertyId), eq(blocks.name, "Main Block")));
+
+  for (const mb of emptyMainBlocks) {
+    const [unitCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(units)
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .where(and(eq(floors.blockId, mb.id), isNull(units.archivedAt)));
+
+    if (!unitCount || Number(unitCount.count) === 0) {
+      await db.delete(floors).where(eq(floors.blockId, mb.id));
+      await db.delete(blocks).where(eq(blocks.id, mb.id));
+    }
+  }
+
+  // Find or create the canonical "Main" block
   const [existingBlock] = await db
     .select()
     .from(blocks)
-    .where(eq(blocks.propertyId, propertyId))
+    .where(and(eq(blocks.propertyId, propertyId), eq(blocks.name, "Main")))
     .limit(1);
 
   let blockId = existingBlock?.id;

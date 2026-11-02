@@ -6,11 +6,11 @@ import postgres from "postgres";
 config({ path: ".env" });
 
 async function run() {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DIRECT_URL || process.env.DATABASE_URL;
   if (!url) {
-    throw new Error("DATABASE_URL is not set");
+    throw new Error("DATABASE_URL or DIRECT_URL is not set");
   }
-  const client = postgres(url, { max: 1 });
+  const client = postgres(url, { max: 1, prepare: false });
   const db = drizzle(client);
   await migrate(db, { migrationsFolder: "./src/db/migrations" });
   await client.end();

@@ -1,10 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { withDbRetry } from "@/lib/db-errors";
 import * as schema from "./schema";
 
 const globalForDb = globalThis as unknown as {
   sql?: ReturnType<typeof postgres>;
+  db?: ReturnType<typeof drizzle<typeof schema>>;
 };
 
 function createClient() {
@@ -12,28 +12,28 @@ function createClient() {
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
+  const max = process.env.DB_MAX_CONNECTIONS
+    ? parseInt(process.env.DB_MAX_CONNECTIONS, 10)
+    : process.env.VERCEL
+      ? 1
+      : 10;
   return postgres(url, {
-    max: process.env.NODE_ENV === "production" && !process.env.ALLOW_TEST_DB ? 4 : 10,
+    prepare: false,
+    max,
     idle_timeout: 20,
-    connect_timeout: 30,
-    max_lifetime: 60 * 30,
-    connection: {
-      application_name: "sardars-mall-erp",
-    },
+    connect_timeout: 10,
   });
 }
 
 export const sql = globalForDb.sql ?? createClient();
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.sql = sql;
-}
+globalForDb.sql = sql;
 
-export const db = drizzle(sql, { schema });
+export const db = globalForDb.db ?? drizzle(sql, { schema });
+globalForDb.db = db;
+
 export type Database = typeof db;
 
 export async function pingDatabase() {
-  return withDbRetry(async () => {
-    await sql`select 1`;
-    return true;
-  });
+  await sql`select 1`;
+  return true;
 }

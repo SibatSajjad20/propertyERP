@@ -11,6 +11,14 @@ import {
   Users,
   ClipboardText,
   UploadSimple,
+  Receipt,
+  ClockCountdown,
+  Tag,
+  PlusCircle,
+  ChartPie,
+  CalendarCheck,
+  CalendarDots,
+  BookOpen,
 } from "@phosphor-icons/react";
 import type { Route } from "next";
 import { searchUnits } from "@/features/units/actions";
@@ -29,6 +37,16 @@ const icons: Record<
   "/import": UploadSimple,
   "/settings/users": Users,
   "/audit": ClipboardText,
+  "/bookings": Receipt,
+  "/reservations": ClockCountdown,
+  "/sold": Tag,
+  "/installments": CalendarDots,
+  "/reports/summary": ChartPie,
+  "/reports/sold": Tag,
+  "/reports/booked": Receipt,
+  "/reports/reserved": ClockCountdown,
+  "/reports/installments": CalendarCheck,
+  "/reports/client-ledger": BookOpen,
 };
 
 export function CommandMenu({
@@ -108,7 +126,7 @@ export function CommandMenu({
         aria-label="Close command menu"
         onClick={close}
       />
-      <div className="shadow-floating animate-scale-in relative w-full max-w-lg overflow-hidden rounded-[8px] border border-line bg-surface">
+      <div className="animate-scale-in relative w-full max-w-lg overflow-hidden rounded-[8px] border border-line bg-surface shadow-floating">
         <Command
           label="Jump to"
           className="bg-surface text-[13px]"
@@ -165,6 +183,45 @@ export function CommandMenu({
                 ))}
               </Command.Group>
             )}
+
+            <Command.Group
+              heading="Actions"
+              className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-muted uppercase"
+            >
+              <Command.Item
+                value="New booking"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                onSelect={() => {
+                  close();
+                  router.push("/bookings/new" as Route);
+                }}
+              >
+                <PlusCircle weight="light" className="size-4 text-primary" />
+                <span>New booking</span>
+              </Command.Item>
+              <Command.Item
+                value="New reservation"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                onSelect={() => {
+                  close();
+                  router.push("/reservations/new" as Route);
+                }}
+              >
+                <ClockCountdown weight="light" className="size-4 text-accent" />
+                <span>New reservation</span>
+              </Command.Item>
+              <Command.Item
+                value="New direct sale"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                onSelect={() => {
+                  close();
+                  router.push("/sold/new" as Route);
+                }}
+              >
+                <Tag weight="light" className="size-4 text-sold" />
+                <span>New direct sale</span>
+              </Command.Item>
+            </Command.Group>
 
             <Command.Group
               heading="Pages"

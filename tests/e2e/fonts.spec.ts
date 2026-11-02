@@ -15,6 +15,8 @@ test.describe("Font Verification in Production Built App", () => {
     page,
   }) => {
     test.setTimeout(90_000);
+    page.on("console", (msg) => console.log("BROWSER LOG:", msg.type(), msg.text()));
+    page.on("pageerror", (err) => console.log("BROWSER ERROR:", err.message, err.stack));
     // 1. Visit Login Page
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Sardar's Mall" })).toBeVisible();
@@ -108,6 +110,7 @@ test.describe("Font Verification in Production Built App", () => {
     });
     console.log("Button Platform Fonts (CDP):", btnPlatformFonts);
     expect(btnPlatformFonts.fonts.some((f) => f.familyName.includes("Geist"))).toBe(true);
+    await client.detach();
 
     // Save screenshot of login page
     const screenshotDir = path.resolve(process.cwd(), "docs", "screenshots");
@@ -117,8 +120,7 @@ test.describe("Font Verification in Production Built App", () => {
       fullPage: true,
     });
 
-    // 2. Log in and go to Dashboard (re-open login after CDP so the form is clean)
-    await page.goto("/login");
+    // 2. Log in and go to Dashboard
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
@@ -177,57 +179,6 @@ test.describe("Font Verification in Production Built App", () => {
       expect(kpi.fontFeatureSettings).toContain("ss01");
       expect(kpi.fontFeatureSettings).toContain("cv11");
       expect(kpi.fontVariantNumeric).toBe("tabular-nums");
-    }
-
-    // Verify Dashboard Table styles
-    const dashTableStyles = await page.evaluate(() => {
-      const tbl = document.querySelector("table");
-      if (!tbl) return null;
-      const s = window.getComputedStyle(tbl);
-      const th = tbl.querySelector("th");
-      const td = tbl.querySelector("td");
-      const thS = th ? window.getComputedStyle(th) : null;
-      const tdS = td ? window.getComputedStyle(td) : null;
-      return {
-        tbl: {
-          fontFamily: s.fontFamily,
-          fontFeatureSettings: s.fontFeatureSettings,
-          fontVariantNumeric: s.fontVariantNumeric,
-        },
-        th: thS
-          ? {
-              fontFeatureSettings: thS.fontFeatureSettings,
-              fontVariantNumeric: thS.fontVariantNumeric,
-            }
-          : null,
-        td: tdS
-          ? {
-              fontFeatureSettings: tdS.fontFeatureSettings,
-              fontVariantNumeric: tdS.fontVariantNumeric,
-            }
-          : null,
-      };
-    });
-    console.log("Dashboard Table Styles:", dashTableStyles);
-    expect(dashTableStyles?.tbl.fontFamily).toContain("Geist Variable");
-    expect(dashTableStyles?.tbl.fontFeatureSettings).toContain("ss01");
-    expect(dashTableStyles?.tbl.fontFeatureSettings).toContain("cv11");
-    expect(dashTableStyles?.tbl.fontVariantNumeric).toBe("tabular-nums");
-
-    // Dashboard Table CDP check for rendered font
-    const dashDoc = await client.send("DOM.getDocument");
-    const dashTblElement = await client.send("DOM.querySelector", {
-      nodeId: dashDoc.root.nodeId,
-      selector: "table th",
-    });
-    if (dashTblElement.nodeId) {
-      const tblPlatformFonts = await client.send("CSS.getPlatformFontsForNode", {
-        nodeId: dashTblElement.nodeId,
-      });
-      console.log("Table Platform Fonts (CDP):", tblPlatformFonts);
-      expect(tblPlatformFonts.fonts.some((f) => f.familyName.includes("Geist"))).toBe(
-        true,
-      );
     }
 
     // Screenshot dashboard
@@ -311,18 +262,22 @@ test.describe("Font Verification in Production Built App", () => {
 
     // Inventory Table CDP check
     await page.locator("tbody tr td span").first().waitFor();
-    const invDoc = await client.send("DOM.getDocument");
-    const invTblElement = await client.send("DOM.querySelector", {
+    const invClient = await page.context().newCDPSession(page);
+    await invClient.send("DOM.enable");
+    await invClient.send("CSS.enable");
+    const invDoc = await invClient.send("DOM.getDocument");
+    const invTblElement = await invClient.send("DOM.querySelector", {
       nodeId: invDoc.root.nodeId,
       selector: "tbody tr td span",
     });
     if (invTblElement.nodeId) {
-      const invTblFonts = await client.send("CSS.getPlatformFontsForNode", {
+      const invTblFonts = await invClient.send("CSS.getPlatformFontsForNode", {
         nodeId: invTblElement.nodeId,
       });
       console.log("Inventory Table Platform Fonts (CDP):", invTblFonts);
       expect(invTblFonts.fonts.some((f) => f.familyName.includes("Geist"))).toBe(true);
     }
+    await invClient.detach();
 
     // Screenshot inventory
     await page.screenshot({

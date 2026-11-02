@@ -11,6 +11,10 @@ const badgeVariants = cva(
       tone: {
         available:
           "border-[color-mix(in_srgb,var(--available)_25%,transparent)] bg-[color-mix(in_srgb,var(--available)_6%,transparent)] text-available",
+        reserved:
+          "border-[color-mix(in_srgb,var(--reserved)_25%,transparent)] bg-[color-mix(in_srgb,var(--reserved)_6%,transparent)] text-reserved",
+        booked:
+          "border-[color-mix(in_srgb,var(--booked)_25%,transparent)] bg-[color-mix(in_srgb,var(--booked)_6%,transparent)] text-booked",
         sold: "border-[color-mix(in_srgb,var(--sold)_25%,transparent)] bg-[color-mix(in_srgb,var(--sold)_6%,transparent)] text-sold",
         muted: "border-line bg-subtle text-ink-muted",
         accent:
@@ -27,6 +31,8 @@ const badgeVariants = cva(
 
 const dotColors: Record<string, string> = {
   available: "bg-available",
+  reserved: "bg-reserved",
+  booked: "bg-booked",
   sold: "bg-sold",
   muted: "bg-ink-muted",
   accent: "bg-accent",

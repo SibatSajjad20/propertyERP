@@ -1,6 +1,8 @@
 "use server";
 
 import { and, eq, isNull, ne } from "drizzle-orm";
+import type { UserRole } from "@/db/schema/enums";
+import type { ChangeUnitStatusInput } from "./schema";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -33,6 +35,7 @@ import {
   NOT_SELLABLE_MESSAGE,
   REVERSE_REASON_MESSAGE,
   REVERSE_REASON_MIN,
+  CANCELLATION_REASON_MESSAGE,
 } from "./status";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -46,10 +49,10 @@ function staleUnit(): never {
 }
 
 function revalidateUnits(unitId?: string) {
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
   if (unitId) {
     revalidatePath(`/units/${unitId}`);
-  } else {
-    revalidatePath("/inventory");
   }
 }
 
@@ -339,114 +342,167 @@ export async function archiveUnit(input: unknown) {
   return archived;
 }
 
-export async function changeUnitStatus(input: unknown) {
-  const parsed = changeUnitStatusSchema.parse(input);
-  const session = await requireSession();
-  assertCan(session.user.role, "units.change_status");
+export async function changeUnitStatusInTx(
+  tx: Tx,
+  parsed: ChangeUnitStatusInput,
+  sessionUser: { id: string; role: UserRole },
+) {
+  assertCan(sessionUser.role, "units.change_status");
 
   if (parsed.toStatus === "SOLD") {
-    assertCan(session.user.role, "units.sell");
+    assertCan(sessionUser.role, "units.sell");
   }
 
-  const after = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(units)
-      .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
-      .for("update");
+  const [current] = await tx
+    .select()
+    .from(units)
+    .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
+    .for("update");
 
-    if (!current || current.archivedAt) {
-      throw new NotFoundError("Unit not found");
+  if (!current || current.archivedAt) {
+    throw new NotFoundError("Unit not found");
+  }
+  if (current.version !== parsed.expectedVersion) {
+    staleUnit();
+  }
+
+  assertTransition(current.status, parsed.toStatus);
+
+  const reversing = current.status === "SOLD" && parsed.toStatus === "AVAILABLE";
+  if (reversing) {
+    assertCan(sessionUser.role, "units.reverse_sale");
+    if (!parsed.reason || parsed.reason.length < REVERSE_REASON_MIN) {
+      throw new ValidationError(REVERSE_REASON_MESSAGE);
     }
-    if (current.version !== parsed.expectedVersion) {
-      staleUnit();
+  }
+
+  const returningBooking = current.status === "BOOKED" && parsed.toStatus === "AVAILABLE";
+  if (returningBooking) {
+    assertCan(sessionUser.role, "bookings.cancel");
+    if (!parsed.reason || parsed.reason.length < REVERSE_REASON_MIN) {
+      throw new ValidationError(CANCELLATION_REASON_MESSAGE);
     }
+  }
 
-    assertTransition(current.status, parsed.toStatus);
+  const cancellingReservation =
+    current.status === "RESERVED" && parsed.toStatus === "AVAILABLE";
+  if (cancellingReservation) {
+    assertCan(sessionUser.role, "reservations.cancel");
+  }
 
-    const reversing = current.status === "SOLD" && parsed.toStatus === "AVAILABLE";
-    if (reversing) {
-      assertCan(session.user.role, "units.reverse_sale");
-      if (!parsed.reason || parsed.reason.length < REVERSE_REASON_MIN) {
-        throw new ValidationError(REVERSE_REASON_MESSAGE);
-      }
+  if (parsed.toStatus === "RESERVED") {
+    assertCan(sessionUser.role, "reservations.create");
+  }
+
+  if (parsed.toStatus === "BOOKED") {
+    assertCan(sessionUser.role, "bookings.create");
+  }
+
+  if (parsed.toStatus === "SOLD") {
+    if (!current.isSellable) {
+      throw new ValidationError(NOT_SELLABLE_MESSAGE);
     }
-
-    if (parsed.toStatus === "SOLD") {
-      if (!current.isSellable) {
-        throw new ValidationError(NOT_SELLABLE_MESSAGE);
-      }
-      if (!parsed.bookingRef) {
-        throw new ValidationError(BOOKING_REF_REQUIRED_MESSAGE);
-      }
+    if (!parsed.bookingRef) {
+      throw new ValidationError(BOOKING_REF_REQUIRED_MESSAGE);
     }
+  }
 
-    const now = new Date();
-    const frozenPrice =
+  const now = new Date();
+  const frozenPrice =
+    parsed.toStatus === "SOLD"
+      ? (parsed.soldPricePkr ??
+        computeTotalPrice(
+          current.ratePerSqftPkr,
+          current.netAreaSqft,
+          current.priceAdjustmentPkr,
+        ))
+      : null;
+  const historySoldPrice = reversing ? current.soldPricePkr : frozenPrice;
+  const historyBookingRef = reversing
+    ? current.bookingRef
+    : (parsed.bookingRef ?? current.bookingRef ?? null);
+
+  const [row] = await tx
+    .update(units)
+    .set(
       parsed.toStatus === "SOLD"
-        ? computeTotalPrice(
-            current.ratePerSqftPkr,
-            current.netAreaSqft,
-            current.priceAdjustmentPkr,
-          )
-        : null;
-    const historySoldPrice = reversing ? current.soldPricePkr : frozenPrice;
-    const historyBookingRef = reversing
-      ? current.bookingRef
-      : (parsed.bookingRef ?? null);
-
-    const [row] = await tx
-      .update(units)
-      .set(
-        parsed.toStatus === "SOLD"
+        ? {
+            status: parsed.toStatus,
+            soldPricePkr: frozenPrice,
+            soldAt: now,
+            soldBy: sessionUser.id,
+            bookingRef: parsed.bookingRef ?? current.bookingRef,
+            version: current.version + 1,
+            updatedAt: now,
+          }
+        : parsed.toStatus === "BOOKED"
           ? {
-              status: parsed.toStatus,
-              soldPricePkr: frozenPrice,
-              soldAt: now,
-              soldBy: session.user.id,
-              bookingRef: parsed.bookingRef,
-              version: current.version + 1,
-              updatedAt: now,
-            }
-          : {
               status: parsed.toStatus,
               soldPricePkr: null,
               soldAt: null,
               soldBy: null,
+              bookingRef: parsed.bookingRef ?? current.bookingRef,
               version: current.version + 1,
               updatedAt: now,
-            },
-      )
-      .where(eq(units.id, current.id))
-      .returning();
+            }
+          : parsed.toStatus === "RESERVED"
+            ? {
+                status: parsed.toStatus,
+                soldPricePkr: null,
+                soldAt: null,
+                soldBy: null,
+                bookingRef: parsed.bookingRef ?? current.bookingRef,
+                version: current.version + 1,
+                updatedAt: now,
+              }
+            : {
+                status: parsed.toStatus,
+                soldPricePkr: null,
+                soldAt: null,
+                soldBy: null,
+                bookingRef: current.bookingRef,
+                version: current.version + 1,
+                updatedAt: now,
+              },
+    )
+    .where(eq(units.id, current.id))
+    .returning();
 
-    if (!row) {
-      staleUnit();
-    }
+  if (!row) {
+    staleUnit();
+  }
 
-    await tx.insert(unitStatusHistory).values({
-      unitId: current.id,
-      fromStatus: current.status,
-      toStatus: parsed.toStatus,
-      reason: parsed.reason ?? null,
-      bookingRef: historyBookingRef,
-      soldPricePkr: historySoldPrice,
-      actorId: session.user.id,
-    });
+  await tx.insert(unitStatusHistory).values({
+    unitId: current.id,
+    fromStatus: current.status,
+    toStatus: parsed.toStatus,
+    reason: parsed.reason ?? null,
+    bookingRef: historyBookingRef,
+    soldPricePkr: historySoldPrice,
+    actorId: sessionUser.id,
+  });
 
-    await writeAudit(tx, {
-      actorId: session.user.id,
-      entityId: current.id,
-      action: reversing
-        ? "REVERSE_SALE"
-        : parsed.toStatus === "SOLD"
-          ? "SALE"
-          : "STATUS_CHANGE",
-      before: current,
-      after: row,
-    });
+  await writeAudit(tx, {
+    actorId: sessionUser.id,
+    entityId: current.id,
+    action: reversing
+      ? "REVERSE_SALE"
+      : parsed.toStatus === "SOLD"
+        ? "SALE"
+        : "STATUS_CHANGE",
+    before: current,
+    after: row,
+  });
 
-    return { row, fromStatus: current.status };
+  return { row, fromStatus: current.status };
+}
+
+export async function changeUnitStatus(input: unknown) {
+  const parsed = changeUnitStatusSchema.parse(input);
+  const session = await requireSession();
+
+  const after = await db.transaction(async (tx) => {
+    return changeUnitStatusInTx(tx, parsed, session.user);
   });
 
   logger.info(

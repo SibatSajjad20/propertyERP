@@ -1,6 +1,15 @@
 import { inArray } from "drizzle-orm";
 import { db } from "../../src/db";
 import { blocks, floors } from "../../src/db/schema/property";
+import {
+  buybacks,
+  bookings,
+  installments,
+  payments,
+  refunds,
+  reservations,
+  sales,
+} from "../../src/db/schema/sales";
 import { rateHistory, units, unitStatusHistory } from "../../src/db/schema/units";
 import { isE2eStructureName, isE2eUnitCode } from "../../src/lib/e2e-records";
 import { assertTestDatabase } from "../../src/lib/test-db-guard";
@@ -26,6 +35,20 @@ export async function cleanupTestData(prefixes: string[]) {
     .map((row) => row.id);
 
   if (unitIds.length > 0) {
+    const bks = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(inArray(bookings.unitId, unitIds));
+    const bkIds = bks.map((b) => b.id);
+    if (bkIds.length > 0) {
+      await db.delete(refunds).where(inArray(refunds.bookingId, bkIds));
+      await db.delete(payments).where(inArray(payments.bookingId, bkIds));
+      await db.delete(installments).where(inArray(installments.bookingId, bkIds));
+      await db.delete(bookings).where(inArray(bookings.id, bkIds));
+    }
+    await db.delete(buybacks).where(inArray(buybacks.unitId, unitIds));
+    await db.delete(sales).where(inArray(sales.unitId, unitIds));
+    await db.delete(reservations).where(inArray(reservations.unitId, unitIds));
     await db.delete(rateHistory).where(inArray(rateHistory.unitId, unitIds));
     await db.delete(unitStatusHistory).where(inArray(unitStatusHistory.unitId, unitIds));
     await db.delete(units).where(inArray(units.id, unitIds));

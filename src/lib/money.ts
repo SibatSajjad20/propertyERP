@@ -6,7 +6,7 @@ const LAKH_RUPEES = 100_000n;
 export function parseDecimal(value: string): bigint {
   const trimmed = value.trim();
   const negative = trimmed.startsWith("-");
-  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const unsigned = (negative ? trimmed.slice(1) : trimmed).replace(/,/g, "");
   if (!/^\d+(\.\d+)?$/.test(unsigned)) {
     throw new Error(`Invalid decimal: ${value}`);
   }
@@ -74,14 +74,14 @@ export function computeTotalPrice(
   return formatDecimal(rupees * PAISA_SCALE);
 }
 
-function indianGroup(whole: string): string {
+export function indianGroup(whole: string): string {
   return whole.replace(/(\d)(?=(\d{2})+\d$)/g, "$1,");
 }
 
 export function formatPkrLedger(amount: string): string {
   const trimmed = amount.trim();
   const negative = trimmed.startsWith("-");
-  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const unsigned = (negative ? trimmed.slice(1) : trimmed).replace(/,/g, "");
   const [wholeRaw, fractionRaw = "00"] = unsigned.split(".");
   const whole = (wholeRaw ?? "0").replace(/^0+(?=\d)/, "") || "0";
   const fraction = (fractionRaw + "00").slice(0, 2);
@@ -120,4 +120,68 @@ export function formatPkrCompact(amount: string): string {
 
 export function formatPkr(amount: string): string {
   return formatPkrLedger(amount);
+}
+
+export interface FormatMoneyOptions {
+  allowNegative?: boolean;
+  allowDecimals?: boolean;
+}
+
+export function cleanMoneyInput(
+  value: string | number | null | undefined,
+  options?: FormatMoneyOptions,
+): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value).trim();
+  if (str === "") return "";
+
+  const allowNegative = options?.allowNegative ?? false;
+  const allowDecimals = options?.allowDecimals ?? true;
+
+  const isNegative = allowNegative && str.startsWith("-");
+  const withoutSign = str.replace(/^[+-]/, "");
+  const noCommas = withoutSign.replace(/,/g, "");
+
+  if (allowDecimals) {
+    const parts = noCommas.split(".");
+    const whole = parts[0]?.replace(/\D/g, "") ?? "";
+    const sign = isNegative ? "-" : "";
+    if (parts.length > 1) {
+      const fraction = parts.slice(1).join("").replace(/\D/g, "").slice(0, 2);
+      return `${sign}${whole}.${fraction}`;
+    }
+    return `${sign}${whole}`;
+  }
+
+  const digits = noCommas.replace(/\D/g, "");
+  return `${isNegative ? "-" : ""}${digits}`;
+}
+
+export function formatMoneyInput(
+  value: string | number | null | undefined,
+  options?: FormatMoneyOptions,
+): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value).trim();
+  if (str === "") return "";
+
+  const allowNegative = options?.allowNegative ?? false;
+  const allowDecimals = options?.allowDecimals ?? true;
+
+  const isNegative = allowNegative && str.startsWith("-");
+  const withoutSign = str.replace(/^[+-]/, "");
+  const noCommas = withoutSign.replace(/,/g, "");
+
+  const parts = noCommas.split(".");
+  const wholeRaw = parts[0]?.replace(/\D/g, "") ?? "";
+  const sign = isNegative ? "-" : "";
+
+  const formattedWhole = wholeRaw ? indianGroup(wholeRaw) : parts.length > 1 ? "0" : "";
+
+  if (allowDecimals && parts.length > 1) {
+    const fraction = parts.slice(1).join("").replace(/\D/g, "").slice(0, 2);
+    return `${sign}${formattedWhole}.${fraction}`;
+  }
+
+  return `${sign}${formattedWhole}`;
 }

@@ -1,5 +1,4 @@
 import { ZodError } from "zod";
-import { WAKING_DB_MESSAGE, isTransientDbError } from "./db-errors";
 
 const LEAKY_PATTERN = /password|secret|DATABASE_URL|ECONN|postgres:\/\//i;
 const FORBIDDEN_PATTERN = /forbidden|not allowed|permission/i;
@@ -75,9 +74,6 @@ export function errorCode(error: unknown): string {
 }
 
 export function errorMessage(error: unknown): string {
-  if (isTransientDbError(error)) {
-    return WAKING_DB_MESSAGE;
-  }
   if (error instanceof AppError) {
     return error.message;
   }

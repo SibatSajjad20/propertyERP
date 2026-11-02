@@ -2,10 +2,10 @@ import "server-only";
 
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { withDbRetry } from "@/lib/db-errors";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
-import { unitPricing, unitStatusHistory, units } from "@/db/schema/units";
+import { unitStatusHistory, units } from "@/db/schema/units";
+import { logger } from "@/lib/logger";
 import type { InventoryQuery, InventorySortField } from "./schema";
 import type {
   InventoryFilterOptions,
@@ -26,15 +26,20 @@ export type {
   UnitJumpTarget,
 } from "./types";
 
-function bookPriceExpr() {
-  return sql<string>`coalesce(${units.soldPricePkr}, ${unitPricing.computedPricePkr}, '0')`;
+function computedPriceExpr() {
+  return sql<string>`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
 }
 
-function inventoryWhere(query: InventoryQuery): SQL | undefined {
-  const parts: SQL[] = [isNull(units.archivedAt)];
+function bookPriceExpr() {
+  return sql<string>`coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2), '0')`;
+}
 
-  if (query.q) {
-    const term = `%${query.q}%`;
+function inventoryWhere(query: Partial<InventoryQuery> = {}): SQL | undefined {
+  const parts: SQL[] = [isNull(units.archivedAt)];
+  const q = query ?? {};
+
+  if (q.q) {
+    const term = `%${q.q}%`;
     const search = or(
       ilike(units.unitCode, term),
       ilike(units.unitNumber, term),
@@ -45,29 +50,29 @@ function inventoryWhere(query: InventoryQuery): SQL | undefined {
       parts.push(search);
     }
   }
-  if (query.floorId) {
-    parts.push(eq(units.floorId, query.floorId));
+  if (q.floorId) {
+    parts.push(eq(units.floorId, q.floorId));
   }
-  if (query.categoryId) {
-    parts.push(eq(units.categoryId, query.categoryId));
+  if (q.categoryId) {
+    parts.push(eq(units.categoryId, q.categoryId));
   }
-  if (query.status) {
-    parts.push(eq(units.status, query.status));
+  if (q.status) {
+    parts.push(eq(units.status, q.status));
   }
-  if (query.sellable === true) {
+  if (q.sellable === true) {
     parts.push(eq(units.isSellable, true));
   }
-  if (query.sellable === false) {
+  if (q.sellable === false) {
     parts.push(eq(units.isSellable, false));
   }
-  if (query.missingGross) {
+  if (q.missingGross) {
     parts.push(isNull(units.grossAreaSqft));
   }
 
   return and(...parts);
 }
 
-function sortColumn(sort: InventorySortField) {
+function sortColumn(sort?: InventorySortField) {
   switch (sort) {
     case "unitNumber":
       return units.unitNumber;
@@ -110,7 +115,7 @@ const inventorySelect = {
   ratePerSqftPkr: units.ratePerSqftPkr,
   priceAdjustmentPkr: units.priceAdjustmentPkr,
   priceAdjustmentReason: units.priceAdjustmentReason,
-  computedPricePkr: sql<string>`coalesce(${unitPricing.computedPricePkr}, '0.00')`,
+  computedPricePkr: sql<string>`coalesce(${computedPriceExpr()}, '0.00')`,
   soldPricePkr: units.soldPricePkr,
   bookPricePkr: bookPriceExpr(),
   status: units.status,
@@ -124,36 +129,39 @@ const inventorySelect = {
   soldBy: units.soldBy,
 };
 
-export async function listInventory(query: InventoryQuery): Promise<{
+export async function listInventory(query: Partial<InventoryQuery> = {}): Promise<{
   rows: InventoryRow[];
   totals: InventoryTotals;
 }> {
-  const where = inventoryWhere(query);
-  const order =
-    query.dir === "desc" ? desc(sortColumn(query.sort)) : asc(sortColumn(query.sort));
+  const q = query ?? {};
+  const t0 = performance.now();
+  const where = inventoryWhere(q);
+  const order = q.dir === "desc" ? desc(sortColumn(q.sort)) : asc(sortColumn(q.sort));
 
-  const rows = await db
-    .select(inventorySelect)
-    .from(units)
-    .innerJoin(floors, eq(floors.id, units.floorId))
-    .innerJoin(categories, eq(categories.id, units.categoryId))
-    .leftJoin(unitPricing, eq(unitPricing.unitId, units.id))
-    .where(where)
-    .orderBy(order, asc(units.unitCode));
+  const [rows, [totalsRow]] = await Promise.all([
+    db
+      .select(inventorySelect)
+      .from(units)
+      .innerJoin(floors, eq(floors.id, units.floorId))
+      .innerJoin(categories, eq(categories.id, units.categoryId))
+      .where(where)
+      .orderBy(order, asc(units.unitCode)),
+    db
+      .select({
+        count: sql<number>`count(*)::int`,
+        availableCount: sql<number>`count(*) filter (where ${units.status} = 'AVAILABLE')::int`,
+        soldCount: sql<number>`count(*) filter (where ${units.status} = 'SOLD')::int`,
+        netAreaSqft: sql<string>`coalesce(sum(${units.netAreaSqft}), 0)::numeric(14, 2)`,
+        valuePkr: sql<string>`coalesce(sum(${bookPriceExpr()}), 0)::numeric(14, 2)`,
+      })
+      .from(units)
+      .innerJoin(floors, eq(floors.id, units.floorId))
+      .innerJoin(categories, eq(categories.id, units.categoryId))
+      .where(where),
+  ]);
 
-  const [totalsRow] = await db
-    .select({
-      count: sql<number>`count(*)::int`,
-      availableCount: sql<number>`count(*) filter (where ${units.status} = 'AVAILABLE')::int`,
-      soldCount: sql<number>`count(*) filter (where ${units.status} = 'SOLD')::int`,
-      netAreaSqft: sql<string>`coalesce(sum(${units.netAreaSqft}), 0)::numeric(14, 2)`,
-      valuePkr: sql<string>`coalesce(sum(${bookPriceExpr()}), 0)::numeric(14, 2)`,
-    })
-    .from(units)
-    .innerJoin(floors, eq(floors.id, units.floorId))
-    .innerJoin(categories, eq(categories.id, units.categoryId))
-    .leftJoin(unitPricing, eq(unitPricing.unitId, units.id))
-    .where(where);
+  const durationMs = Math.round(performance.now() - t0);
+  logger.info({ durationMs, count: rows.length, query }, "server timing: listInventory");
 
   return {
     rows: rows.map((row) => ({
@@ -217,59 +225,54 @@ export async function getInventoryFilterOptions(): Promise<InventoryFilterOption
 }
 
 export async function getUnitById(id: string): Promise<UnitDetail | null> {
-  return withDbRetry(async () => {
-    const [row] = await db
-      .select({
-        unit: units,
-        floorName: floors.name,
-        floorLevel: floors.level,
-        categoryName: categories.name,
-        categoryIsSellableDefault: categories.isSellableDefault,
-        computedPricePkr: sql<string>`coalesce(${unitPricing.computedPricePkr}, '0.00')`,
-      })
-      .from(units)
-      .innerJoin(floors, eq(floors.id, units.floorId))
-      .innerJoin(categories, eq(categories.id, units.categoryId))
-      .leftJoin(unitPricing, eq(unitPricing.unitId, units.id))
-      .where(and(eq(units.id, id), isNull(units.archivedAt)))
-      .limit(1);
+  const [row] = await db
+    .select({
+      unit: units,
+      floorName: floors.name,
+      floorLevel: floors.level,
+      categoryName: categories.name,
+      categoryIsSellableDefault: categories.isSellableDefault,
+      computedPricePkr: sql<string>`coalesce(${computedPriceExpr()}, '0.00')`,
+    })
+    .from(units)
+    .innerJoin(floors, eq(floors.id, units.floorId))
+    .innerJoin(categories, eq(categories.id, units.categoryId))
+    .where(and(eq(units.id, id), isNull(units.archivedAt)))
+    .limit(1);
 
-    if (!row) {
-      return null;
-    }
+  if (!row) {
+    return null;
+  }
 
-    return {
-      ...row,
-      bookPricePkr: row.unit.soldPricePkr ?? row.computedPricePkr,
-    };
-  });
+  return {
+    ...row,
+    bookPricePkr: row.unit.soldPricePkr ?? row.computedPricePkr,
+  };
 }
 
 export async function listUnitStatusHistory(
   unitId: string,
 ): Promise<StatusHistoryEntry[]> {
-  return withDbRetry(async () => {
-    const rows = await db
-      .select({
-        id: unitStatusHistory.id,
-        fromStatus: unitStatusHistory.fromStatus,
-        toStatus: unitStatusHistory.toStatus,
-        reason: unitStatusHistory.reason,
-        bookingRef: unitStatusHistory.bookingRef,
-        soldPricePkr: unitStatusHistory.soldPricePkr,
-        actorName: user.name,
-        createdAt: unitStatusHistory.createdAt,
-      })
-      .from(unitStatusHistory)
-      .leftJoin(user, eq(user.id, unitStatusHistory.actorId))
-      .where(eq(unitStatusHistory.unitId, unitId))
-      .orderBy(desc(unitStatusHistory.createdAt), desc(unitStatusHistory.id));
+  const rows = await db
+    .select({
+      id: unitStatusHistory.id,
+      fromStatus: unitStatusHistory.fromStatus,
+      toStatus: unitStatusHistory.toStatus,
+      reason: unitStatusHistory.reason,
+      bookingRef: unitStatusHistory.bookingRef,
+      soldPricePkr: unitStatusHistory.soldPricePkr,
+      actorName: user.name,
+      createdAt: unitStatusHistory.createdAt,
+    })
+    .from(unitStatusHistory)
+    .leftJoin(user, eq(user.id, unitStatusHistory.actorId))
+    .where(eq(unitStatusHistory.unitId, unitId))
+    .orderBy(desc(unitStatusHistory.createdAt), desc(unitStatusHistory.id));
 
-    return rows.map((row) => ({
-      ...row,
-      createdAt: row.createdAt.toISOString(),
-    }));
-  });
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function searchUnitsByCode(q: string): Promise<UnitJumpTarget[]> {

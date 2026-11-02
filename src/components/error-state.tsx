@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { WAKING_DB_MESSAGE, isTransientDbError } from "@/lib/db-errors";
 import { errorMessage } from "@/lib/errors";
 
 export function ErrorState({
@@ -13,18 +12,12 @@ export function ErrorState({
   error?: unknown;
   onRetry?: () => void;
 }) {
-  const waking = isTransientDbError(error);
-  const message = waking ? WAKING_DB_MESSAGE : errorMessage(error);
+  const message = errorMessage(error);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-start gap-3 py-6">
       <h1 className="text-[20px] font-semibold tracking-tight text-ink">{title}</h1>
       <p className="max-w-lg text-[13px] text-ink-muted">{message}</p>
-      {waking ? (
-        <p className="text-[12px] text-ink-faint">
-          Neon pauses idle databases. Wait a moment and try again.
-        </p>
-      ) : null}
       {onRetry ? (
         <Button variant="primary" size="md" onClick={onRetry}>
           Try again

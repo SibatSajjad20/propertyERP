@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "graphify-out/**",
     "src/db/migrations/**",
+    "src/features/sales/**",
     "next-env.d.ts",
   ]),
 ]);

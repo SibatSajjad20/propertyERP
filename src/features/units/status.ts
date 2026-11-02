@@ -2,11 +2,17 @@ import type { UnitStatus } from "@/db/schema/enums";
 import { ValidationError } from "@/lib/errors";
 
 /**
- * Allowed status transitions. Extend here when RESERVED / BOOKED land.
+ * Allowed status transitions.
+ * AVAILABLE  → RESERVED | BOOKED | SOLD
+ * RESERVED   → AVAILABLE | BOOKED
+ * BOOKED     → SOLD | AVAILABLE
+ * SOLD       → AVAILABLE
  * Nothing else may write `units.status` — go through `changeUnitStatus`.
  */
 export const STATUS_TRANSITIONS = {
-  AVAILABLE: ["SOLD"],
+  AVAILABLE: ["RESERVED", "BOOKED", "SOLD"],
+  RESERVED: ["AVAILABLE", "BOOKED"],
+  BOOKED: ["SOLD", "AVAILABLE"],
   SOLD: ["AVAILABLE"],
 } as const satisfies Record<UnitStatus, readonly UnitStatus[]>;
 
@@ -23,6 +29,8 @@ export function assertTransition(from: UnitStatus, to: UnitStatus): void {
 export const REVERSE_REASON_MIN = 10;
 export const NOT_SELLABLE_MESSAGE = "This unit is not sellable.";
 export const BOOKING_REF_REQUIRED_MESSAGE =
-  "Booking ref is required to mark a unit as sold.";
+  "Booking ref is required to mark a unit as sold or booked.";
 export const REVERSE_REASON_MESSAGE =
   "A reason of at least 10 characters is required to reverse a sale.";
+export const CANCELLATION_REASON_MESSAGE =
+  "A reason of at least 10 characters is required to cancel or return a booking.";

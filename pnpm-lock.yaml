@@ -235,6 +235,9 @@ importers:
       '@visx/axis':
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.3.0)(react@19.3.0)
+      '@visx/curve':
+        specifier: ^4.0.0
+        version: 4.0.0
       '@visx/event':
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.3.0)(react@19.3.0)

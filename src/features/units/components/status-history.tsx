@@ -1,51 +1,82 @@
 import { formatKarachiDateTime } from "@/lib/datetime";
 import { formatPkrLedger } from "@/lib/money";
+import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import type { StatusHistoryEntry } from "../types";
 
 type StatusHistoryProps = {
   entries: StatusHistoryEntry[];
 };
 
-function statusLabel(status: StatusHistoryEntry["fromStatus"]): string {
-  return status === "SOLD" ? "Sold" : "Available";
+function formatStatusLabel(status: string): string {
+  switch (status) {
+    case "AVAILABLE":
+      return "Available";
+    case "RESERVED":
+      return "Reserved";
+    case "BOOKED":
+      return "Booked";
+    case "SOLD":
+      return "Sold";
+    default:
+      return status;
+  }
 }
 
 export function StatusHistory({ entries }: StatusHistoryProps) {
   return (
-    <div className="mt-6 border-t border-line pt-4">
-      <p className="text-[11px] tracking-wide text-ink-muted">Status history</p>
+    <div className="mt-4 pt-2">
       {entries.length === 0 ? (
-        <p className="mt-2 text-[13px] text-ink-muted">No status changes yet.</p>
+        <p className="py-2 text-[13px] text-ink-muted">No status changes recorded yet.</p>
       ) : (
-        <ol className="mt-3">
+        <ol className="relative ml-2 space-y-0 border-l border-line">
           {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className="relative border-l border-line pb-4 pl-4 last:pb-0"
-            >
+            <li key={entry.id} className="relative pb-6 pl-5 last:pb-1">
               <span
-                className="absolute top-1.5 left-0 size-1.5 -translate-x-1/2 rounded-full bg-ink"
+                className="absolute top-1 -left-[3.5px] size-1.5 rounded-full bg-primary ring-4 ring-surface"
                 aria-hidden="true"
               />
-              <p className="text-[13px] text-ink">
-                {statusLabel(entry.fromStatus)} → {statusLabel(entry.toStatus)}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="sr-only">
+                  {formatStatusLabel(entry.fromStatus)} →{" "}
+                  {formatStatusLabel(entry.toStatus)}
+                </span>
+                <span className="text-[12px] font-medium text-ink-muted">
+                  Transition:
+                </span>
+                <UnitStatusBadge status={entry.fromStatus} />
+                <span className="text-[12px] text-ink-muted">→</span>
+                <UnitStatusBadge status={entry.toStatus} />
+              </div>
+
+              <p className="mt-1.5 text-[12px] text-ink-muted">
+                <span className="font-medium text-ink">
+                  {entry.actorName ?? "System"}
+                </span>
+                <span className="mx-1.5 text-line-strong">·</span>
+                <span>{formatKarachiDateTime(entry.createdAt)}</span>
               </p>
-              <p className="text-[12px] text-ink-muted">
-                {entry.actorName ?? "Unknown"}
-                <span className="mx-1.5 text-line">·</span>
-                {formatKarachiDateTime(entry.createdAt)}
-              </p>
+
               {entry.reason ? (
-                <p className="mt-1 text-[12px] text-ink">{entry.reason}</p>
-              ) : null}
-              {entry.bookingRef ? (
-                <p className="mt-1 text-[12px] text-ink-muted">
-                  Booking ref {entry.bookingRef}
+                <p className="mt-1.5 rounded-[4px] border border-line bg-subtle/50 px-2.5 py-1.5 text-[12px] text-ink">
+                  {entry.reason}
                 </p>
               ) : null}
+
+              {entry.bookingRef ? (
+                <p className="mt-1 text-[12px] text-ink-muted">
+                  Booking ref{" "}
+                  <span className="unit-code font-mono font-medium text-ink">
+                    {entry.bookingRef}
+                  </span>
+                </p>
+              ) : null}
+
               {entry.soldPricePkr ? (
-                <p className="text-[12px] text-ink-muted tabular-nums">
-                  Sold price {formatPkrLedger(entry.soldPricePkr)}
+                <p className="mt-0.5 text-[12px] text-ink-muted tabular-nums">
+                  Sold price{" "}
+                  <span className="font-semibold text-ink">
+                    {formatPkrLedger(entry.soldPricePkr)}
+                  </span>
                 </p>
               ) : null}
             </li>

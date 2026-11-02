@@ -25,6 +25,12 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  experimental: {
+    staleTimes: {
+      dynamic: 60,
+      static: 180,
+    },
+  },
   turbopack: {
     rules: {
       "*.css": {

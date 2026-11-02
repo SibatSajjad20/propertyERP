@@ -16,6 +16,8 @@
   --primary-hover: #084572;
   --accent: #9a7b4f;
   --available: #1f7a4d;
+  --reserved: #b7791f;
+  --booked: #0b558b;
   --sold: #9b2c2c;
 
   /* Focus ring: 2px brass at 40% opacity, offset 2px */

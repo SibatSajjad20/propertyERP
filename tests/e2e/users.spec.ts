@@ -9,6 +9,7 @@ async function signIn(
   email: string,
   password: string,
 ) {
+  await page.context().clearCookies();
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);

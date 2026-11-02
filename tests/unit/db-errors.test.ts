@@ -1,27 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { isTransientDbError, WAKING_DB_MESSAGE, withDbRetry } from "@/lib/db-errors";
+import { errorMessage, AppError, ValidationError } from "@/lib/errors";
 
-describe("db errors", () => {
-  it("treats Neon cold-start messages as transient", () => {
-    expect(isTransientDbError(new Error("the compute is not active"))).toBe(true);
-    expect(isTransientDbError(new Error("connect ETIMEDOUT"))).toBe(true);
-    expect(isTransientDbError(new Error("permission denied"))).toBe(false);
+describe("error utilities", () => {
+  it("formats AppError messages accurately", () => {
+    expect(errorMessage(new AppError("Custom error", "CODE", 400))).toBe("Custom error");
+    expect(errorMessage(new ValidationError("Field is required"))).toBe(
+      "Field is required",
+    );
   });
 
-  it("retries transient failures then succeeds", async () => {
-    let attempts = 0;
-    const value = await withDbRetry(async () => {
-      attempts += 1;
-      if (attempts < 3) {
-        throw new Error("connection timeout");
-      }
-      return "ok";
-    });
-    expect(value).toBe("ok");
-    expect(attempts).toBe(3);
-  });
-
-  it("exposes a friendly waking message constant", () => {
-    expect(WAKING_DB_MESSAGE.toLowerCase()).toContain("waking");
+  it("masks leaky connection string error patterns", () => {
+    const errorWithSecret = new Error(
+      "Connection failed at postgres://user:secret@db.host:5432",
+    );
+    expect(errorMessage(errorWithSecret)).toBe(
+      "Something went wrong. Try again, or ask an administrator.",
+    );
   });
 });

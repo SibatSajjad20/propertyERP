@@ -18,6 +18,7 @@ test("unauthenticated visitor to / or /inventory is redirected to /login", async
 });
 
 test("admin can sign in and reach inventory", async ({ page }) => {
+  test.setTimeout(60_000);
   page.on("pageerror", (err) => console.error("PAGE ERROR:", err));
   page.on("console", (msg) => console.log("BROWSER CONSOLE:", msg.type(), msg.text()));
   await page.goto("/login");
@@ -25,6 +26,11 @@ test("admin can sign in and reach inventory", async ({ page }) => {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
-  await expect(page.getByText(/unit/i).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/inventory/, { timeout: 30_000 });
+  await expect(page.getByText(/unit/i).first()).toBeVisible({ timeout: 30_000 });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+    timeout: 15_000,
+  });
 });

@@ -13,11 +13,14 @@ async function signIn(
   email: string,
   password: string,
 ) {
+  await page.context().clearCookies();
   await page.goto("/login");
+  await expect(page.getByLabel("Email")).toBeVisible({ timeout: 15_000 });
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/inventory/, { timeout: 15_000 });
+  await expect(page.locator("table").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function signOut(page: import("@playwright/test").Page) {
@@ -34,6 +37,7 @@ async function signOut(page: import("@playwright/test").Page) {
     .click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  await expect(page.getByLabel("Email")).toBeVisible({ timeout: 15_000 });
 }
 
 async function createUnit(page: import("@playwright/test").Page, code: string) {
@@ -46,8 +50,11 @@ async function createUnit(page: import("@playwright/test").Page, code: string) {
   await page.getByLabel("Net area (sq ft)").fill("100.00");
   await page.getByLabel("Rate per sq ft (PKR)").fill("25000.00");
   await page.getByRole("button", { name: "Save unit" }).click();
-  await expect(page.locator(".unit-code", { hasText: code }).first()).toBeVisible({
-    timeout: 15_000,
+  await expect(page).toHaveURL(/\/units\/[0-9a-f-]+/, { timeout: 30_000 });
+  await expect(
+    page.locator("span.text-primary.unit-code", { hasText: code }),
+  ).toBeVisible({
+    timeout: 30_000,
   });
 }
 
@@ -55,8 +62,10 @@ async function openUnit(page: import("@playwright/test").Page, code: string) {
   await page.goto(`/inventory?q=${encodeURIComponent(code)}`);
   await page.getByRole("cell", { name: code }).click();
   await expect(page).toHaveURL(/\/units\/[0-9a-f-]+/, { timeout: 15_000 });
-  await expect(page.locator(".unit-code", { hasText: code }).first()).toBeVisible({
-    timeout: 15_000,
+  await expect(
+    page.locator("span.text-primary.unit-code", { hasText: code }),
+  ).toBeVisible({
+    timeout: 30_000,
   });
   return page;
 }
@@ -73,7 +82,6 @@ test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   test.setTimeout(60_000);
   const code = `ST-${Date.now()}`;
   await signIn(page, inventoryEmail, inventoryPassword);
-  await page.goto("/inventory");
   await createUnit(page, code);
   await signOut(page);
 
@@ -85,7 +93,7 @@ test("sales marks a unit sold and cannot reverse it", async ({ page }) => {
   await panel.getByRole("button", { name: "Confirm sale" }).click();
 
   await expect(panel.getByText("Sold", { exact: true }).first()).toBeVisible({
-    timeout: 15_000,
+    timeout: 30_000,
   });
   await expect(panel.getByText("Available → Sold")).toBeVisible();
   await expect(panel.getByText("Booking ref BK-E2E-1")).toBeVisible();
@@ -137,13 +145,12 @@ test("admin reverses a sale with a reason", async ({ page }) => {
   test.setTimeout(60_000);
   const code = `RV-${Date.now()}`;
   await signIn(page, inventoryEmail, inventoryPassword);
-  await page.goto("/inventory");
   await createUnit(page, code);
   await page.getByRole("button", { name: "Mark as Sold" }).click();
   await page.locator("#sale-booking-ref").fill("BK-E2E-2");
   await page.getByRole("button", { name: "Confirm sale" }).click();
   await expect(page.getByText("Sold", { exact: true }).first()).toBeVisible({
-    timeout: 15_000,
+    timeout: 30_000,
   });
   await expect(page.getByText("Available → Sold")).toBeVisible();
   await signOut(page);

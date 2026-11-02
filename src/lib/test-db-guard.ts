@@ -34,7 +34,7 @@ export function assertTestDatabase(
     host.includes("prod") ||
     host.includes("production") ||
     host.includes("sardarsmall-prod") ||
-    Boolean(env.NEON_PROJECT_ID && env.VERCEL_ENV === "production");
+    Boolean(env.SUPABASE_PROJECT_ID && env.VERCEL_ENV === "production");
 
   if (looksProduction) {
     throw new Error(`ABORT: tests cannot run against production database (${host})`);

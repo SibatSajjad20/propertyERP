@@ -5,7 +5,7 @@ export function formatSqft(value: string | null | undefined): string {
     return "—";
   }
   const paisaLike = parseDecimal(value);
-  return `${formatDecimal(paisaLike)} sqft`;
+  return `${formatDecimal(paisaLike)} sq ft`;
 }
 
 export function isGrossLessThanNet(

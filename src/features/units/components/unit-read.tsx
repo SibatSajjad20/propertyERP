@@ -1,6 +1,6 @@
 import { formatSqft } from "@/lib/area";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
-import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import type { InventoryRow, StatusHistoryEntry } from "../types";
 import { StatusHistory } from "./status-history";
 
@@ -27,9 +27,7 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
             Current Status
           </p>
           <div className="mt-1">
-            <Badge tone={unit.status === "SOLD" ? "sold" : "available"}>
-              {unit.status === "SOLD" ? "Sold" : "Available"}
-            </Badge>
+            <UnitStatusBadge status={unit.status} />
           </div>
         </div>
         <div className="text-right">

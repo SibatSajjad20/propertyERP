@@ -1,0 +1,1 @@
+CREATE INDEX "units_floor_status_archived_idx" ON "units" USING btree ("floor_id","status","archived_at");

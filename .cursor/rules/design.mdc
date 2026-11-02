@@ -1,43 +1,81 @@
 ---
-description: Design system tokens, typography rules, card elevation, and motion guidelines
+description: Design system tokens, control sizing, typography rules, card elevation, and dashboard motion guidelines
 globs: src/**/*.{tsx,css}
 alwaysApply: true
 ---
 
 # Design System Rules
 
+## 1. Tokens & Status Colours
 Tokens live in `src/styles/tokens.css` and are exposed via Tailwind in `src/styles/globals.css`:
 - Backgrounds: `--bg #F3F5F7`, `--surface #FFFFFF`, `--subtle #E9EEF2`
 - Borders: `--line #DDE3E8`, `--line-strong #C8D0D8`
 - Text: `--ink #0F172A`, `--ink-muted #64748B`, `--ink-faint #94A3B8`
-- Brand: `--primary #0B558B`, `--primary-hover #084572`, `--accent #9A7B4F` (brass)
-- Status: `--available #1F7A4D`, `--sold #9B2C2C`
+- Brand & Status:
+  - Available: `#1F7A4D` (`--available`)
+  - Reserved: `#B7791F` (`--reserved`)
+  - Booked: `#0B558B` (`--booked`)
+  - Sold: `#9B2C2C` (`--sold`)
+  - Brass: `#9A7B4F` (`--accent`) ONLY for the logo hallmark and the active nav bar.
 - Radius: `8px` controls/buttons, `12px` cards, `16px` dialogs/modal sheets
 - Elevation: `--shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06)`; floating layer `--shadow-floating` for dialogs/toasts/popovers. Soft card elevation is allowed via the `.card` utility.
 
-## Typography & Numbers
-- **Geist (sans)**: UI, headings, buttons, KPIs, money, prices, areas, and chart axes.
-- **Numbers**: Always use `tabular-nums` (`font-sans tabular-nums`), right-aligned in tables and cards. Currency formatted via `formatPkr` / `formatPkrCompact` / `formatPkrLedger`.
-- **Geist Mono (`.unit-code`, `.font-mono`)**: ONLY for unit codes, booking references, IDs, and cryptographic hashes. Never use Mono for prices, areas, KPI totals, or chart labels.
+## 2. Control Sizing (Whole App)
+One scale across the entire application:
+- `md = h-9 (36px)` (default):
+  - Button md: `h-9 px-3.5 text-[13px] font-medium gap-1.5 rounded-[8px]`
+  - Form controls: Select trigger, Input, DatePicker, search box: all `h-9`, `text-[13px]`, `rounded-[8px]` so they align with buttons.
+  - Page header actions: `flex items-center gap-2`, all controls `md` (36px).
+- `sm = h-8 (32px)`:
+  - Button sm: `h-8 px-3 text-[13px] gap-1.5 rounded-[8px]`
+  - Table row actions: all `sm` (size-8 button / dropdown trigger).
+- Icon buttons: `size-9` (36px), sm icon `size-8` (32px).
+- Icons: strictly 16px (`size-4`), `gap-1.5`, same border width.
+- No ad-hoc `h-*`/`py-*`/`px-*`/`text-*`/`rounded-*` className on `Button`/`Select`/`Input` usages.
 
-## Components & Cards
-- Cards: `.card` utility (surface background, 1px line border, 12px border radius, `--shadow-card` elevation). Interactive cards lift slightly on hover (`translateY(-1px)`).
-- Buttons: Primary solid `#0B558B` (hover `#084572`, `h-9`, `rounded-[8px]`); secondary white with `line-strong` border; retain `active:scale-[0.98]`.
-- Navigation: Sidebar active item displays a subtle brass left bar (`--accent`).
+## 3. App Shell & Spacing Rules
+- Sidebar: `h-screen sticky top-0`, user footer pinned at the bottom (`mt-auto`), no blank strip below.
+- Main content: `max-w-[1440px] mx-auto px-6 py-6`.
+- Spacing rhythm:
+  - Page padding: `24px` (`px-6 py-6` / `p-6`)
+  - Card gap: `16px` (`gap-4`)
+  - Card padding: `20px` (`p-5`)
+  - Section gap: `24px` (`gap-6` or `space-y-6`)
 
-## Motion & Transitions
-- Micro-interactions timed between 120ms and 240ms with `cubic-bezier(0.2, 0.8, 0.2, 1)`.
-- Transitions-dev required patterns:
-  - Number pop-in / count-up for KPI cards on view and filter changes.
-  - Panel reveal for sheets and drawers.
-  - Modal open / close for dialogs.
+## 4. Top Bar & Navigation
+- Breadcrumbs left: `text-[13px] text-ink-muted`, parent / child.
+- Cmd+K search + user menu right.
+- No duplicate page titles: `PageHeader` is the only title on a page.
+- Sidebar structure:
+  - Inventory: Dashboard, Inventory, Structure, Import
+  - Sales: Bookings, Reservations, Installments, Sold
+  - Reports: one link → `/reports` with tabs: Summary, Sold, Booked, Reserved, Collections, Client ledger (read-only; rows link to the matching Sales detail page for actions)
+  - Admin: Users, Audit log
+  - Active item: subtle tint (`bg-subtle font-medium text-ink`) + brass left bar (`bg-accent`, `#9A7B4F`).
+
+## 5. Dashboard
+- Layout order:
+  - Row 1: 6 stat cards (Available, Reserved, Booked, Sold, Net collected, Reversals this month). Dots match status colours; "Rs 0" with a space; single `formatPkrCompact` Lac/Cr helper used everywhere; count-up animation on numbers.
+  - Row 2: "Needs attention" cards: Overdue installments, Due this week, Reservations expiring in 48h; each one clickable to its filtered list.
+  - Row 3: Sales over time (2/3) + Inventory mix (1/3).
+  - Row 4: Floor stack (2/3) + Recent activity (1/3).
+- Columns in each row use `items-stretch` to ensure equal card heights.
+- Sales chart: range from the first sale or the last 6 months; bars when < 4 months of data, otherwise a smooth area with a line draw-in animation, hover crosshair + tooltip.
+- Inventory mix: real animated donut (`visx Pie`), % sold in the centre, legend in 2 columns, no clipping.
+- Floor stack: top floor first, 8px rounded bars, available shown as `#1F7A4D` at 18% opacity, other statuses solid, remove the L-numbers, right label "x% sold" + small booked/reserved counts, widths animate on mount (stagger 30ms), tooltip with counts + value.
+- Recent activity: 8 items, readable names, "View all".
+
+## 6. Typography & Motion
+- Geist (sans) for UI, headings, buttons, KPIs, money, prices, areas, and chart axes.
+- Geist Mono strictly for unit codes (`.unit-code`), IDs, and booking numbers.
+- Transitions-dev patterns:
+  - Number count-up / pop-in for KPI cards.
   - Page enter transitions (180ms).
-  - Status badge swap animation.
-  - Success check stroke-draw for completed actions (sell / reverse / save).
+  - Modal and panel reveals.
 - Always respect `@media (prefers-reduced-motion: reduce)`.
 
-## Bans
+## 7. Bans
 - No Lucide icons (use Phosphor light icons only).
-- No purple, rainbow, or loud gradient backgrounds.
+- No purple, rainbow, or loud gradients.
 - No Recharts (use visx).
 - No raw default shadcn components.

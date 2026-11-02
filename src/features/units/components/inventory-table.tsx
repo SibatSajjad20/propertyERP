@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { DotsThree, Eye, PencilSimple } from "@phosphor-icons/react";
-import { Badge } from "@/components/ui/badge";
+import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,11 +121,7 @@ export function InventoryTable({
         header: "Status",
         cell: (info) => {
           const status = info.getValue();
-          return (
-            <Badge tone={status === "SOLD" ? "sold" : "available"}>
-              {status === "SOLD" ? "Sold" : "Available"}
-            </Badge>
-          );
+          return <UnitStatusBadge status={status} />;
         },
       }),
     ];
@@ -170,7 +166,7 @@ export function InventoryTable({
                 <button
                   type="button"
                   aria-label="Actions"
-                  className="flex size-7 items-center justify-center rounded-[6px] text-ink-muted opacity-70 transition-colors group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                  className="flex size-8 items-center justify-center rounded-[8px] text-ink-muted opacity-70 transition-colors group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                 >
                   <DotsThree weight="bold" className="size-4" />
                 </button>

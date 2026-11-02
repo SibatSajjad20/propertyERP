@@ -21,6 +21,7 @@ test("capture high-resolution screenshots of all screens at 1440x900", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // 1. Login screen
+  await page.context().clearCookies();
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sardar's Mall" })).toBeVisible();
   await page.waitForTimeout(400);

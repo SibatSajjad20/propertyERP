@@ -17,6 +17,18 @@ const allowed: Record<UserRole, ReadonlySet<string>> = {
     "structure.manage",
     "dashboard.read",
     "profile.update",
+    "reservations.read",
+    "reservations.create",
+    "reservations.cancel",
+    "reservations.extend",
+    "bookings.read",
+    "bookings.create",
+    "payments.read",
+    "payments.create",
+    "installments.read",
+    "reports.read",
+    "sales.read",
+    "sales.create",
   ]),
   SALES: new Set([
     "units.read",
@@ -25,6 +37,17 @@ const allowed: Record<UserRole, ReadonlySet<string>> = {
     "structure.read",
     "dashboard.read",
     "profile.update",
+    "reservations.read",
+    "reservations.create",
+    "reservations.extend",
+    "bookings.read",
+    "bookings.create",
+    "payments.read",
+    "payments.create",
+    "installments.read",
+    "reports.read",
+    "sales.read",
+    "sales.create",
   ]),
 };
 
@@ -62,5 +85,12 @@ describe("permission matrix", () => {
     expect(can("INVENTORY_MANAGER", "users.manage")).toBe(false);
     expect(can("INVENTORY_MANAGER", "users.read")).toBe(false);
     expect(can("INVENTORY_MANAGER", "units.reverse_sale")).toBe(false);
+    // Sales lifecycle boundary checks
+    expect(can("SALES", "reservations.cancel")).toBe(false);
+    expect(can("INVENTORY_MANAGER", "reservations.cancel")).toBe(true);
+    expect(can("SALES", "bookings.cancel")).toBe(false);
+    expect(can("INVENTORY_MANAGER", "bookings.cancel")).toBe(false);
+    expect(can("SALES", "sales.buyback")).toBe(false);
+    expect(can("INVENTORY_MANAGER", "sales.buyback")).toBe(false);
   });
 });

@@ -4,12 +4,11 @@ Property and inventory ledger for Sardar's Mall (368 units, 11 floors). Hierarch
 
 ## Setup
 
-Prerequisites: Node 24, pnpm 12, Docker.
+Prerequisites: Node 24, pnpm 12, Supabase / Postgres.
 
 ```bash
 pnpm install
 cp .env.example .env
-docker compose up -d db
 pnpm db:migrate
 pnpm db:seed
 pnpm dev
@@ -37,11 +36,12 @@ Sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`. Inventory and sales u
 
 ## Env
 
-See `.env.example`. Required: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+See `.env.example`. Required: `DATABASE_URL`, `DIRECT_URL` (optional for migrations), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
 
 | Variable                                        | Purpose                                                              |
 | ----------------------------------------------- | -------------------------------------------------------------------- |
-| `DATABASE_URL`                                  | Postgres connection string                                           |
+| `DATABASE_URL`                                  | Supabase pooled connection string (port 6543, `prepare: false`)      |
+| `DIRECT_URL`                                    | Supabase direct connection string (port 5432) for migrations         |
 | `BETTER_AUTH_SECRET`                            | Session signing secret (32+ bytes)                                   |
 | `BETTER_AUTH_URL`                               | Canonical public origin (production URL)                             |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Seeded administrator                                                 |
@@ -52,14 +52,15 @@ See `.env.example`. Required: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH
 
 `.env*` is gitignored except `.env.example`. Do not put secrets in `NEXT_PUBLIC_*` other than a public Sentry DSN.
 
-Preview deploys: Vercel sets `VERCEL_URL`. Auth `baseURL` uses `https://${VERCEL_URL}` when `VERCEL_ENV=preview`. `trustedOrigins` includes that origin.
+Preview deploys: Vercel sets `VERCEL_URL`. Auth `baseURL` uses `https://${VERCEL_URL}` when `VERCEL_ENV=preview`. `trustedOrigins` includes that origin. Function region is set to `sin1` (`Singapore`).
 
 ## Deploy
 
-1. Create a Neon project (Postgres 16). Copy the pooled connection string into `DATABASE_URL`.
-2. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` (production origin, `https://…`).
-3. Set admin seed env vars, then run `pnpm db:migrate` and `pnpm db:seed` against Neon (or a CI migrate step).
-4. Deploy to Vercel with the same env vars. Preview deployments work without changing `BETTER_AUTH_URL`.
+1. Create a Supabase project (Postgres 16, Region: Singapore `sin1`).
+2. Copy the transaction pooled connection string (port 6543) into `DATABASE_URL`, and the direct connection string (port 5432) into `DIRECT_URL`.
+3. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` (production origin, `https://…`).
+4. Set admin seed env vars, then run `pnpm db:migrate` and `pnpm db:seed`.
+5. Deploy to Vercel with the same env vars and region `sin1`.
 
 ## Migrate and seed
 
@@ -69,20 +70,6 @@ pnpm db:seed
 ```
 
 Migrations live in `src/db/migrations`. Do not rewrite history. Generate with `pnpm db:generate` after schema edits.
-
-## Neon point-in-time restore
-
-Neon keeps a restore window on paid plans (check the console for the exact retention).
-
-1. In the Neon console, open the project → **Backup & restore** (or **Branches**).
-2. Create a new branch / restore target at the timestamp you need. This does not overwrite the live branch until you switch.
-3. Point a staging `DATABASE_URL` at the restored branch and verify units, sales, and users.
-4. To promote: swap the production connection string to the restored branch, or restore onto the production branch using Neon’s restore flow.
-5. After restore, run `pnpm db:migrate` only if the restored point is behind current migrations. Do not re-seed production.
-
-Time-travel is not a substitute for **Full export**. Administrators should download `.xlsx` after major imports or month-end.
-
-If the app says the database is waking, Neon is starting a suspended compute. Wait and retry.
 
 ## Docs
 

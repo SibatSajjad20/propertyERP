@@ -2,9 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CaretDown, CaretRight, Clock } from "@phosphor-icons/react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import type { Route } from "next";
+import { CaretDown, CaretLeft, CaretRight, Clock } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
-import { FilterBar, FilterChip } from "@/components/ui/filter-bar";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -12,10 +22,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatKarachiDateTime } from "@/lib/datetime";
-import type { AuditLogRow } from "../queries";
+import type { AuditLogRow, AuditLogResult } from "../queries";
 
 interface AuditScreenProps {
-  initialRows: AuditLogRow[];
+  initialResult: AuditLogResult;
 }
 
 function formatRelativeTime(date: Date, nowMs: number): string {
@@ -37,6 +47,10 @@ const FIELD_LABELS: Record<string, string> = {
   mustChangePassword: "Must change password",
   status: "Status",
   unitCode: "Unit code",
+  ratePerSqftPkr: "Rate per sq ft",
+  soldPricePkr: "Sold price",
+  bookingRef: "Booking ref",
+  notes: "Notes",
 };
 
 function fieldLabel(key: string): string {
@@ -98,31 +112,31 @@ function renderHumanAction(row: AuditLogRow) {
       );
     }
     if (change === "role") {
+      const fromRole = row.before?.role ? String(row.before.role) : null;
+      const toRole = row.after?.role ? String(row.after.role) : null;
       return (
         <span>
           <span className="font-medium text-ink">{row.actorName}</span> changed role of{" "}
-          {entityLink} from {formatValue(row.before?.role)} to{" "}
-          {formatValue(row.after?.role)}
+          {entityLink}
+          {fromRole && toRole ? (
+            <span className="text-ink-muted">
+              {" "}
+              from {fromRole.toLowerCase()} to {toRole.toLowerCase()}
+            </span>
+          ) : null}
         </span>
       );
     }
     if (change === "disabled") {
+      const disabled = Boolean(row.after?.disabled);
       return (
         <span>
-          <span className="font-medium text-ink">{row.actorName}</span> disabled{" "}
-          {entityLink}
+          <span className="font-medium text-ink">{row.actorName}</span>{" "}
+          {disabled ? "deactivated" : "reactivated"} account {entityLink}
         </span>
       );
     }
-    if (change === "enabled") {
-      return (
-        <span>
-          <span className="font-medium text-ink">{row.actorName}</span> enabled{" "}
-          {entityLink}
-        </span>
-      );
-    }
-    if (change === "password_reset" || change === "password") {
+    if (change === "password_reset") {
       return (
         <span>
           <span className="font-medium text-ink">{row.actorName}</span> reset password for{" "}
@@ -130,42 +144,54 @@ function renderHumanAction(row: AuditLogRow) {
         </span>
       );
     }
-    if (change === "profile_name") {
+  }
+
+  if (row.entity === "unit") {
+    if (row.action === "STATUS_CHANGE") {
+      const toStatus = typeof row.after?.status === "string" ? row.after.status : null;
+      if (toStatus === "SOLD") {
+        return (
+          <span>
+            <span className="font-medium text-ink">{row.actorName}</span> marked unit{" "}
+            {entityLink} as sold
+          </span>
+        );
+      }
+      if (toStatus === "AVAILABLE") {
+        return (
+          <span>
+            <span className="font-medium text-ink">{row.actorName}</span> reversed sale of
+            unit {entityLink}
+          </span>
+        );
+      }
+    }
+    if (row.action === "RATE_CHANGE") {
       return (
         <span>
-          <span className="font-medium text-ink">{row.actorName}</span> updated their name
-          to {entityLink}
+          <span className="font-medium text-ink">{row.actorName}</span> updated rate for
+          unit {entityLink}
+        </span>
+      );
+    }
+    if (row.action === "CREATE") {
+      return (
+        <span>
+          <span className="font-medium text-ink">{row.actorName}</span> created unit{" "}
+          {entityLink}
+        </span>
+      );
+    }
+    if (row.action === "UPDATE") {
+      return (
+        <span>
+          <span className="font-medium text-ink">{row.actorName}</span> edited unit{" "}
+          {entityLink}
         </span>
       );
     }
   }
 
-  const toStatus = (row.after?.status as string) || (row.after?.toStatus as string);
-  if (row.action === "SALE" || toStatus === "SOLD") {
-    return (
-      <span>
-        <span className="font-medium text-ink">{row.actorName}</span> marked {entityLink}{" "}
-        as{" "}
-        <Badge tone="sold" className="ml-1">
-          Sold
-        </Badge>
-      </span>
-    );
-  }
-  if (
-    row.action === "REVERSE_SALE" ||
-    (row.action === "STATUS_CHANGE" && toStatus === "AVAILABLE")
-  ) {
-    return (
-      <span>
-        <span className="font-medium text-ink">{row.actorName}</span> reversed sale on{" "}
-        {entityLink} to{" "}
-        <Badge tone="available" className="ml-1">
-          Available
-        </Badge>
-      </span>
-    );
-  }
   if (row.action === "CREATE") {
     return (
       <span>
@@ -199,64 +225,109 @@ function renderHumanAction(row: AuditLogRow) {
   );
 }
 
-export function AuditScreen({ initialRows }: AuditScreenProps) {
+function actionTone(action: string): "primary" | "available" | "sold" | "muted" {
+  if (action === "CREATE" || action === "UNIT_CREATED" || action === "FLOOR_CREATED") {
+    return "primary";
+  }
+  if (action === "SOLD" || action === "DELETE") {
+    return "sold";
+  }
+  if (action === "REVERSED" || action === "REVERSE_SALE") {
+    return "available";
+  }
+  return "muted";
+}
+
+function groupRowsByDay(
+  rows: AuditLogRow[],
+): Array<{ dayLabel: string; rows: AuditLogRow[] }> {
+  const groups: Map<string, AuditLogRow[]> = new Map();
+  const today = new Date();
+  const todayStr = today.toDateString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+
+  for (const row of rows) {
+    const rowDate = new Date(row.createdAt);
+    const dateStr = rowDate.toDateString();
+    let label = dateStr;
+    if (dateStr === todayStr) {
+      label = "Today";
+    } else if (dateStr === yesterdayStr) {
+      label = "Yesterday";
+    } else {
+      label = rowDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+
+    const list = groups.get(label) ?? [];
+    list.push(row);
+    groups.set(label, list);
+  }
+
+  return Array.from(groups.entries()).map(([dayLabel, groupRows]) => ({
+    dayLabel,
+    rows: groupRows,
+  }));
+}
+
+export function AuditScreen({ initialResult }: AuditScreenProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [actionFilter, setActionFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [nowMs] = useState(() => Date.now());
 
-  // Derive unique users and actions for filters
+  const rows = initialResult.rows;
+  const page = initialResult.page;
+  const total = initialResult.total;
+  const totalPages = initialResult.totalPages;
+
+  // Derive filter options from current rows
   const users = useMemo(() => {
     const map = new Map<string, string>();
-    for (const r of initialRows) {
+    for (const r of rows) {
       if (r.actorName) map.set(r.actorName, r.actorName);
     }
-    return Array.from(map.values()).map((name) => ({ id: name, name }));
-  }, [initialRows]);
+    return Array.from(map.values());
+  }, [rows]);
 
   const actions = useMemo(() => {
     const set = new Set<string>();
-    for (const r of initialRows) {
+    for (const r of rows) {
       if (r.action) set.add(r.action);
     }
-    return Array.from(set).map((a) => ({
-      id: a,
-      name: a.replaceAll("_", " "),
-    }));
-  }, [initialRows]);
+    return Array.from(set);
+  }, [rows]);
 
   const entities = useMemo(() => {
     const set = new Set<string>();
-    for (const r of initialRows) {
+    for (const r of rows) {
       if (r.entity) set.add(r.entity);
     }
-    return Array.from(set).map((entity) => ({
-      id: entity,
-      name: entity.replaceAll("_", " "),
-    }));
-  }, [initialRows]);
+    return Array.from(set);
+  }, [rows]);
 
-  const dateOptions = [
-    { id: "", name: "All time" },
-    { id: "today", name: "Today" },
-    { id: "7d", name: "Last 7 days" },
-    { id: "30d", name: "Last 30 days" },
-  ];
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (actionFilter && r.action !== actionFilter) return false;
+      if (userFilter && r.actorName !== userFilter) return false;
+      if (entityFilter && r.entity !== entityFilter) return false;
+      return true;
+    });
+  }, [rows, actionFilter, userFilter, entityFilter]);
 
-  const activeCount =
-    (actionFilter ? 1 : 0) +
-    (userFilter ? 1 : 0) +
-    (entityFilter ? 1 : 0) +
-    (dateFilter ? 1 : 0);
-
-  function clearAll() {
-    setActionFilter("");
-    setUserFilter("");
-    setEntityFilter("");
-    setDateFilter("");
-  }
+  const groupedByDay = useMemo(() => {
+    return groupRowsByDay(filteredRows);
+  }, [filteredRows]);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -270,206 +341,268 @@ export function AuditScreen({ initialRows }: AuditScreenProps) {
     });
   }
 
-  const filtered = useMemo(() => {
-    return initialRows.filter((r) => {
-      if (actionFilter && r.action !== actionFilter) return false;
-      if (userFilter && r.actorName !== userFilter) return false;
-      if (entityFilter && r.entity !== entityFilter) return false;
-      if (dateFilter) {
-        const rowDate = new Date(r.createdAt);
-        const diffHours = (nowMs - rowDate.getTime()) / (1000 * 60 * 60);
-        if (dateFilter === "today" && diffHours > 24) return false;
-        if (dateFilter === "7d" && diffHours > 24 * 7) return false;
-        if (dateFilter === "30d" && diffHours > 24 * 30) return false;
-      }
-      return true;
-    });
-  }, [initialRows, actionFilter, userFilter, entityFilter, dateFilter, nowMs]);
+  function goToPage(newPage: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(newPage));
+    router.push(`${pathname}?${params.toString()}` as Route);
+  }
+
+  const startEntry = (page - 1) * initialResult.pageSize + 1;
+  const endEntry = Math.min(total, page * initialResult.pageSize);
 
   return (
-    <TooltipProvider>
-      <div className="flex min-h-0 flex-1 flex-col space-y-6">
-        {/* Header row */}
-        <div className="flex flex-col gap-4 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-[20px] font-semibold tracking-tight text-ink">
-              Audit log
-            </h1>
-            <p className="mt-0.5 text-[13px] text-ink-muted">
-              Forensic record of status transitions, price changes, and structural
-              updates.
-            </p>
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-6">
+        <PageHeader
+          title="Audit Log"
+          description="Immutable record of user actions, status changes, and data mutations."
+        />
+
+        {/* Filters Toolbar */}
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Action Filter */}
+            <Select
+              value={actionFilter || "all"}
+              onValueChange={(val) => setActionFilter(val === "all" ? "" : val)}
+            >
+              <SelectTrigger className="w-[160px]" aria-label="Filter action">
+                <SelectValue placeholder="All actions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All actions</SelectItem>
+                {actions.map((act) => (
+                  <SelectItem key={act} value={act}>
+                    {act.replaceAll("_", " ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Entity Filter */}
+            <Select
+              value={entityFilter || "all"}
+              onValueChange={(val) => setEntityFilter(val === "all" ? "" : val)}
+            >
+              <SelectTrigger className="w-[150px]" aria-label="Filter entity">
+                <SelectValue placeholder="All entities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All entities</SelectItem>
+                {entities.map((ent) => (
+                  <SelectItem key={ent} value={ent}>
+                    {ent.charAt(0).toUpperCase() + ent.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* User Filter */}
+            <Select
+              value={userFilter || "all"}
+              onValueChange={(val) => setUserFilter(val === "all" ? "" : val)}
+            >
+              <SelectTrigger className="w-[160px]" aria-label="Filter user">
+                <SelectValue placeholder="All users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All users</SelectItem>
+                {users.map((usr) => (
+                  <SelectItem key={usr} value={usr}>
+                    {usr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(actionFilter || entityFilter || userFilter) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setActionFilter("");
+                  setEntityFilter("");
+                  setUserFilter("");
+                }}
+              >
+                Reset filters
+              </Button>
+            )}
           </div>
-          <div className="font-mono text-[12px] text-ink-muted tabular-nums">
-            {filtered.length}{" "}
-            {filtered.length === 1 ? "event recorded" : "events recorded"}
+
+          <div className="text-[12px] text-ink-muted">
+            Showing <span className="font-semibold text-ink">{filteredRows.length}</span>{" "}
+            events on this page
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-line bg-surface p-3">
-          <FilterBar activeCount={activeCount} onClearAll={clearAll}>
-            <FilterChip
-              label="Action"
-              value={actionFilter}
-              onChange={setActionFilter}
-              options={[{ id: "", name: "All actions" }, ...actions]}
-            />
-            <FilterChip
-              label="Staff"
-              value={userFilter}
-              onChange={setUserFilter}
-              options={[{ id: "", name: "All staff" }, ...users]}
-            />
-            <FilterChip
-              label="Entity"
-              value={entityFilter}
-              onChange={setEntityFilter}
-              options={[{ id: "", name: "All entities" }, ...entities]}
-            />
-            <FilterChip
-              label="Period"
-              value={dateFilter}
-              onChange={setDateFilter}
-              options={dateOptions}
-            />
-          </FilterBar>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
-          {filtered.length === 0 ? (
-            <div className="py-16 text-center text-[13px] text-ink-muted">
-              No audit events matched the selected filters.
+        {/* Day Grouped List */}
+        <div className="card overflow-hidden">
+          {groupedByDay.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-[13px] text-ink-muted">
+              No audit log entries match these filters.
             </div>
           ) : (
-            <div className="divide-y divide-line">
-              {filtered.map((row) => {
-                const isExpanded = expandedRows.has(row.id);
-                const exactTime = formatKarachiDateTime(new Date(row.createdAt));
-                const relativeTime = formatRelativeTime(new Date(row.createdAt), nowMs);
+            <div>
+              {groupedByDay.map(({ dayLabel, rows: dayRows }) => (
+                <div key={dayLabel} className="border-b border-line last:border-b-0">
+                  {/* Day Header */}
+                  <div className="bg-surface-elevated/90 sticky top-0 z-10 border-y border-line px-4 py-1.5 text-[11px] font-semibold tracking-wider text-ink-muted uppercase backdrop-blur-xs">
+                    {dayLabel} · {dayRows.length} event{dayRows.length === 1 ? "" : "s"}
+                  </div>
 
-                return (
-                  <div key={row.id} className="transition-colors hover:bg-subtle/40">
-                    <div
-                      onClick={() => toggleRow(row.id)}
-                      className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-[13px]"
-                    >
-                      {/* Left: expand caret + human description */}
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <button
-                          type="button"
-                          aria-label={
-                            isExpanded ? "Collapse event" : "Expand event details"
-                          }
-                          className="flex size-6 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-subtle hover:text-ink"
+                  {/* Day Rows */}
+                  <div className="divide-y divide-line/60">
+                    {dayRows.map((row) => {
+                      const expanded = expandedRows.has(row.id);
+                      const changes = diffFields(row.before, row.after);
+                      const hasDetails =
+                        changes.length > 0 || Boolean(row.before) || Boolean(row.after);
+
+                      return (
+                        <div
+                          key={row.id}
+                          className="group hover:bg-surface-hover p-3 transition-colors"
                         >
-                          {isExpanded ? (
-                            <CaretDown weight="bold" className="size-3.5" />
-                          ) : (
-                            <CaretRight weight="bold" className="size-3.5" />
-                          )}
-                        </button>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2.5">
+                              {/* Action Badge */}
+                              <Badge tone={actionTone(row.action)} className="mt-0.5">
+                                {row.action.replaceAll("_", " ")}
+                              </Badge>
 
-                        <div className="min-w-0 flex-1">{renderHumanAction(row)}</div>
-                      </div>
-
-                      {/* Right: Timestamp with Tooltip */}
-                      <div className="flex shrink-0 items-center gap-3">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex cursor-help items-center gap-1.5 font-mono text-[11px] text-ink-muted tabular-nums">
-                              <Clock weight="light" className="size-3.5" />
-                              {relativeTime}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <span>Exact: {exactTime} (Karachi PKT)</span>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-
-                    {/* Expandable detail row: Raw IDs (mono) & Payload */}
-                    {isExpanded && (
-                      <div className="animate-slide-down space-y-3 border-t border-line/60 bg-subtle/50 px-6 py-4">
-                        <div className="grid grid-cols-1 gap-3 font-mono text-[11px] sm:grid-cols-3">
-                          <div>
-                            <span className="block text-[10px] font-semibold text-ink-muted uppercase">
-                              Audit Event ID
-                            </span>
-                            <span className="text-ink select-all">{row.id}</span>
-                          </div>
-                          <div>
-                            <span className="block text-[10px] font-semibold text-ink-muted uppercase">
-                              Actor ID
-                            </span>
-                            <span className="text-ink select-all">
-                              {row.actorId ?? "system"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="block text-[10px] font-semibold text-ink-muted uppercase">
-                              Entity ({row.entity})
-                            </span>
-                            <span className="text-ink select-all">{row.entityId}</span>
-                          </div>
-                        </div>
-
-                        {(() => {
-                          const changes = diffFields(row.before, row.after);
-                          if (changes.length === 0 && !row.before && !row.after) {
-                            return null;
-                          }
-                          if (changes.length === 0) {
-                            return (
-                              <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
-                                {row.before ? (
-                                  <pre className="max-h-48 overflow-auto rounded-[4px] border border-line bg-surface p-2.5 font-mono text-[11px] whitespace-pre-wrap text-ink-muted">
-                                    {JSON.stringify(row.before, null, 2)}
-                                  </pre>
-                                ) : null}
-                                {row.after ? (
-                                  <pre className="max-h-48 overflow-auto rounded-[4px] border border-line bg-surface p-2.5 font-mono text-[11px] whitespace-pre-wrap text-ink-muted">
-                                    {JSON.stringify(row.after, null, 2)}
-                                  </pre>
-                                ) : null}
-                              </div>
-                            );
-                          }
-                          return (
-                            <div className="space-y-1.5 pt-2">
-                              <span className="block text-[10px] font-semibold tracking-wide text-ink-muted uppercase">
-                                Changes
-                              </span>
-                              <div className="divide-y divide-line rounded-[4px] border border-line bg-surface">
-                                {changes.map((change) => (
-                                  <div
-                                    key={change.key}
-                                    className="grid grid-cols-1 gap-1 px-2.5 py-2 text-[12px] sm:grid-cols-3"
-                                  >
-                                    <span className="font-medium text-ink">
-                                      {fieldLabel(change.key)}
-                                    </span>
-                                    <span className="font-mono text-[11px] text-ink-muted">
-                                      {formatValue(change.from)}
-                                    </span>
-                                    <span className="font-mono text-[11px] text-ink">
-                                      {formatValue(change.to)}
-                                    </span>
-                                  </div>
-                                ))}
+                              {/* Human Readable Action */}
+                              <div className="text-[13px] text-ink">
+                                {renderHumanAction(row)}
                               </div>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+
+                            {/* Timestamp & Expand trigger */}
+                            <div className="flex shrink-0 items-center gap-3">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-1 text-[11px] text-ink-muted tabular-nums">
+                                    <Clock weight="light" className="size-3" />
+                                    {formatRelativeTime(new Date(row.createdAt), nowMs)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {formatKarachiDateTime(new Date(row.createdAt))}
+                                </TooltipContent>
+                              </Tooltip>
+
+                              {hasDetails && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRow(row.id)}
+                                  className="flex cursor-pointer items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[11px] text-ink-muted transition-colors hover:bg-subtle hover:text-ink"
+                                >
+                                  {expanded ? (
+                                    <>
+                                      <span>Hide</span>
+                                      <CaretDown weight="light" className="size-3" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>Diff</span>
+                                      <CaretRight weight="light" className="size-3" />
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Diff View */}
+                          {expanded && hasDetails && (
+                            <div className="mt-3 rounded-[6px] border border-line bg-subtle/50 p-3 text-[12px]">
+                              {changes.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  <p className="font-semibold text-ink-muted">
+                                    Changed fields:
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-1">
+                                    {changes.map((c) => (
+                                      <div
+                                        key={c.key}
+                                        className="flex items-center gap-2 font-mono text-[11px]"
+                                      >
+                                        <span className="font-medium text-ink">
+                                          {fieldLabel(c.key)}:
+                                        </span>
+                                        <span className="text-sold line-through">
+                                          {formatValue(c.from)}
+                                        </span>
+                                        <span className="text-ink-muted">→</span>
+                                        <span className="text-available">
+                                          {formatValue(c.to)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-4 font-mono text-[10px]">
+                                  <div>
+                                    <p className="font-semibold text-ink-muted">
+                                      Before:
+                                    </p>
+                                    <pre className="mt-1 overflow-x-auto rounded bg-surface p-2 text-ink">
+                                      {JSON.stringify(row.before, null, 2)}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-ink-muted">After:</p>
+                                    <pre className="mt-1 overflow-x-auto rounded bg-surface p-2 text-ink">
+                                      {JSON.stringify(row.after, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
+
+          {/* Pagination Footer (50 / page) */}
+          <div className="flex items-center justify-between border-t border-line bg-surface p-3 text-[12px] text-ink-muted">
+            <span>
+              Showing{" "}
+              <span className="font-semibold text-ink">{total > 0 ? startEntry : 0}</span>{" "}
+              to <span className="font-semibold text-ink">{endEntry}</span> of{" "}
+              <span className="font-semibold text-ink">{total}</span> total entries
+            </span>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => goToPage(page - 1)}
+              >
+                <CaretLeft weight="light" className="mr-1 size-3.5" />
+                Previous
+              </Button>
+              <span className="px-1 text-[11px] tabular-nums">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => goToPage(page + 1)}
+              >
+                Next
+                <CaretRight weight="light" className="ml-1 size-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </TooltipProvider>

@@ -155,6 +155,7 @@ export const changeUnitStatusSchema = z.object({
     .max(200)
     .transform((value) => (value.length === 0 ? undefined : value))
     .optional(),
+  soldPricePkr: z.string().trim().regex(DECIMAL_PATTERN).optional(),
 });
 
 export const searchUnitsSchema = z.object({

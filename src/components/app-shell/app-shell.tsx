@@ -20,7 +20,8 @@ export function AppShell({ title, userName, role, children }: AppShellProps) {
   return (
     <BreadcrumbProvider>
       <div className="flex min-h-screen bg-bg">
-        <div className="hidden lg:block">
+        {/* Desktop Sidebar: sticky top-0 h-screen, user footer pinned at bottom, no blank strip */}
+        <div className="hidden shrink-0 lg:flex">
           <Sidebar role={role} userName={userName} />
         </div>
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
@@ -45,11 +46,9 @@ export function AppShell({ title, userName, role, children }: AppShellProps) {
             role={role}
             onOpenNav={() => setNavOpen(true)}
           />
-          <main
-            id="main"
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
-          >
-            <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
+          {/* Main Content: max-w-[1440px] mx-auto px-6 py-6 (page padding 24) */}
+          <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-6 py-6">
               {children}
             </div>
           </main>

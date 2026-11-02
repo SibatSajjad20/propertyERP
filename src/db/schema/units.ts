@@ -60,19 +60,19 @@ export const units = pgTable(
     index("units_archived_at_idx").on(table.archivedAt),
     index("units_updated_at_idx").on(table.updatedAt),
     index("units_floor_status_idx").on(table.floorId, table.status),
+    index("units_floor_status_archived_idx").on(
+      table.floorId,
+      table.status,
+      table.archivedAt,
+    ),
   ],
 );
 
-export const unitPricing = pgView("unit_pricing").as((qb) =>
-  qb
-    .select({
-      unitId: sql<string>`${units.id}`.as("unit_id"),
-      computedPricePkr:
-        sql<string>`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`.as(
-          "computed_price_pkr",
-        ),
-    })
-    .from(units),
+export const unitPricing = pgView("unit_pricing", {
+  unitId: uuid("unit_id").notNull(),
+  computedPricePkr: numeric("computed_price_pkr", { precision: 14, scale: 2 }).notNull(),
+}).as(
+  sql`select "id" as "unit_id", round(("rate_per_sqft_pkr" * "net_area_sqft") + coalesce("price_adjustment_pkr", 0), 0)::numeric(14, 2) as "computed_price_pkr" from "units"`,
 );
 
 export const unitStatusHistory = pgTable(

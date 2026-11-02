@@ -69,7 +69,7 @@ export function ImportPreviewTable({
         <div className="flex items-center gap-6">
           <div>
             <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              File & Mode
+              File &amp; Mode
             </span>
             <div className="mt-0.5 flex items-center gap-2">
               <span className="font-mono text-[13px] font-medium text-ink">
@@ -157,7 +157,7 @@ export function ImportPreviewTable({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="md"
               leftIcon={<DownloadSimple weight="light" className="size-4 text-sold" />}
               onClick={onDownloadErrors}
             >
@@ -168,7 +168,7 @@ export function ImportPreviewTable({
           <Button
             type="button"
             variant="secondary"
-            size="sm"
+            size="md"
             leftIcon={<ArrowCounterClockwise weight="light" className="size-4" />}
             onClick={onRemap}
             disabled={committing}
@@ -179,7 +179,7 @@ export function ImportPreviewTable({
           <Button
             type="button"
             variant="primary"
-            size="sm"
+            size="md"
             loading={committing}
             disabled={!canCommit || committing}
             leftIcon={<UploadSimple weight="light" className="size-4" />}
@@ -283,7 +283,9 @@ export function ImportPreviewTable({
                           {item.warnings[0]}
                         </span>
                       ) : (
-                        <span className="text-available">All invariants satisfied</span>
+                        <span className="text-available">
+                          All validation checks passed
+                        </span>
                       )}
                     </div>
 
@@ -304,7 +306,7 @@ export function ImportPreviewTable({
 
                     {/* Net Area */}
                     <div className="col-span-1 text-right font-mono text-ink tabular-nums">
-                      {c?.netAreaSqft ? `${c.netAreaSqft} sqft` : "-"}
+                      {c?.netAreaSqft ? `${c.netAreaSqft} sq ft` : "-"}
                     </div>
 
                     {/* Rate */}
@@ -346,11 +348,11 @@ export function ImportPreviewTable({
           <div>
             {errorCount > 0 ? (
               <span className="font-medium text-sold">
-                {errorCount} rows must be corrected before committing.
+                {errorCount} rows must be corrected before importing.
               </span>
             ) : (
               <span className="font-medium text-available">
-                Ready to commit {validCount + warningCount} units into database ledger.
+                Ready to import {validCount + warningCount} units into the system.
               </span>
             )}
           </div>

@@ -43,6 +43,7 @@
     "@tanstack/react-table": "^9.3.1",
     "@tanstack/react-virtual": "^3.14.24",
     "@visx/axis": "^4.0.0",
+    "@visx/curve": "^4.0.0",
     "@visx/event": "^4.0.0",
     "@visx/grid": "^4.0.0",
     "@visx/group": "^4.0.0",

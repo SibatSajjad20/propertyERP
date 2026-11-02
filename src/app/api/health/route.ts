@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { connection } from "next/server";
 import { pingDatabase } from "@/db";
-import { isTransientDbError, WAKING_DB_MESSAGE } from "@/lib/db-errors";
 
 export async function GET() {
   await connection();
@@ -12,16 +11,15 @@ export async function GET() {
       service: "sardars-mall-erp",
       database: "ready",
     });
-  } catch (error) {
-    const waking = isTransientDbError(error);
+  } catch {
     return NextResponse.json(
       {
         ok: false,
         service: "sardars-mall-erp",
-        database: waking ? "waking" : "error",
-        message: waking ? WAKING_DB_MESSAGE : "Database unavailable",
+        database: "error",
+        message: "Database unavailable",
       },
-      { status: waking ? 503 : 500 },
+      { status: 500 },
     );
   }
 }

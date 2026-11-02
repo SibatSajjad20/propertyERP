@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import { getSession } from "@/lib/auth";
 
+export const instant = false;
+
 export const metadata = {
   title: "Sign in",
 };

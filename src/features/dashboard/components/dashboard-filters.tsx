@@ -89,7 +89,7 @@ export function DashboardFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="flex items-center gap-2">
       {/* Property Select */}
       {options.properties.length > 1 && (
         <div className="w-40 sm:w-44">
@@ -97,7 +97,7 @@ export function DashboardFilters({
             value={selectedPropertyId || "all"}
             onValueChange={handlePropertyChange}
           >
-            <SelectTrigger size="sm" aria-label="Filter property">
+            <SelectTrigger aria-label="Filter property">
               <SelectValue placeholder="All properties" />
             </SelectTrigger>
             <SelectContent>
@@ -116,7 +116,7 @@ export function DashboardFilters({
       {options.blocks.length > 0 && (
         <div className="w-36 sm:w-40">
           <Select value={selectedBlockId || "all"} onValueChange={handleBlockChange}>
-            <SelectTrigger size="sm" aria-label="Filter block">
+            <SelectTrigger aria-label="Filter block">
               <SelectValue placeholder="All blocks" />
             </SelectTrigger>
             <SelectContent>
@@ -134,8 +134,8 @@ export function DashboardFilters({
       {/* Export Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="sm" className="gap-1.5 text-[12px]">
-            <DownloadSimple weight="light" className="size-3.5" />
+          <Button variant="secondary" size="md">
+            <DownloadSimple weight="light" className="size-4" />
             <span>Export</span>
           </Button>
         </DropdownMenuTrigger>

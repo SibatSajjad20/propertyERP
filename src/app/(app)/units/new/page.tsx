@@ -4,6 +4,8 @@ import { UnitCreateScreen } from "@/features/units/components/unit-create-screen
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "New Unit",
 };

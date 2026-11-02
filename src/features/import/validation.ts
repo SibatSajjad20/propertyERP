@@ -1,4 +1,4 @@
-import type { UserRole } from "@/db/schema/enums";
+import type { UnitStatus, UserRole } from "@/db/schema/enums";
 import {
   cleanMoneyNumber,
   cleanRow,
@@ -22,7 +22,7 @@ export interface ExistingUnitContext {
   floorId: string;
   floorName: string;
   blockName: string;
-  status: "AVAILABLE" | "SOLD";
+  status: UnitStatus;
   netAreaSqft: string;
   ratePerSqftPkr: string;
   priceAdjustmentPkr: string;

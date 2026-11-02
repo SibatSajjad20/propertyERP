@@ -2,7 +2,7 @@
 
 ## Architecture
 
-Next.js App Router monolith. Feature folders under `src/features/<module>` hold Zod schemas, server queries, server actions, and UI. Routes in `src/app` stay thin. PostgreSQL 16 (local Docker or Neon) with Drizzle. Better Auth email/password. Design tokens in `src/styles/tokens.css`.
+Next.js App Router monolith. Feature folders under `src/features/<module>` hold Zod schemas, server queries, server actions, and UI. Routes in `src/app` stay thin. PostgreSQL 16 (Supabase Postgres) with Drizzle. Better Auth email/password. Design tokens in `src/styles/tokens.css`.
 
 Read `docs/ARCHITECTURE.md` and `graphify-out/GRAPH_REPORT.md` before large wiring changes.
 
@@ -46,9 +46,9 @@ Programmatically: `createFloor` in `src/features/structure/actions.ts`. Canonica
 
 `baseURL` is derived at runtime. On `VERCEL_ENV=preview` it uses `https://${VERCEL_URL}`. `trustedOrigins` always includes that origin plus `BETTER_AUTH_URL`. See `src/lib/auth-origin.ts`.
 
-## Neon
+## Supabase Database
 
-Idle computes sleep. `withDbRetry` retries transient connection errors. The UI shows “Waking the database”. Point-in-time restore is documented in the README.
+Supabase Postgres connection pooling uses Supavisor on port 6543 with `prepare: false`. Migrations connect directly via `DIRECT_URL` on port 5432. All queries are indexed and connection singletons prevent hot-reload exhaustion.
 
 ## Tests
 

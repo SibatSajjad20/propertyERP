@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DotsThree, Plus } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import {
   Dialog,
   DialogContent,
@@ -137,40 +138,38 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
-      <div className="flex flex-col gap-4 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-tight text-ink">Users</h1>
-          <p className="mt-0.5 text-[13px] text-ink-muted">
-            Staff accounts, roles, and sign-in status.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[12px] text-ink-muted tabular-nums">
-            {activeCount} active
-          </span>
-          <Button variant="secondary" size="md" asChild>
-            <a href="/api/export/full">Full export</a>
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={() => {
-              createForm.reset({
-                name: "",
-                email: "",
-                role: "SALES",
-                temporaryPassword: "",
-              });
-              setCreateRole("SALES");
-              setDialog({ type: "create" });
-            }}
-          >
-            <Plus weight="light" className="size-3.5" />
-            New user
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Users"
+        description="Staff accounts, roles, and sign-in status."
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[12px] text-ink-muted tabular-nums">
+              {activeCount} active
+            </span>
+            <Button variant="secondary" size="md" asChild>
+              <a href="/api/export/full">Full export</a>
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => {
+                createForm.reset({
+                  name: "",
+                  email: "",
+                  role: "SALES",
+                  temporaryPassword: "",
+                });
+                setCreateRole("SALES");
+                setDialog({ type: "create" });
+              }}
+            >
+              <Plus weight="light" className="mr-1.5 size-4" />
+              New user
+            </Button>
+          </div>
+        }
+      />
 
       <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
         <table className="w-full border-collapse text-[13px]">
@@ -193,7 +192,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                   className="group h-12 transition-colors hover:bg-subtle/50"
                 >
                   <td className="px-4 py-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong bg-subtle text-[12px] font-semibold text-primary">
                         {getInitials(row.name)}
                       </div>
@@ -220,7 +219,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                         <button
                           type="button"
                           aria-label={`Actions for ${row.name}`}
-                          className="flex size-7 items-center justify-center rounded text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                          className="flex size-8 items-center justify-center rounded-[8px] text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                         >
                           <DotsThree weight="bold" className="size-3.5" />
                         </button>

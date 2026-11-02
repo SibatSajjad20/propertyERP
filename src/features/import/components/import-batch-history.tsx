@@ -57,8 +57,7 @@ export function ImportBatchHistory({
         <div>
           <h2 className="text-[13px] font-semibold text-ink">Ingested Batches</h2>
           <p className="text-[11px] text-ink-muted">
-            Historical spreadsheet uploads, record verification counts, and forensic
-            receipts
+            History of spreadsheet uploads, verified unit counts, and rollback options.
           </p>
         </div>
       </div>
@@ -66,7 +65,7 @@ export function ImportBatchHistory({
       {batches.length === 0 ? (
         <EmptyState
           title="No import batches processed"
-          description="Spreadsheets queued for upload will appear here with record verification and audit logs."
+          description="Uploaded spreadsheets will appear here with record verification and audit logs."
         />
       ) : (
         <div className="divide-y divide-line">
@@ -96,7 +95,7 @@ export function ImportBatchHistory({
                         </Badge>
                       ) : (
                         <Badge tone="available" showDot={true}>
-                          Committed
+                          Imported
                         </Badge>
                       )}
                     </div>
@@ -167,7 +166,7 @@ export function ImportBatchHistory({
           <DialogHeader>
             <DialogTitle>Rollback latest import batch?</DialogTitle>
             <DialogDescription>
-              This will soft-revert all changes made during this batch (
+              This will revert all changes made during this batch (
               <span className="font-mono font-medium text-ink">
                 {selectedBatch?.originalFilePath}
               </span>
@@ -178,26 +177,25 @@ export function ImportBatchHistory({
           <div className="space-y-1.5 rounded-[6px] border border-line bg-subtle/30 p-3 text-[12px] text-ink-muted">
             <p>
               • <strong>{selectedBatch?.createdCount}</strong> created units will be
-              soft-archived.
+              archived.
             </p>
             <p>
               • <strong>{selectedBatch?.updatedCount}</strong> updated units will have
-              their previous financial and status state restored from the forensic audit
-              log.
+              their previous pricing and status restored from the audit log.
             </p>
-            <p>• A full rollback audit log entry will be recorded.</p>
+            <p>• A full rollback audit record will be logged.</p>
           </div>
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="secondary" size="sm" disabled={rollingBack}>
+              <Button type="button" variant="secondary" size="md" disabled={rollingBack}>
                 Cancel
               </Button>
             </DialogClose>
             <Button
               type="button"
               variant="dangerSolid"
-              size="sm"
+              size="md"
               loading={rollingBack}
               onClick={handleConfirmRollback}
             >

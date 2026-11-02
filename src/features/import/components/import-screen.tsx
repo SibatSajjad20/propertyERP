@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import {
   commitImportBatch,
   getImportBatches,
@@ -176,7 +177,7 @@ export function ImportScreen({ initialBatches }: ImportScreenProps) {
     setRollingBack(true);
     try {
       await rollbackLatestBatch({ batchId });
-      toast.success("Latest import batch soft-reverted successfully.");
+      toast.success("Latest import batch reverted successfully.");
       setBatches(await getImportBatches());
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to rollback batch.";
@@ -189,36 +190,30 @@ export function ImportScreen({ initialBatches }: ImportScreenProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
-      {/* Header row */}
-      <div className="flex flex-col gap-4 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-tight text-ink">
-            Batch Import Pipeline
-          </h1>
-          <p className="mt-0.5 text-[13px] text-ink-muted">
-            Ingest master property spreadsheets via SheetJS parser, map columns, and
-            verify ledger invariants.
-          </p>
-        </div>
-        <Button variant="secondary" size="md" asChild>
-          <a href="/api/export/full">Full export</a>
-        </Button>
-
-        {/* Wizard step breadcrumb */}
-        {step !== "upload" && (
-          <div className="flex items-center gap-2 text-[12px] font-medium text-ink-muted">
-            <span>Upload</span>
-            <span>→</span>
-            <span className={step === "mapping" ? "font-semibold text-primary" : ""}>
-              Mapping
-            </span>
-            <span>→</span>
-            <span className={step === "preview" ? "font-semibold text-primary" : ""}>
-              Validation
-            </span>
+      <PageHeader
+        title="Batch Import Pipeline"
+        description="Upload spreadsheets (.xlsx or .csv) to create or update units, map columns, and verify data before importing."
+        actions={
+          <div className="flex items-center gap-3">
+            {step !== "upload" && (
+              <div className="flex items-center gap-2 text-[12px] font-medium text-ink-muted">
+                <span>Upload</span>
+                <span>→</span>
+                <span className={step === "mapping" ? "font-semibold text-primary" : ""}>
+                  Mapping
+                </span>
+                <span>→</span>
+                <span className={step === "preview" ? "font-semibold text-primary" : ""}>
+                  Validation
+                </span>
+              </div>
+            )}
+            <Button variant="secondary" size="md" asChild>
+              <a href="/api/export/full">Full export</a>
+            </Button>
           </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Step 1: Upload */}
       {step === "upload" && (

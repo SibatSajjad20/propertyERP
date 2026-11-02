@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   MagnifyingGlass,
   Plus,
@@ -11,10 +11,17 @@ import {
   DownloadSimple,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { FilterChip, FilterBar } from "@/components/ui/filter-bar";
+import { PageHeader } from "@/components/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AnimatedNumber } from "@/components/ui/animated-number";
-import type { UserRole } from "@/db/schema/enums";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { UnitStatus, UserRole } from "@/db/schema/enums";
 import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { changeUnitStatus, createUnit } from "../actions";
 import {
@@ -98,17 +105,6 @@ export function InventoryScreen({
     updateQuery({ sort: field, dir });
   }
 
-  // Count active filters
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (query.floorId) count++;
-    if (query.categoryId) count++;
-    if (query.status) count++;
-    if (query.sellable !== undefined) count++;
-    if (query.missingGross) count++;
-    return count;
-  }, [query]);
-
   function handleClearAllFilters() {
     setSearch("");
     updateQuery({
@@ -148,81 +144,72 @@ export function InventoryScreen({
     totals.availableCount ?? rows.filter((r) => r.status === "AVAILABLE").length;
   const soldCount = totals.soldCount ?? rows.filter((r) => r.status === "SOLD").length;
 
+  const hasActiveFilters = Boolean(
+    query.q ||
+    query.floorId ||
+    query.categoryId ||
+    query.status ||
+    query.sellable !== undefined ||
+    query.missingGross,
+  );
+
   return (
-    <div className="t-page-enter flex min-h-0 flex-1 flex-col space-y-4">
-      <h1 className="sr-only">Inventory</h1>
+    <div className="flex min-h-0 flex-1 flex-col space-y-6">
+      <PageHeader
+        title="Inventory"
+        description="Browse, filter, and manage commercial units, square footage, and absorption rates."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="md" asChild>
+              <a
+                href={`/api/export/inventory${inventoryQueryString(query) ? `?${inventoryQueryString(query)}` : ""}`}
+              >
+                <DownloadSimple weight="light" className="mr-1.5 size-4" />
+                Export
+              </a>
+            </Button>
+            {canManage && (
+              <Button variant="primary" size="md" asChild>
+                <Link href="/units/new">
+                  <Plus weight="light" className="mr-1.5 size-4" />
+                  New unit
+                </Link>
+              </Button>
+            )}
+          </div>
+        }
+      />
 
-      {/* 4 Overview cards above the table */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {/* 1. Total matching */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4">
-          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-            Total matching
-          </p>
-          <div className="mt-2">
-            <span className="text-[24px] leading-none font-semibold text-ink sm:text-[26px]">
-              <AnimatedNumber value={totals.count} />
-            </span>
-            <p className="mt-1 text-[11px] text-ink-muted">units in filter</p>
-          </div>
-        </div>
-
-        {/* 2. Available */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              Available
-            </p>
-            <span className="size-2 rounded-full bg-available" aria-hidden="true" />
-          </div>
-          <div className="mt-2">
-            <span className="text-[24px] leading-none font-semibold text-available sm:text-[26px]">
-              <AnimatedNumber value={availableCount} />
-            </span>
-            <p className="mt-1 text-[11px] text-ink-muted">ready for sale</p>
-          </div>
-        </div>
-
-        {/* 3. Sold */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              Sold
-            </p>
-            <span className="size-2 rounded-full bg-sold" aria-hidden="true" />
-          </div>
-          <div className="mt-2">
-            <span className="text-[24px] leading-none font-semibold text-sold sm:text-[26px]">
-              <AnimatedNumber value={soldCount} />
-            </span>
-            <p className="mt-1 text-[11px] text-ink-muted">booked units</p>
-          </div>
-        </div>
-
-        {/* 4. Filtered value (PKR) */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4">
-          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-            Filtered value
-          </p>
-          <div className="mt-2">
-            <span className="price text-[22px] leading-none font-semibold text-ink sm:text-[24px]">
-              <AnimatedNumber value={formatPkrCompact(totals.valuePkr)} />
-            </span>
-            <p
-              className="price mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums"
-              title={formatPkrLedger(totals.valuePkr)}
-            >
-              {formatPkrLedger(totals.valuePkr)}
-            </p>
-          </div>
-        </div>
+      {/* 4 Overview cards above the table (same StatCard as Dashboard) */}
+      <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Total matching" value={totals.count} caption="units in filter" />
+        <StatCard
+          label="Available"
+          value={availableCount}
+          indicator="available"
+          tone="available"
+          caption="ready for sale"
+        />
+        <StatCard
+          label="Sold"
+          value={soldCount}
+          indicator="sold"
+          tone="sold"
+          caption="booked units"
+        />
+        <StatCard
+          label="Filtered value"
+          value={formatPkrCompact(totals.valuePkr)}
+          caption={formatPkrLedger(totals.valuePkr)}
+          captionTooltip={formatPkrLedger(totals.valuePkr)}
+        />
       </div>
 
-      {/* Compact Toolbar */}
-      <div className="card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left: Search + Filter Chips */}
+      {/* Toolbar: Search + Filters + Actions */}
+      <div className="card flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
+        {/* Left: Search + Radix Selects */}
         <div className="flex flex-1 flex-wrap items-center gap-2.5">
-          <div className="relative w-full max-w-[220px]">
+          <div className="relative w-full max-w-[200px]">
             <MagnifyingGlass
               weight="light"
               className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-muted"
@@ -244,76 +231,131 @@ export function InventoryScreen({
 
           <div className="mx-0.5 hidden h-4 w-px bg-line sm:block" />
 
-          {/* Inline Chip Filters */}
-          <FilterBar activeCount={activeFilterCount} onClearAll={handleClearAllFilters}>
-            <FilterChip
-              label="Floor"
-              value={query.floorId ?? ""}
-              onChange={(val) => updateQuery({ floorId: val || undefined })}
-              options={[{ id: "", name: "All floors" }, ...options.floors]}
-            />
-            <FilterChip
-              label="Category"
-              value={query.categoryId ?? ""}
-              onChange={(val) => updateQuery({ categoryId: val || undefined })}
-              options={[{ id: "", name: "All categories" }, ...options.categories]}
-            />
-            <FilterChip
-              label="Status"
-              value={query.status ?? ""}
-              onChange={(val) =>
-                updateQuery({
-                  status: val === "SOLD" || val === "AVAILABLE" ? val : undefined,
-                })
-              }
-              options={[
-                { id: "", name: "All statuses" },
-                { id: "AVAILABLE", name: "Available" },
-                { id: "SOLD", name: "Sold" },
-              ]}
-            />
-            <FilterChip
-              label="Sellable"
-              value={
-                query.sellable === true ? "yes" : query.sellable === false ? "no" : ""
-              }
-              onChange={(val) =>
-                updateQuery({
-                  sellable: val === "yes" ? true : val === "no" ? false : undefined,
-                })
-              }
-              options={[
-                { id: "", name: "All" },
-                { id: "yes", name: "Sellable" },
-                { id: "no", name: "Not sellable" },
-              ]}
-            />
+          {/* Floor Select */}
+          <Select
+            value={query.floorId || "all"}
+            onValueChange={(val) =>
+              updateQuery({ floorId: val === "all" ? undefined : val })
+            }
+          >
+            <SelectTrigger className="w-[140px]" aria-label="Floor filter">
+              <SelectValue placeholder="All floors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All floors</SelectItem>
+              {options.floors.map((fl) => (
+                <SelectItem key={fl.id} value={fl.id}>
+                  {fl.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-            <label
-              htmlFor="filter-missing-gross"
-              className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium transition-colors select-none ${
-                query.missingGross
-                  ? "border-[color-mix(in_srgb,var(--primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-primary"
-                  : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
-              }`}
+          {/* Category Select */}
+          <Select
+            value={query.categoryId || "all"}
+            onValueChange={(val) =>
+              updateQuery({ categoryId: val === "all" ? undefined : val })
+            }
+          >
+            <SelectTrigger className="w-[140px]" aria-label="Category filter">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {options.categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Status Select */}
+          <Select
+            value={query.status || "all"}
+            onValueChange={(val) =>
+              updateQuery({
+                status:
+                  val === "AVAILABLE" ||
+                  val === "RESERVED" ||
+                  val === "BOOKED" ||
+                  val === "SOLD"
+                    ? (val as UnitStatus)
+                    : undefined,
+              })
+            }
+          >
+            <SelectTrigger className="w-[140px]" aria-label="Status filter">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="AVAILABLE">Available</SelectItem>
+              <SelectItem value="RESERVED">Reserved</SelectItem>
+              <SelectItem value="BOOKED">Booked</SelectItem>
+              <SelectItem value="SOLD">Sold</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sellable Select */}
+          <Select
+            value={
+              query.sellable === true ? "yes" : query.sellable === false ? "no" : "all"
+            }
+            onValueChange={(val) =>
+              updateQuery({
+                sellable: val === "yes" ? true : val === "no" ? false : undefined,
+              })
+            }
+          >
+            <SelectTrigger className="w-[120px]" aria-label="Sellable filter">
+              <SelectValue placeholder="Sellable: All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Sellable: All</SelectItem>
+              <SelectItem value="yes">Sellable only</SelectItem>
+              <SelectItem value="no">Not sellable</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Missing Gross checkbox */}
+          <label
+            htmlFor="filter-missing-gross"
+            className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium transition-colors select-none ${
+              query.missingGross
+                ? "border-[color-mix(in_srgb,var(--primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-primary"
+                : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
+            }`}
+          >
+            <Checkbox
+              id="filter-missing-gross"
+              aria-label="Missing gross area"
+              checked={Boolean(query.missingGross)}
+              onCheckedChange={(checked) =>
+                updateQuery({ missingGross: Boolean(checked) })
+              }
+              className="size-3.5"
+            />
+            <span>Missing gross</span>
+          </label>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAllFilters}
+              className="text-ink-muted hover:text-ink"
             >
-              <Checkbox
-                id="filter-missing-gross"
-                aria-label="Missing gross area"
-                checked={Boolean(query.missingGross)}
-                onCheckedChange={(checked) =>
-                  updateQuery({ missingGross: Boolean(checked) })
-                }
-                className="size-3.5"
-              />
-              <span>Missing gross area</span>
-            </label>
-          </FilterBar>
+              Reset
+            </Button>
+          )}
 
           {/* Hidden selects for Playwright E2E and HTML accessibility test compatibility */}
-          <div className="sr-only" aria-hidden="true">
+          <div className="sr-only">
             <select
               id="filter-floor"
+              aria-label="Floor"
               value={query.floorId ?? ""}
               onChange={(e) => updateQuery({ floorId: e.target.value || undefined })}
             >
@@ -326,6 +368,7 @@ export function InventoryScreen({
             </select>
             <select
               id="filter-category"
+              aria-label="Category"
               value={query.categoryId ?? ""}
               onChange={(e) => updateQuery({ categoryId: e.target.value || undefined })}
             >
@@ -355,7 +398,7 @@ export function InventoryScreen({
           </div>
         </div>
 
-        {/* Right: View Options + New Unit */}
+        {/* Right: View Options */}
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
@@ -385,23 +428,6 @@ export function InventoryScreen({
               </span>
             ) : null}
           </Button>
-
-          <Button variant="secondary" size="md" asChild>
-            <a
-              href={`/api/export/inventory${inventoryQueryString(query) ? `?${inventoryQueryString(query)}` : ""}`}
-            >
-              <DownloadSimple weight="light" className="mr-1 size-3.5" />
-              Export
-            </a>
-          </Button>
-          {canManage && (
-            <Button variant="primary" size="md" asChild>
-              <Link href="/units/new">
-                <Plus weight="light" className="mr-1 size-3.5" />
-                New unit
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
 
