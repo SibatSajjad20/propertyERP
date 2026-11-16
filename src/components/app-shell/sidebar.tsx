@@ -200,7 +200,7 @@ export function Sidebar({
 
   return (
     <aside className="sticky top-0 z-40 flex h-screen w-[232px] shrink-0 flex-col justify-between overflow-hidden border-r border-[#E3E7EC] bg-surface select-none">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#c8d0d8_transparent] flex-col overflow-y-auto">
         <div className="flex h-[56px] shrink-0 items-center px-4">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-primary/5 p-1">
@@ -225,7 +225,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation */}
-        <div className="flex flex-col gap-5 p-3">
+        <div className="flex flex-col gap-4 p-2.5">
           {renderNavGroup("Inventory", visibleInventory, "Inventory Navigation")}
           {renderNavGroup("Sales", visibleSales, "Sales Navigation")}
           {renderNavGroup("Reports", visibleReports, "Reports Navigation")}
