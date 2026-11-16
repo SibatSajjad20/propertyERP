@@ -4,8 +4,6 @@ import { getCompanySettingsPage } from "@/features/settings/queries";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Company",
 };

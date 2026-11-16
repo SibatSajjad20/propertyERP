@@ -1,8 +1,6 @@
 import { ProfileScreen } from "@/features/profile/components/profile-screen";
 import { requireSession } from "@/lib/auth";
 
-export const instant = false;
-
 export const metadata = {
   title: "Profile",
 };

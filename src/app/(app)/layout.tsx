@@ -5,8 +5,6 @@ import { auth, getSession } from "@/lib/auth";
 import type { UserRole } from "@/db/schema/enums";
 import { MustChangePasswordGate } from "./must-change-password-gate";
 
-export const instant = false;
-
 export default async function AppGroupLayout({
   children,
 }: {

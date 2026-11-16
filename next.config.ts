@@ -20,8 +20,6 @@ if (process.env.VERCEL_ENV === "production") {
 }
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  partialPrefetching: true,
   typedRoutes: true,
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],

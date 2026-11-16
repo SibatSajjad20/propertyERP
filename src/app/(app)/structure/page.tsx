@@ -3,8 +3,6 @@ import { getStructureScreenData } from "@/features/structure/queries";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Structure",
 };

@@ -4,8 +4,6 @@ import { AuditScreen } from "@/features/audit/components/audit-screen";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Audit Log",
 };

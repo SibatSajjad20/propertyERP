@@ -3,8 +3,6 @@ import { ReservationWizard } from "@/features/sales/components/reservation-wizar
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "New Reservation",
 };

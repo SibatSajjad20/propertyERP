@@ -6,8 +6,6 @@ import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 import type { InventoryRow } from "@/features/units/types";
 
-export const instant = false;
-
 export async function generateMetadata({
   params,
 }: {

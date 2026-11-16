@@ -5,8 +5,6 @@ import { SoldDetailScreen } from "@/features/sales/components/sold-detail-screen
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const unitCode = await getSoldTitle(id);

@@ -4,8 +4,6 @@ import { BookingWizard } from "@/features/sales/components/booking-wizard";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "New Booking",
 };

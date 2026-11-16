@@ -8,7 +8,6 @@ import { dashboardFilterSchema } from "@/features/dashboard/schema";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
 
-export const instant = false;
 export const maxDuration = 30;
 
 export const metadata = {

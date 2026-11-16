@@ -1,8 +1,6 @@
 import { SummaryReportScreen } from "@/features/reports/components/summary-report-screen";
 import { loadSummaryReport } from "@/features/reports/load-summary";
 
-export const instant = false;
-
 export const metadata = {
   title: "Summary Report — Sardar's Mall ERP",
 };

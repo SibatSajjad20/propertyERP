@@ -4,8 +4,6 @@ import { UsersScreen } from "@/features/users/components/users-screen";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Users",
 };

@@ -4,8 +4,6 @@ import { reportFiltersSchema } from "@/features/reports/schema";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Sold Units Report — Sardar's Mall ERP",
 };

@@ -16,8 +16,6 @@ import { assertCan, can } from "@/lib/permissions";
 import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { formatSqft } from "@/lib/area";
 
-export const instant = false;
-
 export async function generateMetadata({
   params,
 }: {

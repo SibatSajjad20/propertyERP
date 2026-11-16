@@ -6,8 +6,6 @@ import { requireSession } from "@/lib/auth";
 import { errorMessage } from "@/lib/errors";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession({ redirect: false });

@@ -4,8 +4,6 @@ import { ReservationDetailScreen } from "@/features/sales/components/reservation
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = await getReservationDetail(id);

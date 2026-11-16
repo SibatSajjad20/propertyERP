@@ -6,8 +6,6 @@ import { InstallmentsScreen } from "@/features/installments/components/installme
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
-export const instant = false;
-
 export const metadata = {
   title: "Installments & Collections — Sardar's Mall ERP",
 };
