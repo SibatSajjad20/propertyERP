@@ -29,7 +29,7 @@ function applyBrandHeader(
     name: "Segoe UI",
     size: 14,
     bold: true,
-    color: { argb: "FF0E3A5B" },
+    color: { argb: "FF0B558B" },
   };
   titleCell.alignment = { vertical: "middle" };
 
@@ -63,11 +63,11 @@ function applyTableHeaderStyles(row: ExcelJS.Row) {
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF0B558B" }, // #0B558B Primary
+      fgColor: { argb: "FF0B558B" },
     };
     cell.alignment = { vertical: "middle", horizontal: "left" };
     cell.border = {
-      bottom: { style: "medium", color: { argb: "FF9A7B4F" } }, // Brass Hallmark
+      bottom: { style: "medium", color: { argb: "FF0B558B" } }, // Brand underline
     };
   });
 }
@@ -392,7 +392,7 @@ export async function generateClientLedgerExcel(
     name: "Segoe UI",
     size: 14,
     bold: true,
-    color: { argb: "FF0E3A5B" },
+    color: { argb: "FF0B558B" },
   };
 
   ws.getCell("A2").value = `Client: ${data.client.fullName} (CNIC: ${data.client.cnic})`;
@@ -416,7 +416,7 @@ export async function generateClientLedgerExcel(
     name: "Segoe UI",
     size: 10,
     bold: true,
-    color: { argb: "FF0E3A5B" },
+    color: { argb: "FF0B558B" },
   };
 
   ws.getRow(6).height = 8;

@@ -22,7 +22,7 @@ test("admin can sign in and reach inventory", async ({ page }) => {
   page.on("pageerror", (err) => console.error("PAGE ERROR:", err));
   page.on("console", (msg) => console.log("BROWSER CONSOLE:", msg.type(), msg.text()));
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sardar's Mall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();

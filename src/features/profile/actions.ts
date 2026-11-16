@@ -63,33 +63,30 @@ export async function updateOwnName(input: unknown) {
 }
 
 export async function changeOwnPassword(input: unknown) {
-  const parsed = changeOwnPasswordSchema.parse(input);
+  const parsed = changeOwnPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    };
+  }
   const session = await requireSession({ allowMustChangePassword: true });
   assertCan(session.user.role, "profile.update");
-
-  if (parsed.currentPassword === parsed.newPassword) {
-    throw new ValidationError(
-      "Choose a new password that is different from the current one.",
-    );
-  }
 
   try {
     const result = await auth.api.changePassword({
       headers: await headers(),
       body: {
-        currentPassword: parsed.currentPassword,
-        newPassword: parsed.newPassword,
+        currentPassword: parsed.data.currentPassword,
+        newPassword: parsed.data.newPassword,
         revokeOtherSessions: true,
       },
     });
     if (!result) {
-      throw new ValidationError("Could not change password.");
+      return { ok: false as const, error: "Could not change password." };
     }
-  } catch (error) {
-    if (error instanceof ValidationError) {
-      throw error;
-    }
-    throw new ValidationError("Current password is incorrect.");
+  } catch {
+    return { ok: false as const, error: "Current password is incorrect." };
   }
 
   const [current] = await db
@@ -119,6 +116,7 @@ export async function changeOwnPassword(input: unknown) {
   });
 
   revalidatePath("/settings/profile");
+  revalidatePath("/");
   revalidatePath("/audit");
   return { ok: true as const };
 }

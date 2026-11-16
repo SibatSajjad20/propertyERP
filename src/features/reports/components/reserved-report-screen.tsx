@@ -116,7 +116,7 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
                           row.isExpired
                             ? "font-medium text-sold"
                             : row.status === "ACTIVE"
-                              ? "font-medium text-accent"
+                              ? "font-medium text-primary"
                               : "text-ink-muted"
                         }
                       >

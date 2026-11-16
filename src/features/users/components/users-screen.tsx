@@ -143,7 +143,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         description="Staff accounts, roles, and sign-in status."
         actions={
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[12px] text-ink-muted tabular-nums">
+            <span className="rounded-[6px] bg-primary-soft px-2 py-0.5 font-mono text-[12px] font-medium text-primary tabular-nums">
               {activeCount} active
             </span>
             <Button variant="secondary" size="md" asChild>

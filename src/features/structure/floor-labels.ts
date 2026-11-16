@@ -46,10 +46,18 @@ export function normaliseFloorLabel(input: string): string {
   if (!raw) {
     return raw;
   }
-  const lower = raw.toLowerCase();
+  const collapsed = raw
+    .toLowerCase()
+    .replace(/[_\-/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const word = lower.match(
-    /^(ground|g|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)(?:\s+(?:floor|level|fl\.?))?$/,
+  if (/^(g|gf|g f)(?:\s+(?:floor|level|fl\.?))?$/.test(collapsed)) {
+    return floorLabelForLevel(0);
+  }
+
+  const word = collapsed.match(
+    /^(ground|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)(?:\s+(?:floor|level|fl\.?))?$/,
   );
   if (word?.[1]) {
     const mapped = WORD_LEVELS[word[1]];
@@ -58,12 +66,14 @@ export function normaliseFloorLabel(input: string): string {
     }
   }
 
-  const prefixed = lower.match(/^(?:level|lvl|floor|fl\.?)\s*(-?\d+)$/);
+  const prefixed = collapsed.match(/^(?:level|lvl|floor|fl\.?)\s*(-?\d+)$/);
   if (prefixed?.[1]) {
     return floorLabelForLevel(Number(prefixed[1]));
   }
 
-  const numbered = lower.match(/^(-?\d+)(?:st|nd|rd|th)?(?:\s+(?:floor|level|fl\.?))?$/);
+  const numbered = collapsed.match(
+    /^(-?\d+)(?:st|nd|rd|th)?(?:\s+(?:floor|level|fl\.?))?$/,
+  );
   if (numbered?.[1]) {
     return floorLabelForLevel(Number(numbered[1]));
   }

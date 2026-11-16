@@ -190,6 +190,8 @@ export const inventoryQuerySchema = z.object({
   dir: z.enum(["asc", "desc"]).optional(),
   unit: z.string().uuid().optional().or(z.literal("")),
   mode: z.enum(["view", "edit", "create"]).optional(),
+  pageSize: z.coerce.number().int().min(1).max(500).optional(),
+  cursor: z.string().optional(),
 });
 
 export type CreateUnitInput = z.infer<typeof createUnitSchema>;
@@ -197,6 +199,9 @@ export type UpdateUnitInput = z.infer<typeof updateUnitSchema>;
 export type ArchiveUnitInput = z.infer<typeof archiveUnitSchema>;
 export type ChangeUnitStatusInput = z.infer<typeof changeUnitStatusSchema>;
 export type InventoryQueryInput = z.infer<typeof inventoryQuerySchema>;
+
+export const INVENTORY_PAGE_SIZE = 100;
+export const INVENTORY_MAX_PAGE_SIZE = 500;
 
 export type InventoryQuery = {
   q?: string;
@@ -209,6 +214,9 @@ export type InventoryQuery = {
   dir: "asc" | "desc";
   unitId?: string;
   mode: "view" | "edit" | "create";
+  pageSize?: number;
+  cursor?: string;
+  unpaged?: boolean;
 };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -257,6 +265,8 @@ export function parseInventorySearchParams(
     dir: value.dir ?? "asc",
     unitId: value.unit || undefined,
     mode: value.mode ?? "view",
+    pageSize: value.pageSize,
+    cursor: value.cursor,
   };
 }
 

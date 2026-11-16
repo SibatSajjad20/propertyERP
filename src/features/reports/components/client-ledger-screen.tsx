@@ -35,7 +35,19 @@ const PRESET_LABELS: Record<ReportPreset, string> = {
   all: "All Time",
 };
 
-export function ClientLedgerScreen({
+export function ClientLedgerScreen(props: ClientLedgerScreenProps) {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="p-6 text-[13px] text-ink-muted">Loading client ledger…</div>
+      }
+    >
+      <ClientLedgerScreenInner {...props} />
+    </React.Suspense>
+  );
+}
+
+function ClientLedgerScreenInner({
   ledgerData,
   searchedClients,
   currentClientId,
@@ -86,10 +98,10 @@ export function ClientLedgerScreen({
   return (
     <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
       {/* Printable Mall Header (Visible ONLY during Print) */}
-      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#9A7B4F] print:pb-4">
+      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#0B558B] print:pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded-xs bg-[#9A7B4F]" />
+            <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
           <span className="font-mono text-xs text-[#64748B]">
@@ -153,7 +165,7 @@ export function ClientLedgerScreen({
                 className={cn(
                   "-mb-px border-b-2 px-3.5 py-2 text-[13px] font-medium transition-colors",
                   active
-                    ? "border-primary font-semibold text-primary"
+                    ? "border-primary font-semibold text-ink"
                     : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
                 )}
               >
@@ -197,7 +209,7 @@ export function ClientLedgerScreen({
                   key={c.id}
                   type="button"
                   onClick={() => handleSelectClient(c.id)}
-                  className="flex cursor-pointer flex-col rounded-[8px] border border-line bg-subtle/40 p-2.5 text-left transition-colors hover:border-primary/50 hover:bg-subtle"
+                  className="flex cursor-pointer flex-col rounded-[8px] border border-line bg-subtle/40 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft"
                 >
                   <span className="text-[13px] font-medium text-ink">{c.fullName}</span>
                   <span className="font-mono text-[11px] text-ink-muted">{c.cnic}</span>
@@ -285,9 +297,9 @@ export function ClientLedgerScreen({
             </div>
 
             {/* Next of Kin Info */}
-            <div className="card rounded-[12px] border-l-4 border-l-accent p-4">
+            <div className="card rounded-[12px] border-l-4 border-l-primary p-4">
               <div className="flex items-center gap-2">
-                <UsersThree weight="light" className="size-4 text-accent" />
+                <UsersThree weight="light" className="size-4 text-primary" />
                 <h4 className="text-[13px] font-semibold text-ink">
                   Next of Kin Details
                 </h4>

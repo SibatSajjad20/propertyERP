@@ -31,7 +31,7 @@ export const installmentStatuses = [
 export type InstallmentStatus = (typeof installmentStatuses)[number];
 export const installmentStatusEnum = pgEnum("installment_status", installmentStatuses);
 
-export const paymentMethods = ["CASH", "CHEQUE", "BANK_TRANSFER"] as const;
+export const paymentMethods = ["CASH", "CHEQUE", "BANK_TRANSFER", "PAY_ORDER"] as const;
 export type PaymentMethod = (typeof paymentMethods)[number];
 export const paymentMethodEnum = pgEnum("payment_method", paymentMethods);
 
@@ -46,6 +46,14 @@ export const discountTypeEnum = pgEnum("discount_type", discountTypes);
 export const saleStatuses = ["ACTIVE", "BOUGHT_BACK"] as const;
 export type SaleStatus = (typeof saleStatuses)[number];
 export const saleStatusEnum = pgEnum("sale_status", saleStatuses);
+
+export const documentOwnerTypes = ["CLIENT", "KIN"] as const;
+export type DocumentOwnerType = (typeof documentOwnerTypes)[number];
+export const documentOwnerTypeEnum = pgEnum("document_owner_type", documentOwnerTypes);
+
+export const documentTypes = ["PHOTO", "CNIC_FRONT", "CNIC_BACK", "KIN_PHOTO"] as const;
+export type DocumentType = (typeof documentTypes)[number];
+export const documentTypeEnum = pgEnum("document_type", documentTypes);
 
 export const auditActions = [
   "CREATE",

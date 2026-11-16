@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getBookingDetail } from "@/features/sales/queries";
+import { listActiveSignatories } from "@/features/documents/receipts";
+import { getBookingDetail, getBookingTitle } from "@/features/sales/queries";
 import { BookingDetailScreen } from "@/features/sales/components/booking-detail-screen";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
@@ -8,10 +9,10 @@ export const instant = false;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getBookingDetail(id);
-  if (!data) return { title: "Booking Not Found" };
+  const bookingNo = await getBookingTitle(id);
+  if (!bookingNo) return { title: "Booking Not Found" };
   return {
-    title: `Booking ${data.booking.bookingNo}`,
+    title: `Booking ${bookingNo}`,
   };
 }
 
@@ -24,8 +25,13 @@ export default async function BookingDetailPage({
   assertCan(session.user.role, "bookings.read");
 
   const { id } = await params;
-  const data = await getBookingDetail(id);
+  const [data, signatories] = await Promise.all([
+    getBookingDetail(id),
+    listActiveSignatories(),
+  ]);
   if (!data) notFound();
 
-  return <BookingDetailScreen data={data} role={session.user.role} />;
+  return (
+    <BookingDetailScreen data={data} role={session.user.role} signatories={signatories} />
+  );
 }

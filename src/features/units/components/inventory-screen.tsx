@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   MagnifyingGlass,
   Plus,
@@ -44,6 +44,8 @@ import {
 type InventoryScreenProps = {
   rows: InventoryRow[];
   totals: InventoryTotals;
+  nextCursor?: string | null;
+  pageSize?: number;
   options: InventoryFilterOptions;
   query: InventoryQuery;
   history?: StatusHistoryEntry[];
@@ -61,6 +63,8 @@ function hrefFor(query: InventoryQuery, overrides: Partial<InventoryQuery> = {})
 export function InventoryScreen({
   rows: initialRows,
   totals: initialTotals,
+  nextCursor: initialNextCursor = null,
+  pageSize: initialPageSize,
   options: initialOptions,
   query: initialQuery,
   canManage,
@@ -73,17 +77,43 @@ export function InventoryScreen({
   const [query, setQuery] = useState<InventoryQuery>(initialQuery);
   const [search, setSearch] = useState(initialQuery.q ?? "");
   const [showSoldOn, setShowSoldOn] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const queryMatchesServer =
+    query.q === initialQuery.q &&
+    query.floorId === initialQuery.floorId &&
+    query.categoryId === initialQuery.categoryId &&
+    query.status === initialQuery.status &&
+    query.sellable === initialQuery.sellable &&
+    Boolean(query.missingGross) === Boolean(initialQuery.missingGross) &&
+    query.sort === initialQuery.sort &&
+    query.dir === initialQuery.dir;
 
   // Client-side query caching with React Query
-  const { data: inventoryData } = useInventoryQuery(query, {
-    rows: initialRows,
-    totals: initialTotals,
-  });
+  const inventoryQuery = useInventoryQuery(
+    query,
+    queryMatchesServer
+      ? {
+          rows: initialRows,
+          totals: initialTotals,
+          totalCount: initialTotals.count,
+          nextCursor: initialNextCursor,
+          pageSize: initialPageSize ?? 100,
+        }
+      : undefined,
+  );
   const { data: optionsData } = useInventoryOptionsQuery(initialOptions);
 
-  const rows = inventoryData?.rows ?? initialRows;
-  const totals = inventoryData?.totals ?? initialTotals;
+  const rows = inventoryQuery.data ? inventoryQuery.rows : initialRows;
+  const totals = inventoryQuery.totals ?? initialTotals;
   const options = optionsData ?? initialOptions;
+  const { hasNextPage, fetchNextPage, data: inventoryPages } = inventoryQuery;
+
+  useEffect(() => {
+    if (hasNextPage && inventoryPages?.pages.length === 1) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, inventoryPages?.pages.length, fetchNextPage]);
 
   // Sync URL search params client-side without full RSC reloads
   function updateQuery(overrides: Partial<InventoryQuery>) {
@@ -220,8 +250,11 @@ export function InventoryScreen({
               onChange={(event) => {
                 const value = event.target.value;
                 setSearch(value);
-                const next = value.trim();
-                updateQuery({ q: next || undefined });
+                if (searchTimer.current) clearTimeout(searchTimer.current);
+                searchTimer.current = setTimeout(() => {
+                  const next = value.trim();
+                  updateQuery({ q: next || undefined });
+                }, 300);
               }}
               placeholder="Code, number, owner…"
               aria-label="Search units"
@@ -324,7 +357,7 @@ export function InventoryScreen({
             htmlFor="filter-missing-gross"
             className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium transition-colors select-none ${
               query.missingGross
-                ? "border-[color-mix(in_srgb,var(--primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-primary"
+                ? "border-primary/40 bg-primary-soft text-primary"
                 : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
             }`}
           >
@@ -452,6 +485,11 @@ export function InventoryScreen({
         }}
         onSort={handleSort}
         emptyMessage={emptyMessage}
+        onNearEnd={() => {
+          if (inventoryQuery.hasNextPage && !inventoryQuery.isFetchingNextPage) {
+            void inventoryQuery.fetchNextPage();
+          }
+        }}
       />
     </div>
   );

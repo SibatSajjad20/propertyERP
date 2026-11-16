@@ -1,5 +1,4 @@
-import { getSelectableUnits } from "@/features/sales/queries";
-import { getInventoryFilterOptions } from "@/features/units/queries";
+import { getCachedInventoryFilterOptions } from "@/features/units/queries";
 import { ReservationWizard } from "@/features/sales/components/reservation-wizard";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
@@ -14,14 +13,11 @@ export default async function NewReservationPage() {
   const session = await requireSession();
   assertCan(session.user.role, "reservations.create");
 
-  const [units, options] = await Promise.all([
-    getSelectableUnits({}),
-    getInventoryFilterOptions(),
-  ]);
+  const options = await getCachedInventoryFilterOptions();
 
   return (
     <ReservationWizard
-      units={units}
+      units={[]}
       floors={options.floors}
       categories={options.categories}
     />

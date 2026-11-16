@@ -339,11 +339,11 @@ export function InstallmentsScreen({
                       </span>
                     </div>
 
-                    <div className="card rounded-[10px] border-l-4 border-l-accent p-3">
+                    <div className="card rounded-[10px] border-l-4 border-l-primary p-3">
                       <span className="text-[10px] font-medium text-ink-muted uppercase">
                         Remaining Balance
                       </span>
-                      <p className="mt-1 font-sans text-[16px] font-semibold text-accent tabular-nums">
+                      <p className="mt-1 font-sans text-[16px] font-semibold text-primary tabular-nums">
                         {formatPkr(currentBooking.balance)}
                       </p>
                       <span className="text-[10px] text-ink-muted">
@@ -603,7 +603,7 @@ export function InstallmentsScreen({
                                               setActivePaymentForEdit(p);
                                               setEditPaymentModalOpen(true);
                                             }}
-                                            className="h-7 px-2 text-[11px] text-ink hover:text-primary"
+                                            className="h-7 px-2 text-[11px] text-primary hover:text-accent-bright hover:underline"
                                             title="Edit Payment"
                                           >
                                             <PencilSimple

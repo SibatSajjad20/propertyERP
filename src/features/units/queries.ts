@@ -1,12 +1,19 @@
 import "server-only";
 
+import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
 import { unitStatusHistory, units } from "@/db/schema/units";
 import { logger } from "@/lib/logger";
-import type { InventoryQuery, InventorySortField } from "./schema";
+import {
+  INVENTORY_MAX_PAGE_SIZE,
+  INVENTORY_PAGE_SIZE,
+  type InventoryQuery,
+  type InventorySortField,
+} from "./schema";
 import type {
   InventoryFilterOptions,
   InventoryRow,
@@ -132,20 +139,34 @@ const inventorySelect = {
 export async function listInventory(query: Partial<InventoryQuery> = {}): Promise<{
   rows: InventoryRow[];
   totals: InventoryTotals;
+  totalCount: number;
+  nextCursor: string | null;
+  pageSize: number;
 }> {
   const q = query ?? {};
   const t0 = performance.now();
   const where = inventoryWhere(q);
   const order = q.dir === "desc" ? desc(sortColumn(q.sort)) : asc(sortColumn(q.sort));
+  const pageSize = Math.min(
+    Math.max(q.pageSize ?? INVENTORY_PAGE_SIZE, 1),
+    INVENTORY_MAX_PAGE_SIZE,
+  );
+  const offset = q.unpaged ? 0 : Math.max(Number(q.cursor ?? 0) || 0, 0);
 
-  const [rows, [totalsRow]] = await Promise.all([
-    db
-      .select(inventorySelect)
-      .from(units)
-      .innerJoin(floors, eq(floors.id, units.floorId))
-      .innerJoin(categories, eq(categories.id, units.categoryId))
-      .where(where)
-      .orderBy(order, asc(units.unitCode)),
+  let rowsQuery = db
+    .select(inventorySelect)
+    .from(units)
+    .innerJoin(floors, eq(floors.id, units.floorId))
+    .innerJoin(categories, eq(categories.id, units.categoryId))
+    .where(where)
+    .orderBy(order, asc(units.unitCode));
+
+  if (!q.unpaged) {
+    rowsQuery = rowsQuery.limit(pageSize + 1).offset(offset) as typeof rowsQuery;
+  }
+
+  const [rawRows, [totalsRow]] = await Promise.all([
+    rowsQuery,
     db
       .select({
         count: sql<number>`count(*)::int`,
@@ -161,20 +182,30 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
   ]);
 
   const durationMs = Math.round(performance.now() - t0);
-  logger.info({ durationMs, count: rows.length, query }, "server timing: listInventory");
+  const hasMore = !q.unpaged && rawRows.length > pageSize;
+  const pageRows = hasMore ? rawRows.slice(0, pageSize) : rawRows;
+  const totals = {
+    count: Number(totalsRow?.count ?? 0),
+    availableCount: Number(totalsRow?.availableCount ?? 0),
+    soldCount: Number(totalsRow?.soldCount ?? 0),
+    netAreaSqft: totalsRow?.netAreaSqft ?? "0.00",
+    valuePkr: totalsRow?.valuePkr ?? "0.00",
+  };
+
+  logger.info(
+    { durationMs, count: pageRows.length, totalCount: totals.count, query },
+    "server timing: listInventory",
+  );
 
   return {
-    rows: rows.map((row) => ({
+    rows: pageRows.map((row) => ({
       ...row,
       soldAt: row.soldAt ? row.soldAt.toISOString() : null,
     })),
-    totals: {
-      count: Number(totalsRow?.count ?? 0),
-      availableCount: Number(totalsRow?.availableCount ?? 0),
-      soldCount: Number(totalsRow?.soldCount ?? 0),
-      netAreaSqft: totalsRow?.netAreaSqft ?? "0.00",
-      valuePkr: totalsRow?.valuePkr ?? "0.00",
-    },
+    totals,
+    totalCount: totals.count,
+    nextCursor: hasMore ? String(offset + pageSize) : null,
+    pageSize,
   };
 }
 
@@ -184,39 +215,41 @@ export async function listInventoryRows(): Promise<InventoryRow[]> {
     sort: "unitCode",
     dir: "asc",
     mode: "view",
+    unpaged: true,
   });
   return rows;
 }
 
 export async function getInventoryFilterOptions(): Promise<InventoryFilterOptions> {
-  const floorRows = await db
-    .select({
-      id: floors.id,
-      name: floors.name,
-      level: floors.level,
-    })
-    .from(floors)
-    .innerJoin(blocks, eq(blocks.id, floors.blockId))
-    .innerJoin(properties, eq(properties.id, blocks.propertyId))
-    .where(
-      and(
-        isNull(floors.archivedAt),
-        isNull(blocks.archivedAt),
-        isNull(properties.archivedAt),
-      ),
-    )
-    .orderBy(asc(floors.level), asc(floors.name));
-
-  const categoryRows = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      isSellableDefault: categories.isSellableDefault,
-    })
-    .from(categories)
-    .innerJoin(properties, eq(properties.id, categories.propertyId))
-    .where(isNull(properties.archivedAt))
-    .orderBy(asc(categories.name));
+  const [floorRows, categoryRows] = await Promise.all([
+    db
+      .select({
+        id: floors.id,
+        name: floors.name,
+        level: floors.level,
+      })
+      .from(floors)
+      .innerJoin(blocks, eq(blocks.id, floors.blockId))
+      .innerJoin(properties, eq(properties.id, blocks.propertyId))
+      .where(
+        and(
+          isNull(floors.archivedAt),
+          isNull(blocks.archivedAt),
+          isNull(properties.archivedAt),
+        ),
+      )
+      .orderBy(asc(floors.level), asc(floors.name)),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        isSellableDefault: categories.isSellableDefault,
+      })
+      .from(categories)
+      .innerJoin(properties, eq(properties.id, categories.propertyId))
+      .where(isNull(properties.archivedAt))
+      .orderBy(asc(categories.name)),
+  ]);
 
   return {
     floors: floorRows.map((row) => ({ id: row.id, name: row.name, level: row.level })),
@@ -224,7 +257,16 @@ export async function getInventoryFilterOptions(): Promise<InventoryFilterOption
   };
 }
 
-export async function getUnitById(id: string): Promise<UnitDetail | null> {
+export async function getCachedInventoryFilterOptions(): Promise<InventoryFilterOptions> {
+  "use cache";
+  cacheTag("structure");
+  cacheLife("hours");
+  return getInventoryFilterOptions();
+}
+
+export const getUnitById = cache(async function getUnitById(
+  id: string,
+): Promise<UnitDetail | null> {
   const [row] = await db
     .select({
       unit: units,
@@ -248,7 +290,7 @@ export async function getUnitById(id: string): Promise<UnitDetail | null> {
     ...row,
     bookPricePkr: row.unit.soldPricePkr ?? row.computedPricePkr,
   };
-}
+});
 
 export async function listUnitStatusHistory(
   unitId: string,

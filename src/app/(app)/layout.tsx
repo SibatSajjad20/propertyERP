@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { auth, getSession } from "@/lib/auth";
 import type { UserRole } from "@/db/schema/enums";
 import { MustChangePasswordGate } from "./must-change-password-gate";
@@ -26,11 +28,19 @@ export default async function AppGroupLayout({
   const mustChangePassword = Boolean(
     (session.user as { mustChangePassword?: boolean }).mustChangePassword,
   );
+  const pathname = (await headers()).get("x-pathname");
+  if (mustChangePassword && pathname && pathname !== "/settings/profile") {
+    redirect("/settings/profile");
+  }
 
   return (
-    <AppShell userName={session.user.name} role={session.user.role as UserRole}>
+    <AppShell
+      userName={session.user.name}
+      role={session.user.role as UserRole}
+      navLocked={mustChangePassword}
+    >
       <MustChangePasswordGate mustChangePassword={mustChangePassword}>
-        {children}
+        <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
       </MustChangePasswordGate>
     </AppShell>
   );

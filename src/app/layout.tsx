@@ -6,6 +6,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/providers/query-provider";
 import "@/styles/globals.css";
 
+/** Vercel region MUST match the Supabase region. Use sin1 only if the DB stays in Singapore. */
+export const preferredRegion = ["bom1"];
+
 export const metadata: Metadata = {
   title: {
     default: "Sardar's Mall ERP",

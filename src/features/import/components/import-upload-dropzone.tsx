@@ -11,7 +11,7 @@ interface ImportUploadDropzoneProps {
   loading: boolean;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export function ImportUploadDropzone({
   onFileSelected,
@@ -23,7 +23,7 @@ export function ImportUploadDropzone({
   const processFile = (file: File) => {
     if (file.size > MAX_BYTES) {
       toast.error(
-        `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Max limit is 5 MB.`,
+        `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Max limit is 10 MB.`,
       );
       return;
     }

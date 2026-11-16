@@ -15,6 +15,7 @@ export const importColumnMappingSchema = z.object({
   ratePerSqftPkr: z.string().nullable().default(null),
   status: z.string().nullable().default(null),
   buyer: z.string().nullable().default(null),
+  subOwner: z.string().nullable().default(null),
   soldPricePkr: z.string().nullable().default(null),
   notes: z.string().nullable().default(null),
 });
@@ -31,17 +32,20 @@ export const cleanedRowSchema = z.object({
   ratePerSqftPkr: z.string().min(1),
   status: z.enum(["AVAILABLE", "SOLD"]),
   buyer: z.string().nullable(),
+  subOwner: z.string().nullable().default(null),
   soldPricePkr: z.string().nullable(),
   notes: z.string().nullable(),
   isSellable: z.boolean(),
+  generatedUnitCode: z.boolean().default(false),
   originalRow: z.record(z.string(), z.unknown()),
 });
 
 export const commitImportSchema = z.object({
   fileName: z.string().min(1),
-  mode: z.enum(["CREATE_ONLY", "CREATE_AND_UPDATE"]),
+  mode: z.enum(["CREATE_ONLY", "CREATE_AND_UPDATE", "UPSERT"]),
   mapping: importColumnMappingSchema,
   rows: z.array(cleanedRowSchema),
+  createMissingStructure: z.boolean().default(true),
 });
 
 export const rollbackBatchSchema = z.object({

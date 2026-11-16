@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, MagnifyingGlass, Sparkle } from "@phosphor-icons/react";
 import {
   Select,
@@ -13,6 +14,7 @@ import {
 import { formatPkr, formatPkrCompact } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
+import { listSelectableUnitsAction } from "../selectable-units-action";
 
 export interface SelectableUnit {
   id: string;
@@ -35,38 +37,56 @@ export interface SelectableUnit {
 }
 
 interface UnitSelectorProps {
-  units: SelectableUnit[];
+  units?: SelectableUnit[];
   selectedUnitId?: string;
   onSelectUnit: (unit: SelectableUnit) => void;
   floors?: { id: string; name: string }[];
   categories?: { id: string; name: string }[];
+  clientId?: string | null;
 }
 
 export function UnitSelector({
-  units,
+  units: seededUnits = [],
   selectedUnitId,
   onSelectUnit,
   floors = [],
   categories = [],
+  clientId,
 }: UnitSelectorProps) {
   const [selectedFloor, setSelectedFloor] = React.useState<string>("all");
   const [selectedCategory, setSelectedCategory] = React.useState<string>("all");
   const [search, setSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(handle);
+  }, [search]);
+
+  const floorId = selectedFloor === "all" ? undefined : selectedFloor;
+  const categoryId = selectedCategory === "all" ? undefined : selectedCategory;
+
+  const {
+    data: remoteUnits = [],
+    isFetching,
+    isFetched,
+  } = useQuery({
+    queryKey: ["selectable-units", floorId, categoryId, debouncedSearch, clientId],
+    queryFn: () =>
+      listSelectableUnitsAction({
+        floorId,
+        categoryId,
+        search: debouncedSearch.length >= 2 ? debouncedSearch : undefined,
+        clientId: clientId ?? undefined,
+      }),
+    staleTime: 60_000,
+  });
 
   const filteredUnits = React.useMemo(() => {
-    return units.filter((u) => {
-      if (selectedFloor !== "all" && u.floorId !== selectedFloor) return false;
-      if (selectedCategory !== "all" && u.categoryId !== selectedCategory) return false;
-      if (search.trim()) {
-        const term = search.trim().toLowerCase();
-        return (
-          u.unitCode.toLowerCase().includes(term) ||
-          u.unitNumber.toLowerCase().includes(term)
-        );
-      }
-      return true;
-    });
-  }, [units, selectedFloor, selectedCategory, search]);
+    const source = isFetched ? remoteUnits : seededUnits;
+    if (!categoryId) return source;
+    return source.filter((u) => u.categoryId === categoryId);
+  }, [isFetched, remoteUnits, seededUnits, categoryId]);
 
   return (
     <div className="space-y-4">
@@ -122,9 +142,11 @@ export function UnitSelector({
       {/* Selectable Unit Cards */}
       {filteredUnits.length === 0 ? (
         <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <p className="text-[14px] font-medium text-ink">No units available</p>
+          <p className="text-[14px] font-medium text-ink">
+            {isFetching ? "Loading units…" : "No units available"}
+          </p>
           <p className="mt-1 text-[12px] text-ink-muted">
-            Try choosing a different floor or category.
+            Try another floor, category, or search by unit code.
           </p>
         </div>
       ) : (
@@ -140,7 +162,7 @@ export function UnitSelector({
                 className={cn(
                   "card group relative cursor-pointer p-4 transition-all duration-150 select-none",
                   isSelected
-                    ? "border-primary bg-[color-mix(in_srgb,var(--primary)_4%,white)] ring-2 ring-primary/20"
+                    ? "border-primary bg-primary-soft ring-2 ring-primary/20"
                     : "hover:-translate-y-0.5 hover:border-line-strong",
                 )}
               >

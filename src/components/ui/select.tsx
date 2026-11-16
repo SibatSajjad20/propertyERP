@@ -5,14 +5,19 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { CaretDown, Check } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 
+const SelectRoot = SelectPrimitive.Root as React.ComponentType<
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root> & {
+    modal?: boolean;
+  }
+>;
+
 export function Select(
   props: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root> & {
     modal?: boolean;
   },
 ) {
-  const { modal, ...rest } = props;
-  void modal;
-  return <SelectPrimitive.Root {...rest} />;
+  const { modal = false, ...rest } = props;
+  return <SelectRoot modal={modal} {...rest} />;
 }
 
 export const SelectGroup = SelectPrimitive.Group;
@@ -27,7 +32,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-between rounded-[8px] border border-line bg-surface text-ink shadow-xs transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] select-none hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+      "flex w-full items-center justify-between rounded-[8px] border border-line bg-surface text-ink shadow-xs transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] select-none hover:border-line-strong focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
       size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-3 text-[13px]",
       className,
     )}
@@ -98,7 +103,7 @@ export const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-pointer items-center rounded-[6px] py-1.5 pr-8 pl-2 text-[13px] transition-colors outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-pointer items-center rounded-[6px] py-1.5 pr-8 pl-2 text-[13px] transition-colors outline-none select-none hover:bg-primary-soft focus:bg-primary-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}

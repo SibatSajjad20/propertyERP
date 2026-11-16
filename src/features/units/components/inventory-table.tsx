@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { DotsThree, Eye, PencilSimple } from "@phosphor-icons/react";
@@ -54,6 +54,7 @@ export interface InventoryTableProps {
   onEdit?: (row: InventoryRow) => void;
   onSort: (field: InventorySortField) => void;
   emptyMessage: string;
+  onNearEnd?: () => void;
 }
 
 export function InventoryTable({
@@ -66,6 +67,7 @@ export function InventoryTable({
   onEdit,
   onSort,
   emptyMessage,
+  onNearEnd,
 }: InventoryTableProps) {
   const columns = useMemo(() => {
     const cols = [
@@ -211,6 +213,13 @@ export function InventoryTable({
     overscan: 12,
   });
 
+  const lastVirtualIndex = virtualizer.getVirtualItems().at(-1)?.index;
+  useEffect(() => {
+    if (lastVirtualIndex !== undefined && lastVirtualIndex >= data.length - 12) {
+      onNearEnd?.();
+    }
+  }, [lastVirtualIndex, data.length, onNearEnd]);
+
   function columnClass(id: string) {
     if (id === "grossAreaSqft" || id === "ownershipGroup" || id === "soldAt") {
       return "hidden xl:table-cell";
@@ -242,6 +251,8 @@ export function InventoryTable({
                         "h-9 px-3 text-left text-[11px] font-medium tracking-wide text-ink-muted uppercase",
                         numeric && "text-right",
                         header.column.id === "actions" && "w-10 px-1",
+                        header.column.id === "unitCode" &&
+                          "sticky left-0 z-30 bg-surface shadow-[1px_0_0_var(--line)]",
                         columnClass(header.column.id),
                       )}
                     >
@@ -294,7 +305,7 @@ export function InventoryTable({
                     className={cn(
                       "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                       selected
-                        ? "bg-subtle font-medium text-ink"
+                        ? "bg-primary-soft font-medium text-ink"
                         : "text-ink hover:bg-subtle/70",
                     )}
                     onClick={() => onRowClick(row.original)}
@@ -314,6 +325,8 @@ export function InventoryTable({
                             "h-9 px-3 align-middle",
                             numeric && "text-right",
                             cell.column.id === "actions" && "w-10 px-1",
+                            cell.column.id === "unitCode" &&
+                              "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-subtle/70",
                             columnClass(cell.column.id),
                           )}
                         >
@@ -347,7 +360,7 @@ export function InventoryTable({
                       className={cn(
                         "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                         selected
-                          ? "bg-subtle font-medium text-ink"
+                          ? "bg-primary-soft font-medium text-ink"
                           : "text-ink hover:bg-subtle/70",
                       )}
                       onClick={() => onRowClick(row.original)}
@@ -367,6 +380,8 @@ export function InventoryTable({
                               "h-9 px-3 align-middle",
                               numeric && "text-right",
                               cell.column.id === "actions" && "w-10 px-1",
+                              cell.column.id === "unitCode" &&
+                                "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-subtle/70",
                               columnClass(cell.column.id),
                             )}
                           >

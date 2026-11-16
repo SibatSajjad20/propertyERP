@@ -9,6 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { findClientByCnic } from "../actions";
 import type { ClientInput, NextOfKinInput } from "../schema";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+
+export type MatchedClientDocs = {
+  id: string;
+  ownerType: "CLIENT" | "KIN";
+  clientId: string;
+  kinId: string | null;
+  docType: "PHOTO" | "CNIC_FRONT" | "CNIC_BACK" | "KIN_PHOTO";
+  mimeType: string;
+  replacedAt: Date | string | null;
+};
 
 interface ClientFormProps {
   client: ClientInput;
@@ -16,6 +27,12 @@ interface ClientFormProps {
   onChangeClient: (client: ClientInput) => void;
   onChangeNextOfKin?: (kin: NextOfKinInput) => void;
   showNextOfKin?: boolean;
+  kinCnicRequired?: boolean;
+  onMatched?: (match: {
+    clientId: string;
+    kinId: string | null;
+    documents: MatchedClientDocs[];
+  }) => void;
 }
 
 export function formatCnicInput(value: string): string {
@@ -35,6 +52,8 @@ export function ClientForm({
   onChangeClient,
   onChangeNextOfKin,
   showNextOfKin = true,
+  kinCnicRequired = false,
+  onMatched,
 }: ClientFormProps) {
   const [sameAsHome, setSameAsHome] = React.useState(
     Boolean(client.homeAddress && client.homeAddress === client.postalAddress),
@@ -55,8 +74,13 @@ export function ClientForm({
         setFoundClient(true);
         onChangeClient({
           fullName: result.client.fullName,
+          relationPrefix: result.client.relationPrefix === "W/O" ? "W/O" : "S/O",
+          relationName: result.client.relationName,
           cnic: result.client.cnic,
           phone: result.client.phone,
+          phoneOffice: result.client.phoneOffice || "",
+          phoneRes: result.client.phoneRes || "",
+          mobile2: result.client.mobile2 || "",
           email: result.client.email || "",
           homeAddress: result.client.homeAddress,
           postalAddress: result.client.postalAddress,
@@ -64,12 +88,23 @@ export function ClientForm({
         if (result.nextOfKin && onChangeNextOfKin) {
           onChangeNextOfKin({
             name: result.nextOfKin.name,
+            relationPrefix:
+              result.nextOfKin.relationPrefix === "D/O" ||
+              result.nextOfKin.relationPrefix === "W/O"
+                ? result.nextOfKin.relationPrefix
+                : "S/O",
+            relationName: result.nextOfKin.relationName,
             relation: result.nextOfKin.relation,
             cnic: result.nextOfKin.cnic || "",
             phone: result.nextOfKin.phone,
             address: result.nextOfKin.address || "",
           });
         }
+        onMatched?.({
+          clientId: result.client.id,
+          kinId: result.nextOfKin?.id ?? null,
+          documents: result.documents ?? [],
+        });
       } else {
         setFoundClient(false);
       }
@@ -132,6 +167,9 @@ export function ClientForm({
                   onChangeClient({ ...client, cnic: formatted });
                   setFoundClient(false);
                 }}
+                onBlur={() => {
+                  if (clientCnicDigits === 13) void handleSearchCnic();
+                }}
                 maxLength={15}
                 placeholder="12345-1234567-1"
                 className="font-mono text-[13px]"
@@ -179,11 +217,39 @@ export function ClientForm({
           </div>
         </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="mb-1 block text-[12px]">
+              Relation <span className="text-sold">*</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <SegmentedControl
+                value={client.relationPrefix}
+                onValueChange={(value) =>
+                  onChangeClient({ ...client, relationPrefix: value })
+                }
+                options={[
+                  { value: "S/O", label: "S/O" },
+                  { value: "W/O", label: "W/O" },
+                ]}
+              />
+              <Input
+                id="client-relation-name"
+                value={client.relationName}
+                onChange={(e) =>
+                  onChangeClient({ ...client, relationName: e.target.value })
+                }
+                placeholder="Father / husband name"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Phone & Email Row */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="client-phone" className="mb-1 block text-[12px]">
-              Phone Number <span className="text-sold">*</span>
+              Mobile <span className="text-sold">*</span>
             </Label>
             <Input
               id="client-phone"
@@ -204,6 +270,45 @@ export function ClientForm({
               value={client.email || ""}
               onChange={(e) => onChangeClient({ ...client, email: e.target.value })}
               placeholder="client@example.com"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <Label htmlFor="client-phone-office" className="mb-1 block text-[12px]">
+              Phone Off. (Optional)
+            </Label>
+            <Input
+              id="client-phone-office"
+              value={client.phoneOffice || ""}
+              onChange={(e) => onChangeClient({ ...client, phoneOffice: e.target.value })}
+              placeholder="042-1234567"
+              className="tabular-nums"
+            />
+          </div>
+          <div>
+            <Label htmlFor="client-phone-res" className="mb-1 block text-[12px]">
+              Phone Res. (Optional)
+            </Label>
+            <Input
+              id="client-phone-res"
+              value={client.phoneRes || ""}
+              onChange={(e) => onChangeClient({ ...client, phoneRes: e.target.value })}
+              placeholder="042-7654321"
+              className="tabular-nums"
+            />
+          </div>
+          <div>
+            <Label htmlFor="client-mobile-2" className="mb-1 block text-[12px]">
+              Mobile 2 (Optional)
+            </Label>
+            <Input
+              id="client-mobile-2"
+              value={client.mobile2 || ""}
+              onChange={(e) => onChangeClient({ ...client, mobile2: e.target.value })}
+              placeholder="0301-1234567"
+              className="tabular-nums"
             />
           </div>
         </div>
@@ -275,6 +380,33 @@ export function ClientForm({
             </div>
 
             <div>
+              <Label className="mb-1 block text-[12px]">
+                Relation <span className="text-sold">*</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <SegmentedControl
+                  value={nextOfKin.relationPrefix}
+                  onValueChange={(value) =>
+                    onChangeNextOfKin({ ...nextOfKin, relationPrefix: value })
+                  }
+                  options={[
+                    { value: "S/O", label: "S/O" },
+                    { value: "D/O", label: "D/O" },
+                    { value: "W/O", label: "W/O" },
+                  ]}
+                />
+                <Input
+                  id="kin-relation-name"
+                  value={nextOfKin.relationName}
+                  onChange={(e) =>
+                    onChangeNextOfKin({ ...nextOfKin, relationName: e.target.value })
+                  }
+                  placeholder="Father / husband name"
+                />
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="kin-relation" className="mb-1 block text-[12px]">
                 Relationship <span className="text-sold">*</span>
               </Label>
@@ -307,7 +439,8 @@ export function ClientForm({
 
             <div>
               <Label htmlFor="kin-cnic" className="mb-1 block text-[12px]">
-                Nominee CNIC (Optional)
+                Nominee CNIC{" "}
+                {kinCnicRequired ? <span className="text-sold">*</span> : "(Optional)"}
               </Label>
               <Input
                 id="kin-cnic"
@@ -334,7 +467,7 @@ export function ClientForm({
                 </p>
               ) : (
                 <p className="mt-1 text-[11px] text-ink-faint">
-                  Format: 12345-1234567-1 (13 digits, optional)
+                  Format: 12345-1234567-1 (13 digits{kinCnicRequired ? "" : ", optional"})
                 </p>
               )}
             </div>

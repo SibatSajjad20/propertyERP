@@ -122,8 +122,8 @@ export default async function UnitDetailPage({
 
       {/* Active Sales Lifecycle Banner */}
       {unit.status === "RESERVED" && (
-        <div className="flex items-center justify-between rounded-[8px] border border-accent/30 bg-accent/10 px-4 py-3">
-          <span className="text-[13px] font-medium text-accent">
+        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
+          <span className="text-[13px] font-medium text-primary">
             This unit is currently RESERVED under prospective buyer hold.
           </span>
           <Button variant="secondary" size="sm" asChild>

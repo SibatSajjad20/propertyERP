@@ -123,13 +123,13 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
   return (
     <div className="relative h-full w-full select-none">
       {activePoint && (
-        <div className="pointer-events-none absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[6px] border border-line bg-surface/95 px-2.5 py-1 font-sans text-[11px] text-ink tabular-nums shadow-xs backdrop-blur-xs">
+        <div className="pointer-events-none absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 font-sans text-[11px] text-ink tabular-nums shadow-card">
           <span className="font-medium text-ink-muted">{activePoint.label}:</span>
-          <span className="font-semibold text-primary">
+          <span className="font-semibold text-ink">
             {activePoint.count} unit{activePoint.count === 1 ? "" : "s"}
           </span>
-          <span className="text-ink-muted">·</span>
-          <span className="font-semibold text-ink">
+          <span className="text-ink-faint">·</span>
+          <span className="font-semibold text-primary">
             {formatPkrCompact(activePoint.volumePkr)}
           </span>
         </div>
@@ -145,6 +145,10 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
         onPointerLeave={handlePointerLeave}
       >
         <defs>
+          <linearGradient id="sales-area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0B558B" stopOpacity={0.14} />
+            <stop offset="100%" stopColor="#0B558B" stopOpacity={0} />
+          </linearGradient>
           <style>{`
             @keyframes salesLineDraw {
               0% { stroke-dashoffset: 1400; }
@@ -160,19 +164,19 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="var(--line)"
+            stroke="#EEF1F4"
             strokeDasharray="2 3"
-            strokeOpacity={0.8}
+            strokeOpacity={1}
             numTicks={4}
           />
           <AxisLeft
             scale={yScale}
             numTicks={4}
-            stroke="var(--line)"
-            tickStroke="var(--line)"
+            stroke="#EEF1F4"
+            tickStroke="#EEF1F4"
             tickFormat={(val) => formatPkrCompact(String(Math.round(Number(val) || 0)))}
             tickLabelProps={{
-              fill: "var(--ink-muted)",
+              fill: "#94A3B8",
               fontSize: 10,
               fontFamily: "var(--font-sans)",
               textAnchor: "end",
@@ -183,14 +187,14 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
           <AxisBottom
             top={innerHeight}
             scale={isBarChart ? xBandScale : xPointScale}
-            stroke="var(--line)"
-            tickStroke="var(--line)"
+            stroke="#EEF1F4"
+            tickStroke="#EEF1F4"
             tickFormat={(monthStr) => {
               const item = data.find((d) => d.month === monthStr);
               return item ? (item.label.split(" ")[0] ?? monthStr) : monthStr;
             }}
             tickLabelProps={{
-              fill: "var(--ink-muted)",
+              fill: "#94A3B8",
               fontSize: 10,
               fontFamily: "var(--font-sans)",
               textAnchor: "middle",
@@ -231,7 +235,7 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
                 y={(d) => yScale(Number(d.volumePkr) || 0)}
                 yScale={yScale}
                 curve={curveMonotoneX}
-                fill="rgba(11, 85, 139, 0.10)"
+                fill="url(#sales-area-gradient)"
               />
 
               <LinePath<SalesOverTimePoint>
@@ -254,7 +258,7 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
                 x2={activeX}
                 y1={0}
                 y2={innerHeight}
-                stroke="var(--line-strong)"
+                stroke="#EEF1F4"
                 strokeDasharray="3 3"
                 strokeWidth={1.5}
               />
@@ -263,7 +267,7 @@ function SalesChartInner({ data: rawData, width, height }: SalesChartInnerProps)
                 cy={activeY}
                 r={4.5}
                 fill="var(--primary)"
-                stroke="var(--surface)"
+                stroke="#FFFFFF"
                 strokeWidth={2}
               />
             </g>

@@ -38,7 +38,7 @@ export function FilterChip({
           className={cn(
             "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-[6px] border px-2.5 text-[12px] font-medium transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]",
             isActive
-              ? "border-[color-mix(in_srgb,var(--primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-primary"
+              ? "border-primary/40 bg-primary-soft text-primary"
               : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
           )}
         >

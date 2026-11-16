@@ -18,7 +18,7 @@ export function DueThisWeekCard({ summary, onSelectBooking }: DueThisWeekCardPro
       {/* Top Banner & Stats */}
       <div className="flex flex-col gap-3 border-b border-line pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <CalendarDots weight="bold" className="size-4" />
           </div>
           <div>

@@ -24,6 +24,7 @@ vi.mock("@/db", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }));
 
 import { archiveBlock, archiveFloor, createFloor } from "@/features/structure/actions";
@@ -95,6 +96,9 @@ describe("normalised floor labels", () => {
 
   it("normalises common aliases onto the canonical label", () => {
     expect(normaliseFloorLabel("Ground Floor")).toBe("Ground");
+    expect(normaliseFloorLabel("Ground-Floor")).toBe("Ground");
+    expect(normaliseFloorLabel("GF")).toBe("Ground");
+    expect(normaliseFloorLabel("G/F")).toBe("Ground");
     expect(normaliseFloorLabel("First")).toBe("1st");
     expect(normaliseFloorLabel("Level 1")).toBe("1st");
     expect(floorLabelForLevel(2)).toBe("2nd");

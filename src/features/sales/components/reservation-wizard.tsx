@@ -37,8 +37,13 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
 
   const [client, setClient] = React.useState<ClientInput>({
     fullName: "",
+    relationPrefix: "S/O",
+    relationName: "",
     cnic: "",
     phone: "",
+    phoneOffice: "",
+    phoneRes: "",
+    mobile2: "",
     email: "",
     homeAddress: "",
     postalAddress: "",
@@ -46,6 +51,8 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
 
   const [nextOfKin, setNextOfKin] = React.useState<NextOfKinInput>({
     name: "",
+    relationPrefix: "S/O",
+    relationName: "",
     relation: "",
     cnic: "",
     phone: "",
@@ -65,6 +72,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
 
   const canProceedStep2 = Boolean(
     client.fullName.trim() &&
+    client.relationName.trim() &&
     isClientCnicValid &&
     client.phone.trim() &&
     client.homeAddress.trim() &&
@@ -76,6 +84,10 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
     if (!selectedUnit) return;
     if (!client.fullName.trim()) {
       toast.error("Please enter the client's full name");
+      return;
+    }
+    if (!client.relationName.trim()) {
+      toast.error("Please enter the client's S/O or W/O name");
       return;
     }
     if (!isClientCnicValid) {
@@ -168,7 +180,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
             size="md"
             onClick={handleConfirmReservation}
             disabled={isSubmitting}
-            className="bg-accent hover:bg-accent/90"
+            className="bg-primary hover:bg-primary/90"
           >
             <Check weight="bold" className="mr-1.5 size-4" />
             {isSubmitting ? "Holding Unit..." : "Confirm Reservation"}
@@ -259,7 +271,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
         <div className="space-y-6">
           <div className="card space-y-4 p-5">
             <div className="flex items-center gap-2 border-b border-line pb-2.5">
-              <ClockCountdown weight="light" className="size-5 text-accent" />
+              <ClockCountdown weight="light" className="size-5 text-primary" />
               <h3 className="text-[14px] font-semibold text-ink">Reservation Duration</h3>
             </div>
 
@@ -279,7 +291,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
                       className={cn(
                         "rounded-[8px] border p-3 text-center text-[12px] font-medium transition-all",
                         isSelected
-                          ? "border-accent bg-[color-mix(in_srgb,var(--accent)_10%,white)] text-accent shadow-sm"
+                          ? "border-primary bg-[color-mix(in_srgb,var(--primary)_10%,white)] text-primary shadow-sm"
                           : "border-line bg-surface text-ink hover:border-line-strong",
                       )}
                     >
@@ -345,7 +357,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
               </div>
               <div>
                 <span className="text-ink-muted">Status Transition:</span>
-                <p className="font-medium text-accent">AVAILABLE → RESERVED</p>
+                <p className="font-medium text-primary">AVAILABLE → RESERVED</p>
               </div>
             </div>
           </div>

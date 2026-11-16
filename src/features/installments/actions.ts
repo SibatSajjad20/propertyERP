@@ -1,7 +1,7 @@
 "use server";
 
 import { asc, eq, inArray, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import type { z } from "zod";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -51,6 +51,8 @@ function parseInput<T>(
 }
 
 function revalidateInstallmentPaths(unitId?: string, bookingId?: string) {
+  revalidateTag("dashboard", "max");
+  revalidateTag("report-summary", "max");
   revalidatePath("/installments");
   revalidatePath("/bookings");
   revalidatePath("/reports");
@@ -124,6 +126,7 @@ export async function recordInstallmentPayment(input: unknown) {
         method: parsed.method,
         chequeNo: parsed.chequeNo?.trim() || null,
         bank: parsed.bank?.trim() || null,
+        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || null,
         paidAt,
         notes: parsed.notes?.trim() || null,
         receivedBy: session.user.id,
@@ -219,6 +222,9 @@ export async function recordInstallmentPayment(input: unknown) {
         unitId: unit.id,
         clientId: booking.clientId,
         bookingId: booking.id,
+        serialNo: booking.serialNo,
+        applicationFormNo: booking.applicationFormNo,
+        registrationNo: booking.registrationNo,
         salePrice: booking.netPrice,
         soldAt: paidAt,
         notes: `Completed booking ${booking.bookingNo}`,

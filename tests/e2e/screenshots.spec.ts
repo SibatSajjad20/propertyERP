@@ -23,7 +23,7 @@ test("capture high-resolution screenshots of all screens at 1440x900", async ({
   // 1. Login screen
   await page.context().clearCookies();
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sardar's Mall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(screenshotDir, "01-login.png") });
 

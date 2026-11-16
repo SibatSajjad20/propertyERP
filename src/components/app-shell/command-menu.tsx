@@ -53,10 +53,12 @@ export function CommandMenu({
   open: externalOpen,
   onOpenChange,
   role,
+  navLocked = false,
 }: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   role: UserRole;
+  navLocked?: boolean;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -77,12 +79,15 @@ export function CommandMenu({
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        if (navLocked) {
+          return;
+        }
         setOpen(!open);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, setOpen]);
+  }, [navLocked, open, setOpen]);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -164,7 +169,7 @@ export function CommandMenu({
                   <Command.Item
                     key={unit.id}
                     value={`unit-${unit.unitCode}-${unit.unitNumber}`}
-                    className="flex h-8 cursor-pointer items-center justify-between rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                    className="flex h-8 cursor-pointer items-center justify-between rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-primary-soft aria-selected:bg-primary-soft"
                     onSelect={() => {
                       close();
                       router.push(`/units/${unit.id}` as Route);
@@ -190,7 +195,7 @@ export function CommandMenu({
             >
               <Command.Item
                 value="New booking"
-                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-primary-soft aria-selected:bg-primary-soft"
                 onSelect={() => {
                   close();
                   router.push("/bookings/new" as Route);
@@ -201,18 +206,18 @@ export function CommandMenu({
               </Command.Item>
               <Command.Item
                 value="New reservation"
-                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-primary-soft aria-selected:bg-primary-soft"
                 onSelect={() => {
                   close();
                   router.push("/reservations/new" as Route);
                 }}
               >
-                <ClockCountdown weight="light" className="size-4 text-accent" />
+                <ClockCountdown weight="light" className="size-4 text-primary" />
                 <span>New reservation</span>
               </Command.Item>
               <Command.Item
                 value="New direct sale"
-                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-primary-soft aria-selected:bg-primary-soft"
                 onSelect={() => {
                   close();
                   router.push("/sold/new" as Route);
@@ -233,7 +238,7 @@ export function CommandMenu({
                   <Command.Item
                     key={route.href}
                     value={route.label}
-                    className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-subtle aria-selected:bg-subtle"
+                    className="flex h-8 cursor-pointer items-center gap-2.5 rounded-[4px] px-2 text-[13px] text-ink transition-colors hover:bg-primary-soft aria-selected:bg-primary-soft"
                     onSelect={() => {
                       close();
                       router.push(route.href);

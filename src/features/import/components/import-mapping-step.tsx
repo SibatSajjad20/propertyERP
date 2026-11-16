@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -10,16 +11,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ColumnMapping, ImportColumnKey, ImportMode } from "../types";
+import type {
+  ColumnMapping,
+  ImportColumnKey,
+  ImportMode,
+  MappingFieldMeta,
+} from "../types";
+import { EMPTY_COLUMN_MAPPING } from "../types";
 
 interface ImportMappingStepProps {
   fileName: string;
   totalRows: number;
+  headerRow?: number;
+  blankSkipped?: number;
+  summarySkipped?: number;
+  sheetName?: string;
+  sheetNames?: string[];
+  onSheetChange?: (sheetName: string) => void;
   headers: string[];
   rawRows: Record<string, unknown>[];
   initialMapping: ColumnMapping;
+  mappingFields?: Record<ImportColumnKey, MappingFieldMeta>;
   initialMode: ImportMode;
-  onProceed: (mapping: ColumnMapping, mode: ImportMode) => void;
+  initialCreateMissing?: boolean;
+  onProceed: (
+    mapping: ColumnMapping,
+    mode: ImportMode,
+    options: { createMissingStructure: boolean },
+  ) => void;
   onBack: () => void;
 }
 
@@ -41,13 +60,13 @@ const FIELDS: FieldDef[] = [
     key: "unitCode",
     label: "Unit Code",
     required: false,
-    description: "Unique code. Auto-generated from Floor + Unit No if unmapped",
+    description: "Unique Unit #. Auto-generated from Floor + Unit No if blank or '-'",
   },
   {
     key: "floor",
     label: "Floor",
     required: true,
-    description: "Floor name or level (e.g. Ground, 1st, 6th)",
+    description: "Floor name or level (e.g. Ground, Ground-Floor, 1st, 6th)",
   },
   {
     key: "block",
@@ -65,7 +84,7 @@ const FIELDS: FieldDef[] = [
     key: "grossAreaSqft",
     label: "Gross Area (sq ft)",
     required: false,
-    description: "Overall gross floor area in square feet",
+    description: "Overall gross floor area in square feet (0 is treated as empty)",
   },
   {
     key: "ratePerSqftPkr",
@@ -77,25 +96,32 @@ const FIELDS: FieldDef[] = [
     key: "status",
     label: "Status",
     required: false,
-    description: "Availability status (AVAILABLE / SOLD)",
+    description:
+      "AVAILABLE / SOLD. Amenities and Meeting Room become available + not sellable",
   },
   {
     key: "soldPricePkr",
     label: "Sold Price (PKR)",
     required: false,
-    description: "Frozen transaction price (required if status is SOLD)",
+    description: "Frozen transaction price (rate × net used as a warning fallback)",
   },
   {
     key: "category",
     label: "Category",
     required: false,
-    description: "Asset class: Shop, Food Court, Kiosk, Office, Amenities",
+    description: "Asset class. Unknown names are kept and can be auto-created",
   },
   {
     key: "buyer",
-    label: "Buyer / Ownership",
+    label: "Buyer / Ownership-1",
     required: false,
-    description: "Purchaser, booking reference, or ownership group",
+    description: "Primary ownership group (Ownership-1)",
+  },
+  {
+    key: "subOwner",
+    label: "Sub-owner / Ownership-2",
+    required: false,
+    description: "Sub Ownership-2",
   },
   {
     key: "notes",
@@ -105,18 +131,36 @@ const FIELDS: FieldDef[] = [
   },
 ];
 
+function confidenceClass(level: MappingFieldMeta["confidence"] | undefined) {
+  if (level === "high") return "text-available";
+  if (level === "medium") return "text-reserved";
+  if (level === "low") return "text-ink-muted";
+  return "text-ink-faint";
+}
+
 export function ImportMappingStep({
   fileName,
   totalRows,
+  headerRow,
+  blankSkipped,
+  summarySkipped,
+  sheetName,
+  sheetNames,
+  onSheetChange,
   headers,
   rawRows,
   initialMapping,
+  mappingFields,
   initialMode,
+  initialCreateMissing = true,
   onProceed,
   onBack,
 }: ImportMappingStepProps) {
-  const [mapping, setMapping] = React.useState<ColumnMapping>(initialMapping);
+  const [mapping, setMapping] = React.useState<ColumnMapping>(
+    initialMapping ?? EMPTY_COLUMN_MAPPING,
+  );
   const [mode, setMode] = React.useState<ImportMode>(initialMode);
+  const [createMissing, setCreateMissing] = React.useState(initialCreateMissing);
 
   const sampleRow = rawRows[0] ?? {};
 
@@ -128,12 +172,11 @@ export function ImportMappingStep({
   };
 
   const handleContinue = () => {
-    onProceed(mapping, mode);
+    onProceed(mapping, mode, { createMissingStructure: createMissing });
   };
 
   return (
     <div className="space-y-6">
-      {/* File summary and mode selection */}
       <div className="flex flex-col gap-4 rounded-[8px] border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
@@ -143,46 +186,76 @@ export function ImportMappingStep({
             <span className="font-mono text-[13px] font-medium text-ink">{fileName}</span>
             <span className="text-[12px] text-ink-muted">({totalRows} data rows)</span>
           </div>
+          <p className="mt-1 text-[11px] text-ink-muted">
+            Header row {headerRow ?? 1}
+            {blankSkipped ? ` · ${blankSkipped} blank skipped` : ""}
+            {summarySkipped ? ` · ${summarySkipped} summary skipped` : ""}
+          </p>
         </div>
 
-        {/* Mode selector */}
+        {sheetNames && sheetNames.length > 1 ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+              Sheet
+            </span>
+            <Select value={sheetName} onValueChange={(val) => onSheetChange?.(val)}>
+              <SelectTrigger className="w-[220px]" aria-label="Spreadsheet sheet">
+                <SelectValue placeholder="Select sheet" />
+              </SelectTrigger>
+              <SelectContent>
+                {sheetNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-1.5">
           <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             Import mode
           </span>
           <div className="inline-flex rounded-[6px] border border-line bg-subtle p-0.5">
-            <button
-              type="button"
-              onClick={() => setMode("CREATE_ONLY")}
-              className={`rounded-[4px] px-3 py-1 text-[12px] font-medium transition-colors ${
-                mode === "CREATE_ONLY"
-                  ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              Create new only
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("CREATE_AND_UPDATE")}
-              className={`rounded-[4px] px-3 py-1 text-[12px] font-medium transition-colors ${
-                mode === "CREATE_AND_UPDATE"
-                  ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              Create + update existing
-            </button>
+            {(
+              [
+                ["CREATE_ONLY", "Create only"],
+                ["CREATE_AND_UPDATE", "Create + update"],
+                ["UPSERT", "Upsert by unit code"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                className={`rounded-[4px] px-3 py-1 text-[12px] font-medium transition-colors ${
+                  mode === value
+                    ? "bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Column mapping grid */}
+      <label className="flex items-center gap-2 text-[13px] text-ink">
+        <Checkbox
+          checked={createMissing}
+          onCheckedChange={(checked) => setCreateMissing(Boolean(checked))}
+          aria-label="Auto-create missing floors and categories"
+        />
+        Auto-create missing floors and categories
+      </label>
+
       <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
         <div className="border-b border-line bg-subtle/30 px-5 py-3.5">
           <h2 className="text-[13px] font-semibold text-ink">Column Mapping</h2>
           <p className="text-[11px] text-ink-muted">
-            Review auto-detected headers and adjust assignments using the dropdowns.
+            Review auto-detected headers, confidence, and sample values.
           </p>
         </div>
 
@@ -192,7 +265,8 @@ export function ImportMappingStep({
             const sampleValue =
               currentSelected !== "__none__" && sampleRow[currentSelected] !== undefined
                 ? String(sampleRow[currentSelected])
-                : null;
+                : (mappingFields?.[field.key]?.sample ?? null);
+            const confidence = mappingFields?.[field.key]?.confidence ?? "none";
 
             return (
               <div
@@ -209,6 +283,11 @@ export function ImportMappingStep({
                     ) : (
                       <span className="text-[11px] text-ink-faint">optional</span>
                     )}
+                    <span
+                      className={`text-[10px] font-medium tracking-wide uppercase ${confidenceClass(confidence)}`}
+                    >
+                      {confidence}
+                    </span>
                   </div>
                   <p className="text-[11px] text-ink-muted">{field.description}</p>
                 </div>
@@ -256,7 +335,6 @@ export function ImportMappingStep({
         </div>
       </div>
 
-      {/* Navigation action bar */}
       <div className="flex items-center justify-between border-t border-line pt-4">
         <Button
           type="button"

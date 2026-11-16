@@ -1,21 +1,29 @@
 "use server";
 
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { importBatches } from "@/db/schema/import";
+import { blocks, categories, floors } from "@/db/schema/property";
 import { rateHistory, units, unitStatusHistory } from "@/db/schema/units";
+import { normaliseFloorLabel } from "@/features/structure/floor-labels";
 import { requireSession } from "@/lib/auth";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
+import { isSellableCategory } from "./cleaning";
 import { parseSpreadsheetBuffer } from "./excel";
 import { listImportBatches, loadImportContext } from "./queries";
 import { commitImportSchema, importPreviewSchema, rollbackBatchSchema } from "./schema";
 import type { CleanedImportRow, ColumnMapping, ImportMode } from "./types";
-import { detectHeaderMapping, validateImportBatch } from "./validation";
+import { IMPORT_CHUNK_SIZE } from "./types";
+import {
+  detectHeaderMappingDetailed,
+  validateImportBatch,
+  type ImportDbContext,
+} from "./validation";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -54,17 +62,25 @@ export async function uploadAndParseSpreadsheet(formData: FormData) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const parsed = parseSpreadsheetBuffer(buffer, file.name);
-  const detectedMapping = detectHeaderMapping(parsed.headers);
+  const preferredSheet = String(formData.get("sheetName") ?? "") || undefined;
+  const parsed = parseSpreadsheetBuffer(buffer, file.name, { sheetName: preferredSheet });
+  const sampleRow = parsed.rawRows[0] ?? {};
+  const detected = detectHeaderMappingDetailed(parsed.headers, sampleRow);
   const context = await loadImportContext(session.user.role);
 
   return {
     fileName: parsed.fileName,
     sheetName: parsed.sheetName,
+    sheetNames: parsed.sheetNames,
     headers: parsed.headers,
     rawRows: parsed.rawRows,
     totalRows: parsed.totalRows,
-    mapping: detectedMapping,
+    headerRow: parsed.headerRow,
+    dataRows: parsed.dataRows,
+    blankSkipped: parsed.blankSkipped,
+    summarySkipped: parsed.summarySkipped,
+    mapping: detected.mapping,
+    mappingFields: detected.fields,
     context,
   };
 }
@@ -75,6 +91,106 @@ interface RecordedUnitChange {
   action: "CREATE" | "UPDATE";
   before: Record<string, unknown> | null;
   after: Record<string, unknown>;
+}
+
+function floorLevelFromName(name: string): number {
+  const normalised = normaliseFloorLabel(name);
+  if (normalised.toLowerCase() === "ground") return 0;
+  const match = normalised.match(/^(-?\d+)/);
+  return match?.[1] ? Number(match[1]) : 50;
+}
+
+async function ensureBlock(
+  tx: Tx,
+  context: ImportDbContext,
+  name: string,
+): Promise<{ id: string; name: string }> {
+  const existing = context.blocks.find(
+    (b) => b.name.toLowerCase() === name.toLowerCase(),
+  );
+  if (existing) return existing;
+  const now = new Date();
+  const [created] = await tx
+    .insert(blocks)
+    .values({
+      propertyId: context.propertyId,
+      name,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning({ id: blocks.id, name: blocks.name });
+  if (!created) {
+    throw new ValidationError(`Failed to create block "${name}".`);
+  }
+  context.blocks.push(created);
+  return created;
+}
+
+async function ensureFloor(
+  tx: Tx,
+  context: ImportDbContext,
+  block: { id: string; name: string },
+  floorName: string,
+): Promise<ImportDbContext["floors"][number]> {
+  const existing = context.floors.find(
+    (f) => f.blockId === block.id && f.name.toLowerCase() === floorName.toLowerCase(),
+  );
+  if (existing) return existing;
+  const now = new Date();
+  const [created] = await tx
+    .insert(floors)
+    .values({
+      blockId: block.id,
+      name: floorName,
+      level: floorLevelFromName(floorName),
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+  if (!created) {
+    throw new ValidationError(`Failed to create floor "${floorName}".`);
+  }
+  const row = {
+    id: created.id,
+    name: created.name,
+    blockId: created.blockId,
+    blockName: block.name,
+    level: created.level,
+  };
+  context.floors.push(row);
+  return row;
+}
+
+async function ensureCategory(
+  tx: Tx,
+  context: ImportDbContext,
+  categoryName: string,
+): Promise<{ id: string; name: string; isSellableDefault: boolean }> {
+  const existing = context.categories.find(
+    (c) => c.name.toLowerCase() === categoryName.toLowerCase(),
+  );
+  if (existing) return existing;
+  const now = new Date();
+  const isSellableDefault = isSellableCategory(categoryName);
+  const [created] = await tx
+    .insert(categories)
+    .values({
+      propertyId: context.propertyId,
+      name: categoryName,
+      isSellableDefault,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning({
+      id: categories.id,
+      name: categories.name,
+      isSellableDefault: categories.isSellableDefault,
+    });
+  if (!created) {
+    throw new ValidationError(`Failed to create category "${categoryName}".`);
+  }
+  context.categories.push(created);
+  return created;
 }
 
 /**
@@ -101,6 +217,7 @@ export async function commitImportBatch(input: unknown) {
     ratePerSqftPkr: parsed.mapping.ratePerSqftPkr ?? null,
     status: parsed.mapping.status ?? null,
     buyer: parsed.mapping.buyer ?? null,
+    subOwner: parsed.mapping.subOwner ?? null,
     soldPricePkr: parsed.mapping.soldPricePkr ?? null,
     notes: parsed.mapping.notes ?? null,
   };
@@ -109,21 +226,21 @@ export async function commitImportBatch(input: unknown) {
     mapping,
     context,
     parsed.mode as ImportMode,
+    { createMissingStructure: parsed.createMissingStructure },
   );
 
   const errorRows = validationResult.rows.filter((r) => r.status === "ERROR");
-  if (errorRows.length > 0) {
-    throw new ValidationError(
-      `Cannot commit batch: ${errorRows.length} rows contain validation errors. Please review and resolve errors.`,
-    );
-  }
-
   const rowsToImport = validationResult.rows
+    .filter((r) => r.status === "VALID" || r.status === "WARNING")
     .map((r) => r.cleaned)
     .filter((r): r is CleanedImportRow => r !== null);
 
   if (rowsToImport.length === 0) {
-    throw new ValidationError("No valid rows to import.");
+    throw new ValidationError(
+      errorRows.length > 0
+        ? `No importable rows. ${errorRows.length} rows have errors — download the error workbook.`
+        : "No valid rows to import.",
+    );
   }
 
   const result = await db.transaction(async (tx: Tx) => {
@@ -133,223 +250,240 @@ export async function commitImportBatch(input: unknown) {
     const recordedChanges: RecordedUnitChange[] = [];
     const now = new Date();
 
-    for (const row of rowsToImport) {
-      // Find matching floor
-      const matchedBlock = context.blocks.find(
-        (b) => b.name.toLowerCase() === row.blockName.toLowerCase(),
+    for (let offset = 0; offset < rowsToImport.length; offset += IMPORT_CHUNK_SIZE) {
+      const chunk = rowsToImport.slice(offset, offset + IMPORT_CHUNK_SIZE);
+      logger.info(
+        {
+          fileName: parsed.fileName,
+          offset,
+          chunk: chunk.length,
+          total: rowsToImport.length,
+        },
+        "import chunk",
       );
-      if (!matchedBlock) {
-        throw new ValidationError(`Block "${row.blockName}" not found.`);
-      }
 
-      const matchedFloor = context.floors.find(
-        (f) =>
-          f.blockId === matchedBlock.id &&
-          f.name.toLowerCase() === row.floorName.toLowerCase(),
-      );
-      if (!matchedFloor) {
-        throw new ValidationError(
-          `Floor "${row.floorName}" not found in block "${row.blockName}".`,
-        );
-      }
-
-      // Find matching category
-      let matchedCategory = context.categories.find(
-        (c) => c.name.toLowerCase() === row.categoryName.toLowerCase(),
-      );
-      if (!matchedCategory) {
-        // Fallback to Shop or first category
-        matchedCategory =
-          context.categories.find((c) => c.name === "Shop") ?? context.categories[0];
-      }
-      if (!matchedCategory) {
-        throw new ValidationError("No valid category available.");
-      }
-
-      // Check if unit exists
-      const [existing] = await tx
-        .select()
-        .from(units)
-        .where(
-          and(
-            eq(units.propertyId, context.propertyId),
-            eq(units.unitCode, row.unitCode),
-            isNull(units.archivedAt),
-          ),
-        )
-        .for("update");
-
-      if (!existing) {
-        // ------------------ CREATE NEW UNIT ------------------
-        const isSold = row.status === "SOLD";
-        const [created] = await tx
-          .insert(units)
-          .values({
-            propertyId: context.propertyId,
-            unitCode: row.unitCode,
-            unitNumber: row.unitNumber,
-            floorId: matchedFloor.id,
-            categoryId: matchedCategory.id,
-            netAreaSqft: row.netAreaSqft,
-            grossAreaSqft: row.grossAreaSqft ?? null,
-            ratePerSqftPkr: row.ratePerSqftPkr,
-            priceAdjustmentPkr: "0",
-            priceAdjustmentReason: null,
-            soldPricePkr: isSold ? row.soldPricePkr : null,
-            soldAt: isSold ? now : null,
-            soldBy: isSold ? session.user.id : null,
-            status: row.status,
-            isSellable: row.isSellable,
-            ownershipGroup: row.buyer ?? null,
-            subOwner: null,
-            bookingRef: isSold ? (row.buyer ?? "Excel Import") : null,
-            notes: row.notes ?? null,
-            version: 1,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .returning();
-
-        if (!created) {
-          throw new ValidationError(`Failed to create unit ${row.unitCode}`);
+      for (const row of chunk) {
+        const matchedBlock = parsed.createMissingStructure
+          ? await ensureBlock(tx, context, row.blockName)
+          : context.blocks.find(
+              (b) => b.name.toLowerCase() === row.blockName.toLowerCase(),
+            );
+        if (!matchedBlock) {
+          throw new ValidationError(`Block "${row.blockName}" not found.`);
         }
 
-        if (isSold) {
-          await tx.insert(unitStatusHistory).values({
-            unitId: created.id,
-            fromStatus: "AVAILABLE",
-            toStatus: "SOLD",
-            reason: "Initial import as SOLD",
-            bookingRef: row.buyer ?? "Excel Import",
-            soldPricePkr: row.soldPricePkr,
-            actorId: session.user.id,
-            createdAt: now,
-          });
-        }
-
-        await tx.insert(auditLog).values({
-          actorId: session.user.id,
-          entity: "unit",
-          entityId: created.id,
-          action: isSold ? "SALE" : "CREATE",
-          before: null,
-          after: asAuditJson(created),
-          createdAt: now,
-        });
-
-        recordedChanges.push({
-          unitId: created.id,
-          unitCode: created.unitCode,
-          action: "CREATE",
-          before: null,
-          after: asAuditJson(created),
-        });
-
-        createdCount++;
-      } else {
-        // ------------------ UPDATE EXISTING UNIT ------------------
-        if (parsed.mode === "CREATE_ONLY") {
-          skippedCount++;
-          continue;
-        }
-
-        // Verify version lock
-        const currentVersion = existing.version;
-
-        // If existing is SOLD and row says AVAILABLE, preserve sale
-        let nextStatus = existing.status;
-        let nextSoldPrice = existing.soldPricePkr;
-        let nextSoldAt = existing.soldAt;
-        let nextSoldBy = existing.soldBy;
-        let nextBookingRef = existing.bookingRef;
-
-        const isBecomingSold = existing.status === "AVAILABLE" && row.status === "SOLD";
-        if (isBecomingSold) {
-          if (!existing.isSellable) {
-            throw new ValidationError(`Unit ${existing.unitCode} is not sellable.`);
-          }
-          nextStatus = "SOLD";
-          nextSoldPrice = row.soldPricePkr;
-          nextSoldAt = now;
-          nextSoldBy = session.user.id;
-          nextBookingRef = row.buyer ?? "Excel Import";
-
-          await tx.insert(unitStatusHistory).values({
-            unitId: existing.id,
-            fromStatus: "AVAILABLE",
-            toStatus: "SOLD",
-            reason: "Batch import status change",
-            bookingRef: nextBookingRef,
-            soldPricePkr: nextSoldPrice,
-            actorId: session.user.id,
-            createdAt: now,
-          });
-        }
-
-        // Rate change check
-        const rateChanged = !moneyEquals(existing.ratePerSqftPkr, row.ratePerSqftPkr);
-        if (rateChanged) {
-          assertCan(session.user.role, "units.update_rate");
-          await tx.insert(rateHistory).values({
-            unitId: existing.id,
-            oldRatePerSqftPkr: existing.ratePerSqftPkr,
-            ratePerSqftPkr: row.ratePerSqftPkr,
-            reason: `Excel batch import (${parsed.fileName})`,
-            actorId: session.user.id,
-            createdAt: now,
-          });
-        }
-
-        const [updated] = await tx
-          .update(units)
-          .set({
-            unitNumber: row.unitNumber,
-            categoryId: matchedCategory.id,
-            netAreaSqft: row.netAreaSqft,
-            grossAreaSqft: row.grossAreaSqft ?? null,
-            ratePerSqftPkr: row.ratePerSqftPkr,
-            status: nextStatus,
-            soldPricePkr: nextSoldPrice,
-            soldAt: nextSoldAt,
-            soldBy: nextSoldBy,
-            bookingRef: nextBookingRef,
-            notes: row.notes ?? existing.notes,
-            ownershipGroup: row.buyer ?? existing.ownershipGroup,
-            version: currentVersion + 1,
-            updatedAt: now,
-          })
-          .where(and(eq(units.id, existing.id), eq(units.version, currentVersion)))
-          .returning();
-
-        if (!updated) {
-          throw new ConflictError(
-            `Unit ${existing.unitCode} was modified by another user concurrently.`,
+        const matchedFloor = parsed.createMissingStructure
+          ? await ensureFloor(tx, context, matchedBlock, row.floorName)
+          : context.floors.find(
+              (f) =>
+                f.blockId === matchedBlock.id &&
+                f.name.toLowerCase() === row.floorName.toLowerCase(),
+            );
+        if (!matchedFloor) {
+          throw new ValidationError(
+            `Floor "${row.floorName}" not found in block "${row.blockName}".`,
           );
         }
 
-        await tx.insert(auditLog).values({
-          actorId: session.user.id,
-          entity: "unit",
-          entityId: updated.id,
-          action: isBecomingSold ? "SALE" : "UPDATE",
-          before: asAuditJson(existing),
-          after: asAuditJson(updated),
-          createdAt: now,
-        });
+        const matchedCategory = parsed.createMissingStructure
+          ? await ensureCategory(tx, context, row.categoryName)
+          : context.categories.find(
+              (c) => c.name.toLowerCase() === row.categoryName.toLowerCase(),
+            );
+        if (!matchedCategory) {
+          throw new ValidationError(
+            `Category "${row.categoryName}" does not exist. Enable auto-create or add it in Structure.`,
+          );
+        }
 
-        recordedChanges.push({
-          unitId: updated.id,
-          unitCode: updated.unitCode,
-          action: "UPDATE",
-          before: asAuditJson(existing),
-          after: asAuditJson(updated),
-        });
+        // Check if unit exists
+        const [existing] = await tx
+          .select()
+          .from(units)
+          .where(
+            and(
+              eq(units.propertyId, context.propertyId),
+              eq(units.unitCode, row.unitCode),
+              isNull(units.archivedAt),
+            ),
+          )
+          .for("update");
 
-        updatedCount++;
+        if (!existing) {
+          // ------------------ CREATE NEW UNIT ------------------
+          const isSold = row.status === "SOLD";
+          const [created] = await tx
+            .insert(units)
+            .values({
+              propertyId: context.propertyId,
+              unitCode: row.unitCode,
+              unitNumber: row.unitNumber,
+              floorId: matchedFloor.id,
+              categoryId: matchedCategory.id,
+              netAreaSqft: row.netAreaSqft,
+              grossAreaSqft: row.grossAreaSqft ?? null,
+              ratePerSqftPkr: row.ratePerSqftPkr,
+              priceAdjustmentPkr: "0",
+              priceAdjustmentReason: null,
+              soldPricePkr: isSold ? row.soldPricePkr : null,
+              soldAt: isSold ? now : null,
+              soldBy: isSold ? session.user.id : null,
+              status: row.status,
+              isSellable: row.isSellable,
+              ownershipGroup: row.buyer ?? null,
+              subOwner: row.subOwner ?? null,
+              bookingRef: isSold ? (row.buyer ?? "Excel Import") : null,
+              notes: row.notes ?? null,
+              version: 1,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .returning();
+
+          if (!created) {
+            throw new ValidationError(`Failed to create unit ${row.unitCode}`);
+          }
+
+          if (isSold) {
+            await tx.insert(unitStatusHistory).values({
+              unitId: created.id,
+              fromStatus: "AVAILABLE",
+              toStatus: "SOLD",
+              reason: "Initial import as SOLD",
+              bookingRef: row.buyer ?? "Excel Import",
+              soldPricePkr: row.soldPricePkr,
+              actorId: session.user.id,
+              createdAt: now,
+            });
+          }
+
+          await tx.insert(auditLog).values({
+            actorId: session.user.id,
+            entity: "unit",
+            entityId: created.id,
+            action: isSold ? "SALE" : "CREATE",
+            before: null,
+            after: asAuditJson(created),
+            createdAt: now,
+          });
+
+          recordedChanges.push({
+            unitId: created.id,
+            unitCode: created.unitCode,
+            action: "CREATE",
+            before: null,
+            after: asAuditJson(created),
+          });
+
+          createdCount++;
+        } else {
+          // ------------------ UPDATE EXISTING UNIT ------------------
+          if (parsed.mode === "CREATE_ONLY") {
+            skippedCount++;
+            continue;
+          }
+
+          // Verify version lock
+          const currentVersion = existing.version;
+
+          // If existing is SOLD and row says AVAILABLE, preserve sale
+          let nextStatus = existing.status;
+          let nextSoldPrice = existing.soldPricePkr;
+          let nextSoldAt = existing.soldAt;
+          let nextSoldBy = existing.soldBy;
+          let nextBookingRef = existing.bookingRef;
+
+          const isBecomingSold = existing.status === "AVAILABLE" && row.status === "SOLD";
+          if (isBecomingSold) {
+            if (!existing.isSellable) {
+              throw new ValidationError(`Unit ${existing.unitCode} is not sellable.`);
+            }
+            nextStatus = "SOLD";
+            nextSoldPrice = row.soldPricePkr;
+            nextSoldAt = now;
+            nextSoldBy = session.user.id;
+            nextBookingRef = row.buyer ?? "Excel Import";
+
+            await tx.insert(unitStatusHistory).values({
+              unitId: existing.id,
+              fromStatus: "AVAILABLE",
+              toStatus: "SOLD",
+              reason: "Batch import status change",
+              bookingRef: nextBookingRef,
+              soldPricePkr: nextSoldPrice,
+              actorId: session.user.id,
+              createdAt: now,
+            });
+          }
+
+          // Rate change check
+          const rateChanged = !moneyEquals(existing.ratePerSqftPkr, row.ratePerSqftPkr);
+          if (rateChanged) {
+            assertCan(session.user.role, "units.update_rate");
+            await tx.insert(rateHistory).values({
+              unitId: existing.id,
+              oldRatePerSqftPkr: existing.ratePerSqftPkr,
+              ratePerSqftPkr: row.ratePerSqftPkr,
+              reason: `Excel batch import (${parsed.fileName})`,
+              actorId: session.user.id,
+              createdAt: now,
+            });
+          }
+
+          const [updated] = await tx
+            .update(units)
+            .set({
+              unitNumber: row.unitNumber,
+              categoryId: matchedCategory.id,
+              netAreaSqft: row.netAreaSqft,
+              grossAreaSqft: row.grossAreaSqft ?? null,
+              ratePerSqftPkr: row.ratePerSqftPkr,
+              isSellable: row.isSellable,
+              status: nextStatus,
+              soldPricePkr: nextSoldPrice,
+              soldAt: nextSoldAt,
+              soldBy: nextSoldBy,
+              bookingRef: nextBookingRef,
+              notes: row.notes ?? existing.notes,
+              ownershipGroup: row.buyer ?? existing.ownershipGroup,
+              subOwner: row.subOwner ?? existing.subOwner,
+              version: currentVersion + 1,
+              updatedAt: now,
+            })
+            .where(and(eq(units.id, existing.id), eq(units.version, currentVersion)))
+            .returning();
+
+          if (!updated) {
+            throw new ConflictError(
+              `Unit ${existing.unitCode} was modified by another user concurrently.`,
+            );
+          }
+
+          await tx.insert(auditLog).values({
+            actorId: session.user.id,
+            entity: "unit",
+            entityId: updated.id,
+            action: isBecomingSold ? "SALE" : "UPDATE",
+            before: asAuditJson(existing),
+            after: asAuditJson(updated),
+            createdAt: now,
+          });
+
+          recordedChanges.push({
+            unitId: updated.id,
+            unitCode: updated.unitCode,
+            action: "UPDATE",
+            before: asAuditJson(existing),
+            after: asAuditJson(updated),
+          });
+
+          updatedCount++;
+        }
       }
     }
 
     const allWarnings = validationResult.rows.flatMap((r) => r.warnings);
+    const skippedValidation = validationResult.skippedCount;
 
     // Record import_batches row
     const [batchRow] = await tx
@@ -360,11 +494,11 @@ export async function commitImportBatch(input: unknown) {
         rowCount: parsed.rows.length,
         createdCount,
         updatedCount,
-        skippedCount,
-        warningCount: allWarnings.length,
-        errorCount: 0,
+        skippedCount: skippedCount + skippedValidation,
+        warningCount: validationResult.warningCount,
+        errorCount: errorRows.length,
         warnings: allWarnings,
-        errors: [],
+        errors: errorRows.flatMap((r) => r.errors),
         actorId: session.user.id,
         createdAt: now,
       })
@@ -386,10 +520,12 @@ export async function commitImportBatch(input: unknown) {
 
     return {
       batchId: batchRow.id,
+      totalCount: parsed.rows.length,
       createdCount,
       updatedCount,
-      skippedCount,
-      warningCount: allWarnings.length,
+      skippedCount: skippedCount + skippedValidation,
+      warningCount: validationResult.warningCount,
+      errorCount: errorRows.length,
     };
   });
 
@@ -402,6 +538,7 @@ export async function commitImportBatch(input: unknown) {
     "excel import batch committed",
   );
 
+  revalidateTag("dashboard", "max");
   revalidatePath("/import");
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
@@ -569,6 +706,7 @@ export async function rollbackLatestBatch(input?: unknown) {
 
   logger.info({ batchId: reverted.batchId }, "import batch soft-reverted");
 
+  revalidateTag("dashboard", "max");
   revalidatePath("/import");
   revalidatePath("/inventory");
   revalidatePath("/dashboard");

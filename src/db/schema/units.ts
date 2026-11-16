@@ -53,6 +53,11 @@ export const units = pgTable(
   },
   (table) => [
     uniqueIndex("units_property_unit_code_idx").on(table.propertyId, table.unitCode),
+    index("units_property_archived_code_idx").on(
+      table.propertyId,
+      table.archivedAt,
+      table.unitCode,
+    ),
     index("units_floor_id_idx").on(table.floorId),
     index("units_property_id_idx").on(table.propertyId),
     index("units_category_id_idx").on(table.categoryId),

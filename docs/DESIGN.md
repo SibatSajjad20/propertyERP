@@ -6,25 +6,28 @@ A restrained, high-precision interface modeled after private bank ledgers and mo
 
 ## 1. Foundations & Tokens
 
-Defined in `src/styles/tokens.css` and bound directly into Tailwind v4 via `@theme inline` in `src/styles/globals.css`.
+Defined in `src/styles/globals.css` (`:root` + `@theme inline`). Motion and layout tokens remain in `src/styles/tokens.css`.
 
 ### Color Palette
 
-| Token             | Hex       | Role              | Usage                                                     |
-| :---------------- | :-------- | :---------------- | :-------------------------------------------------------- |
-| `--bg`            | `#F7F5F0` | Parchment ground  | Canvas background, non-surfaced area                      |
-| `--surface`       | `#FFFFFF` | Surface           | Cards, sheets, dialogs, inputs, table rows                |
-| `--subtle`        | `#F1EEE7` | Warm subtle       | Active nav background, table hover rows, pill backgrounds |
-| `--line`          | `#E4E0D6` | Hairline          | Grid borders, dividers, subtle borders                    |
-| `--line-strong`   | `#D6D1C4` | Structural border | Control borders, column header bottoms, active indicators |
-| `--ink`           | `#1A1A17` | High-contrast ink | Body text, headings, numbers, primary copy                |
-| `--ink-muted`     | `#6B675E` | Secondary ink     | Labels, metadata, table headers, breadcrumb trail         |
-| `--ink-faint`     | `#9C978C` | Tertiary ink      | Placeholders, inactive icons, auxiliary hints             |
-| `--primary`       | `#0E3A5B` | Deep navy         | Primary buttons, active nav indicators, key accents       |
-| `--primary-hover` | `#0A2C46` | Midnight navy     | Hover state for primary buttons                           |
-| `--accent`        | `#9A7B4F` | Brass / hallmark  | Brand square, hallmark badges, focus rings                |
-| `--available`     | `#2F5D46` | Forest green      | Available unit status, absorption indicators              |
-| `--sold`          | `#7A2E2A` | Deep oxblood      | Sold unit status, destructive actions, danger outlines    |
+| Token              | Hex       | Role           | Usage                                              |
+| :----------------- | :-------- | :------------- | :------------------------------------------------- |
+| `--bg`             | `#F3F5F7` | Page ground    | Canvas background                                  |
+| `--surface`        | `#FFFFFF` | Surface        | Cards, sheets, dialogs, inputs, table rows         |
+| `--border`         | `#E3E7EC` | Border         | Control and card borders                           |
+| `--text`           | `#0F172A` | Body text      | Headings, numbers, primary copy (`text-ink` alias) |
+| `--text-secondary` | `#334155` | Secondary text | Nav labels, supporting copy                        |
+| `--muted`          | `#64748B` | Muted text     | Metadata, table headers (`text-ink-muted`)         |
+| `--subtle`         | `#94A3B8` | Faint text     | Placeholders, section labels (`text-ink-faint`)    |
+| `--primary`        | `#0B558B` | Brand blue     | Buttons, active nav, links, focus, chart series    |
+| `--primary-hover`  | `#084572` | Brand hover    | Primary button hover                               |
+| `--primary-active` | `#063A61` | Brand pressed  | Primary button active                              |
+| `--primary-soft`   | `#E8F0F7` | Soft blue      | Hover rows, selected chips, “N active” badges      |
+| `--primary-muted`  | `#A3BED2` | Light blue     | Secondary chart series, login highlights           |
+| `--accent-bright`  | `#0274BE` | Bright blue    | Link hover and chart highlight only                |
+| `--booked`         | `#64748B` | Slate          | Booked unit status (kept off brand blue)           |
+| `--available`      | `#1F7A4D` | Green          | Available unit status                              |
+| `--sold`           | `#9B2C2C` | Red            | Sold unit status, destructive actions              |
 
 ### Radii & Elevation
 
@@ -32,7 +35,7 @@ Defined in `src/styles/tokens.css` and bound directly into Tailwind v4 via `@the
 - **Floating Overlays**: `8px` (`--radius-md`) for dialogs, sheets, dropdown menus, and popovers.
 - **Shadow Token**: `0 1px 2px rgba(26,26,23,.04), 0 8px 24px rgba(26,26,23,.08)` (`--shadow-floating`).
 - **Elevation Rule**: Page content, tables, and rows **never** have drop shadows or elevated card borders. Shadows are strictly restricted to floating layers (menus, popovers, dialogs, sheets, toasts).
-- **Focus Ring**: `2px solid rgba(154, 123, 79, 0.40)` with `2px` offset.
+- **Focus Ring**: `2px solid` primary at 30% opacity, plus primary border.
 
 ### Motion Tokens
 
@@ -62,12 +65,12 @@ Smooth transitions built on custom ledger curves with complete `prefers-reduced-
 ## 3. App Shell Architecture
 
 - **Fixed Sidebar**:
-  - `232px` width, surface white background, single right hairline border (`border-line`).
+  - `232px` width, white background, right hairline `#E3E7EC`.
   - Sticky to the viewport (`h-screen`, independent scroll).
-  - Top brand unit: 8px square brass mark (`#9A7B4F`) + serif "Sardar's Mall" wordmark + mono "ERP" indicator.
-  - Nav items: `32px` height, `13px` type, Phosphor light icon (`16px`) + label.
-  - Active state: Subtle background (`#F1EEE7`), `2px` deep navy left indicator (`#0E3A5B`), ink text.
-  - Bottom user block: Circle initials avatar (`SA`, `IM`, `AD`), staff name, role description, and dropdown menu for Sign out.
+  - Top brand unit: SM square (`#0B558B`, white text, `rounded-md`) + "Sardar's Mall" `#0F172A` (no ERP tag).
+  - Nav items: `32px` height, `13px` type, Phosphor regular icon (`16px`, `#0B558B` at 80%) + `#334155` label.
+  - Hover: `#E8F0F7` with primary text. Active: `#0B558B` pill, white text and white icons, `rounded-md`.
+  - Bottom user block: Circle initials avatar on primary blue, staff name, role description, and dropdown menu for Sign out.
 - **Sticky Top Bar**:
   - `52px` height, translucent background (`bg-surface/80` with `backdrop-blur-md`), bottom hairline.
   - Dynamic contextual breadcrumbs indicating the actual page (e.g. `Dashboard`, `Inventory`, `Structure`, `Import`, `Users`, `Audit log`).

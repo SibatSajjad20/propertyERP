@@ -49,14 +49,16 @@ function EditPaymentDialogForm({
   onSuccess,
 }: EditPaymentDialogFormProps) {
   const initialMethod =
-    payment.method === "CHEQUE" || payment.method === "BANK_TRANSFER"
+    payment.method === "CHEQUE" ||
+    payment.method === "BANK_TRANSFER" ||
+    payment.method === "PAY_ORDER"
       ? payment.method
       : "CASH";
 
   const [amountPkr, setAmountPkr] = React.useState(payment.amount);
-  const [method, setMethod] = React.useState<"CASH" | "CHEQUE" | "BANK_TRANSFER">(
-    initialMethod,
-  );
+  const [method, setMethod] = React.useState<
+    "CASH" | "CHEQUE" | "BANK_TRANSFER" | "PAY_ORDER"
+  >(initialMethod);
   const [chequeNo, setChequeNo] = React.useState(payment.chequeNo || "");
   const [bank, setBank] = React.useState(payment.bank || "");
   const [paidAt, setPaidAt] = React.useState(
@@ -154,7 +156,7 @@ function EditPaymentDialogForm({
             <div className="mt-1">
               <Select
                 value={method}
-                onValueChange={(val: "CASH" | "CHEQUE" | "BANK_TRANSFER") =>
+                onValueChange={(val: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "PAY_ORDER") =>
                   setMethod(val)
                 }
               >
@@ -164,7 +166,8 @@ function EditPaymentDialogForm({
                 <SelectContent>
                   <SelectItem value="CASH">Cash</SelectItem>
                   <SelectItem value="CHEQUE">Cheque</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Online</SelectItem>
+                  <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
                 </SelectContent>
               </Select>
             </div>

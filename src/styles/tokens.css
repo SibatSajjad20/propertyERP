@@ -3,25 +3,8 @@
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
 
-  /* Foundations Palette */
-  --bg: #f3f5f7;
-  --surface: #ffffff;
-  --subtle: #e9eef2;
-  --line: #dde3e8;
-  --line-strong: #c8d0d8;
-  --ink: #0f172a;
-  --ink-muted: #64748b;
-  --ink-faint: #94a3b8;
-  --primary: #0b558b;
-  --primary-hover: #084572;
-  --accent: #9a7b4f;
-  --available: #1f7a4d;
-  --reserved: #b7791f;
-  --booked: #0b558b;
-  --sold: #9b2c2c;
+  /* Colour tokens live in src/styles/globals.css (@theme). Motion/layout only here. */
 
-  /* Focus ring: 2px brass at 40% opacity, offset 2px */
-  --focus-ring: rgba(154, 123, 79, 0.4);
   --focus-ring-offset: 2px;
 
   /* Radius: 8 controls, 12 cards, 16 dialogs */

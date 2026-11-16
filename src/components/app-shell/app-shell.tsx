@@ -11,10 +11,17 @@ export interface AppShellProps {
   title?: string;
   userName: string;
   role: UserRole;
+  navLocked?: boolean;
   children: React.ReactNode;
 }
 
-export function AppShell({ title, userName, role, children }: AppShellProps) {
+export function AppShell({
+  title,
+  userName,
+  role,
+  navLocked = false,
+  children,
+}: AppShellProps) {
   const [navOpen, setNavOpen] = useState(false);
 
   return (
@@ -22,19 +29,20 @@ export function AppShell({ title, userName, role, children }: AppShellProps) {
       <div className="flex min-h-screen bg-bg">
         {/* Desktop Sidebar: sticky top-0 h-screen, user footer pinned at bottom, no blank strip */}
         <div className="hidden shrink-0 lg:flex">
-          <Sidebar role={role} userName={userName} />
+          <Sidebar role={role} userName={userName} navLocked={navLocked} />
         </div>
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
           <SheetContent
             side="left"
             widthClass="w-[232px] max-w-[85vw]"
             hideCloseButton
-            className="p-0 lg:hidden"
+            className="border-[#E3E7EC] bg-surface p-0 lg:hidden"
           >
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <Sidebar
               role={role}
               userName={userName}
+              navLocked={navLocked}
               onNavigate={() => setNavOpen(false)}
             />
           </SheetContent>
@@ -44,6 +52,7 @@ export function AppShell({ title, userName, role, children }: AppShellProps) {
             title={title}
             userName={userName}
             role={role}
+            navLocked={navLocked}
             onOpenNav={() => setNavOpen(true)}
           />
           {/* Main Content: max-w-[1440px] mx-auto px-6 py-6 (page padding 24) */}

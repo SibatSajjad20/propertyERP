@@ -27,8 +27,24 @@ export function formatCnic(val: unknown): string {
   return trimmed;
 }
 
+export const clientRelationPrefixes = ["S/O", "W/O"] as const;
+export const kinRelationPrefixes = ["S/O", "D/O", "W/O"] as const;
+export const clientRelationPrefixSchema = z.enum(clientRelationPrefixes);
+export const kinRelationPrefixSchema = z.enum(kinRelationPrefixes);
+
+const optionalPhone = z
+  .string()
+  .trim()
+  .max(20)
+  .or(z.literal(""))
+  .transform((val) => (val === "" ? null : val))
+  .nullable()
+  .optional();
+
 export const clientSchema = z.object({
   fullName: z.string().trim().min(2, "Full name is required").max(120),
+  relationPrefix: clientRelationPrefixSchema,
+  relationName: z.string().trim().min(2, "Father/husband name is required").max(120),
   cnic: z.preprocess(
     formatCnic,
     z
@@ -40,6 +56,9 @@ export const clientSchema = z.object({
       ),
   ),
   phone: z.string().trim().min(10, "Phone number is required").max(20),
+  phoneOffice: optionalPhone,
+  phoneRes: optionalPhone,
+  mobile2: optionalPhone,
   email: z
     .string()
     .trim()
@@ -55,6 +74,12 @@ export const clientSchema = z.object({
 
 export const nextOfKinSchema = z.object({
   name: z.string().trim().min(2, "Next of kin name is required").max(120),
+  relationPrefix: kinRelationPrefixSchema,
+  relationName: z
+    .string()
+    .trim()
+    .min(2, "Next of kin father/husband name is required")
+    .max(120),
   relation: z.string().trim().min(2, "Relation is required").max(60),
   cnic: z.preprocess(
     (val) => (typeof val === "string" && val.trim() ? formatCnic(val) : val),
@@ -69,6 +94,36 @@ export const nextOfKinSchema = z.object({
       .transform((val) => (val === "" ? null : val))
       .nullable()
       .optional(),
+  ),
+  phone: z.string().trim().min(10, "Phone number is required").max(20),
+  address: z
+    .string()
+    .trim()
+    .max(300)
+    .or(z.literal(""))
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
+});
+
+export const requiredNextOfKinSchema = z.object({
+  name: z.string().trim().min(2, "Next of kin name is required").max(120),
+  relationPrefix: kinRelationPrefixSchema,
+  relationName: z
+    .string()
+    .trim()
+    .min(2, "Next of kin father/husband name is required")
+    .max(120),
+  relation: z.string().trim().min(2, "Relation is required").max(60),
+  cnic: z.preprocess(
+    formatCnic,
+    z
+      .string()
+      .trim()
+      .regex(
+        CNIC_REGEX,
+        "Nominee CNIC must be 13 digits matching format 12345-1234567-1",
+      ),
   ),
   phone: z.string().trim().min(10, "Phone number is required").max(20),
   address: z
@@ -119,7 +174,7 @@ export const createBookingSchema = z.object({
   unitId: z.string().uuid(),
   reservationId: z.string().uuid().optional(),
   client: clientSchema,
-  nextOfKin: nextOfKinSchema.optional(),
+  nextOfKin: requiredNextOfKinSchema,
   discountType: z.enum(discountTypes).optional(),
   discountValue: optionalMoneyField("Invalid discount value"),
   discountReason: z.string().trim().max(300).optional(),
@@ -157,7 +212,7 @@ export const returnBookingSchema = z.object({
 export const createDirectSaleSchema = z.object({
   unitId: z.string().uuid(),
   client: clientSchema,
-  nextOfKin: nextOfKinSchema.optional(),
+  nextOfKin: requiredNextOfKinSchema,
   salePricePkr: moneyField("Sale price must be valid"),
   priceAdjustmentReason: z.string().trim().max(300).optional(),
   notes: z.string().trim().max(1000).optional(),
@@ -180,6 +235,7 @@ export const buybackSaleSchema = z.object({
 
 export type ClientInput = z.infer<typeof clientSchema>;
 export type NextOfKinInput = z.infer<typeof nextOfKinSchema>;
+export type RequiredNextOfKinInput = z.infer<typeof requiredNextOfKinSchema>;
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;

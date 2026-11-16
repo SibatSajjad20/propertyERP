@@ -19,7 +19,7 @@ test.describe("Font Verification in Production Built App", () => {
     page.on("pageerror", (err) => console.log("BROWSER ERROR:", err.message, err.stack));
     // 1. Visit Login Page
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Sardar's Mall" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
 
     // Verify document fonts
     const fontReady = await page.evaluate(async () => {

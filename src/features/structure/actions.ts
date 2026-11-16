@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { blocks, floors, properties } from "@/db/schema/property";
@@ -90,6 +90,9 @@ async function writeAudit(
 }
 
 function revalidateStructure() {
+  revalidateTag("structure", "max");
+  revalidateTag("report-filters", "max");
+  revalidateTag("dashboard", "max");
   revalidatePath("/structure");
 }
 

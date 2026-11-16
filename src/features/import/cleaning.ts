@@ -17,31 +17,35 @@ export function getFloorPrefix(floorName: string): string {
   return norm.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+function isPlaceholderCode(value: string): boolean {
+  const trimmed = value.trim().toUpperCase();
+  return !trimmed || trimmed === "-" || trimmed === "N/A" || trimmed === "NULL";
+}
+
 /**
  * Trims and uppercases unit code (e.g. " 6f-ra33 " -> "6F-RA33").
- * If missing, empty, or "-", generates a code from floor + unit number.
+ * If missing, empty, or "-", generates a code from floor + unit number / row.
  */
 export function cleanUnitCode(
   code: unknown,
-  context?: { floorName?: string; unitNumber?: string },
-): string {
-  if (typeof code === "string") {
-    const trimmed = code.trim().toUpperCase();
-    if (trimmed && trimmed !== "-" && trimmed !== "N/A" && trimmed !== "NULL") {
-      return trimmed;
-    }
+  context?: { floorName?: string; unitNumber?: string; rowIndex?: number },
+): { unitCode: string; generated: boolean } {
+  if (typeof code === "string" && !isPlaceholderCode(code)) {
+    return { unitCode: code.trim().toUpperCase(), generated: false };
   }
 
-  // Auto-generate code from floor + unitNumber if available
-  const unitNum = context?.unitNumber
+  const unitNumRaw = context?.unitNumber
     ? String(context.unitNumber).trim().toUpperCase()
     : "";
+  const unitNum = isPlaceholderCode(unitNumRaw)
+    ? `X${(context?.rowIndex ?? 0) + 1}`
+    : unitNumRaw;
   if (unitNum) {
     const prefix = context?.floorName ? getFloorPrefix(context.floorName) : "GF";
-    return `${prefix}-${unitNum}`;
+    return { unitCode: `${prefix}-${unitNum}`, generated: true };
   }
 
-  return "";
+  return { unitCode: "", generated: false };
 }
 
 /**
@@ -69,12 +73,11 @@ export function cleanMoneyNumber(value: unknown): string | null {
   let str = String(value).trim();
   if (!str) return null;
 
-  // Remove currency signs, "Rs", "PKR", commas, slashes, whitespace
   str = str
     .replace(/(?:rs\.?|pkr|₨|\$)/gi, "")
     .replace(/,/g, "")
-    .replace(/[\s\/-]+$/g, "")
-    .replace(/^[\s\/-]+/g, "")
+    .replace(/[\s/-]+$/g, "")
+    .replace(/^[\s/-]+/g, "")
     .trim();
 
   if (!str) return null;
@@ -89,12 +92,13 @@ export function cleanMoneyNumber(value: unknown): string | null {
 
 /**
  * Cleans net or gross area: strips commas, "sq ft", spaces, and formats as decimal.
+ * Zero gross/net is treated as empty so it does not warn as gross < net.
  */
 export function cleanArea(value: unknown): string | null {
   if (value === null || value === undefined) return null;
 
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) return null;
+    if (!Number.isFinite(value) || value === 0) return null;
     return value.toFixed(2);
   }
 
@@ -109,37 +113,50 @@ export function cleanArea(value: unknown): string | null {
   if (!str) return null;
 
   const num = Number(str);
-  if (Number.isNaN(num) || !Number.isFinite(num)) {
+  if (Number.isNaN(num) || !Number.isFinite(num) || num === 0) {
     return null;
   }
 
   return num.toFixed(2);
 }
 
+function looksLikeAmenityStatus(value: string): boolean {
+  const lower = value.trim().toLowerCase();
+  return lower.includes("amenit") || lower.includes("meeting");
+}
+
 /**
- * Maps status text to AVAILABLE or SOLD only.
+ * Maps status text to AVAILABLE or SOLD.
+ * Amenities / Meeting Room are treated as AVAILABLE (not sellable) by the caller.
  * Returns null if unrecognized text.
  */
 export function cleanStatus(value: unknown): "AVAILABLE" | "SOLD" | null {
   if (value === null || value === undefined) return "AVAILABLE";
-  const str = String(value).trim().toUpperCase();
+  const str = String(value).trim();
   if (!str) return "AVAILABLE";
+  if (looksLikeAmenityStatus(str)) return "AVAILABLE";
 
+  const upper = str.toUpperCase();
   if (
-    str === "AVAILABLE" ||
-    str === "AVAIL" ||
-    str === "VACANT" ||
-    str === "OPEN" ||
-    str === "UNSOLD"
+    upper === "AVAILABLE" ||
+    upper === "AVAIL" ||
+    upper === "VACANT" ||
+    upper === "OPEN" ||
+    upper === "UNSOLD"
   ) {
     return "AVAILABLE";
   }
 
-  if (str === "SOLD" || str === "BOOKED" || str === "CLOSED") {
+  if (upper === "SOLD" || upper === "BOOKED" || upper === "CLOSED") {
     return "SOLD";
   }
 
   return null;
+}
+
+export function isAmenityStatusLabel(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  return looksLikeAmenityStatus(String(value));
 }
 
 /**
@@ -155,20 +172,21 @@ export function isSellableCategory(categoryName: string): boolean {
 }
 
 /**
- * Normalises category name. Defaults to "Shop".
+ * Normalises well-known category names. Unknown values are kept as-is
+ * (never silently rewritten to Shop).
  */
 export function cleanCategoryName(value: unknown): string {
-  if (value === null || value === undefined) return "Shop";
+  if (value === null || value === undefined) return "";
   const str = String(value).trim();
-  if (!str) return "Shop";
+  if (!str) return "";
 
   const lower = str.toLowerCase();
-  if (lower.includes("food")) return "Food Court";
+  if (lower === "food court" || lower === "foodcourt") return "Food Court";
   if (lower.includes("kiosk")) return "Kiosk";
-  if (lower.includes("office")) return "Office";
+  if (lower === "office" || lower.includes("office")) return "Office";
   if (lower.includes("amenit")) return "Amenities";
   if (lower.includes("meeting")) return "Meeting Room";
-  if (lower.includes("shop") || lower.includes("retail")) return "Shop";
+  if (lower === "shop" || lower === "retail" || lower.includes("shop")) return "Shop";
 
   return str;
 }
@@ -185,7 +203,9 @@ export function isSummaryOrBlankRow(row: Record<string, unknown>): boolean {
 
   const summaryKeywords = ["total", "grand total", "summary", "subtotal", "sub total"];
   return values.some((val) =>
-    summaryKeywords.some((k) => val === k || val.startsWith(`${k}:`)),
+    summaryKeywords.some(
+      (k) => val === k || val.startsWith(`${k}:`) || val.startsWith(`${k} `),
+    ),
   );
 }
 
@@ -203,10 +223,13 @@ export function cleanRow(
   };
 
   const rawUnitNumber = getMapped("unitNumber");
-  const unitNumber =
+  const unitNumberRaw =
     rawUnitNumber !== undefined && rawUnitNumber !== null
       ? String(rawUnitNumber).trim().toUpperCase()
       : "";
+  const unitNumber = isPlaceholderCode(unitNumberRaw)
+    ? `X${rowIndex + 1}`
+    : unitNumberRaw;
 
   const rawFloor = getMapped("floor");
   const floorName = cleanFloorName(rawFloor);
@@ -215,7 +238,11 @@ export function cleanRow(
   const blockName = rawBlock ? String(rawBlock).trim() : "Main";
 
   const rawUnitCode = getMapped("unitCode");
-  const unitCode = cleanUnitCode(rawUnitCode, { floorName, unitNumber });
+  const { unitCode, generated } = cleanUnitCode(rawUnitCode, {
+    floorName,
+    unitNumber,
+    rowIndex,
+  });
 
   const rawCategory = getMapped("category");
   const categoryName = cleanCategoryName(rawCategory);
@@ -238,10 +265,14 @@ export function cleanRow(
   const rawBuyer = getMapped("buyer");
   const buyer = rawBuyer ? String(rawBuyer).trim() : null;
 
+  const rawSubOwner = getMapped("subOwner");
+  const subOwner = rawSubOwner ? String(rawSubOwner).trim() : null;
+
   const rawNotes = getMapped("notes");
   const notes = rawNotes ? String(rawNotes).trim() : null;
 
-  const isSellable = isSellableCategory(categoryName);
+  const amenityStatus = isAmenityStatusLabel(rawStatus);
+  const isSellable = isSellableCategory(categoryName) && !amenityStatus;
 
   return {
     rowIndex,
@@ -255,9 +286,11 @@ export function cleanRow(
     ratePerSqftPkr,
     status,
     buyer,
+    subOwner,
     soldPricePkr,
     notes,
     isSellable,
+    generatedUnitCode: generated,
     originalRow: raw,
   };
 }

@@ -243,7 +243,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                                 ? "text-ink-muted"
                                 : countdown.isUrgent
                                   ? "font-semibold text-sold"
-                                  : "text-accent",
+                                  : "text-primary",
                             )}
                           >
                             {countdown.label}

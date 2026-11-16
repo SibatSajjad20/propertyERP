@@ -22,22 +22,28 @@ import type { ColumnMapping } from "@/features/import/types";
 describe("Import cleaning rules", () => {
   describe("cleanUnitCode", () => {
     it("trims and uppercases unit codes", () => {
-      expect(cleanUnitCode(" 6f-ra33 ")).toBe("6F-RA33");
-      expect(cleanUnitCode("gf-s12")).toBe("GF-S12");
-      expect(cleanUnitCode("10f-ph2")).toBe("10F-PH2");
+      expect(cleanUnitCode(" 6f-ra33 ").unitCode).toBe("6F-RA33");
+      expect(cleanUnitCode("gf-s12").unitCode).toBe("GF-S12");
+      expect(cleanUnitCode("10f-ph2").unitCode).toBe("10F-PH2");
     });
 
     it("auto-generates unit code from floor and unit number if missing or '-'", () => {
-      expect(cleanUnitCode("-", { floorName: "6th", unitNumber: "ra33" })).toBe(
+      expect(cleanUnitCode("-", { floorName: "6th", unitNumber: "ra33" }).unitCode).toBe(
         "6F-RA33",
       );
-      expect(cleanUnitCode("", { floorName: "Ground", unitNumber: "s12" })).toBe(
+      expect(cleanUnitCode("", { floorName: "Ground", unitNumber: "s12" }).unitCode).toBe(
         "GF-S12",
       );
-      expect(cleanUnitCode(null, { floorName: "1st", unitNumber: "k08" })).toBe("1F-K08");
-      expect(cleanUnitCode("N/A", { floorName: "10th", unitNumber: "ph2" })).toBe(
-        "10F-PH2",
+      expect(cleanUnitCode(null, { floorName: "1st", unitNumber: "k08" }).unitCode).toBe(
+        "1F-K08",
       );
+      expect(
+        cleanUnitCode("N/A", { floorName: "10th", unitNumber: "ph2" }).unitCode,
+      ).toBe("10F-PH2");
+      expect(
+        cleanUnitCode("-", { floorName: "Ground", unitNumber: "-", rowIndex: 7 })
+          .unitCode,
+      ).toBe("GF-X8");
     });
 
     it("handles getFloorPrefix properly for levels", () => {
@@ -59,6 +65,11 @@ describe("Import cleaning rules", () => {
       expect(cleanFloorName("Level 1")).toBe("1st");
       expect(cleanFloorName("sixth floor")).toBe("6th");
       expect(cleanFloorName("6th")).toBe("6th");
+      expect(cleanFloorName("Ground-Floor")).toBe("Ground");
+      expect(cleanFloorName("Ground Floor")).toBe("Ground");
+      expect(cleanFloorName("GF")).toBe("Ground");
+      expect(cleanFloorName("G/F")).toBe("Ground");
+      expect(cleanFloorName("6th Floor")).toBe("6th");
     });
   });
 
@@ -104,6 +115,11 @@ describe("Import cleaning rules", () => {
       expect(cleanStatus("closed")).toBe("SOLD");
     });
 
+    it("treats Amenities and Meeting Room as AVAILABLE", () => {
+      expect(cleanStatus("Amenities")).toBe("AVAILABLE");
+      expect(cleanStatus("Meeting Room")).toBe("AVAILABLE");
+    });
+
     it("returns null for invalid status values", () => {
       expect(cleanStatus("PENDING")).toBeNull();
       expect(cleanStatus("RESERVED_CUSTOM")).toBeNull();
@@ -125,11 +141,19 @@ describe("Import cleaning rules", () => {
       expect(isSummaryOrBlankRow({ col1: "6F-RA33", col2: "Shop" })).toBe(false);
     });
 
-    it("cleanCategoryName maps standard asset classes", () => {
+    it("cleanCategoryName maps standard asset classes and keeps unknowns", () => {
       expect(cleanCategoryName("retail")).toBe("Shop");
-      expect(cleanCategoryName("food")).toBe("Food Court");
+      expect(cleanCategoryName("food court")).toBe("Food Court");
+      expect(cleanCategoryName("Food Outlets")).toBe("Food Outlets");
+      expect(cleanCategoryName("1-BED")).toBe("1-BED");
       expect(cleanCategoryName("kiosk")).toBe("Kiosk");
       expect(cleanCategoryName("office")).toBe("Office");
+    });
+
+    it("treats gross area 0 as empty", () => {
+      expect(cleanArea(0)).toBeNull();
+      expect(cleanArea("0")).toBeNull();
+      expect(cleanArea("0.00")).toBeNull();
     });
   });
 });
@@ -165,6 +189,23 @@ describe("Header auto-detection", () => {
     expect(mapping.soldPricePkr).toBe("Sold Price (PKR)");
     expect(mapping.buyer).toBe("Customer");
     expect(mapping.notes).toBe("Remarks");
+  });
+
+  it("maps Unique Unit # and Ownership-1 / Sub Ownership-2", () => {
+    const mapping = detectHeaderMapping([
+      "Unique Unit #",
+      "Unit No",
+      "Floor",
+      "Category",
+      "Net Area",
+      "Rate",
+      "Ownership-1",
+      "Sub Ownership-2",
+    ]);
+    expect(mapping.unitCode).toBe("Unique Unit #");
+    expect(mapping.unitNumber).toBe("Unit No");
+    expect(mapping.buyer).toBe("Ownership-1");
+    expect(mapping.subOwner).toBe("Sub Ownership-2");
   });
 });
 
@@ -213,6 +254,7 @@ describe("Row and batch validation rules", () => {
     ratePerSqftPkr: "Rate",
     status: "Status",
     buyer: "Buyer",
+    subOwner: null,
     soldPricePkr: "Sold Price",
     notes: "Notes",
   };
@@ -248,7 +290,7 @@ describe("Row and batch validation rules", () => {
     expect(validated.errors).toHaveLength(0);
   });
 
-  it("flags SOLD rows with no sold price as ERROR", () => {
+  it("flags SOLD rows with no sold price as WARNING and computes rate × area", () => {
     const raw = {
       "Unit Code": "6F-RA36",
       "Unit No": "RA36",
@@ -272,8 +314,11 @@ describe("Row and batch validation rules", () => {
       new Map(),
     );
 
-    expect(validated.status).toBe("ERROR");
-    expect(validated.errors.some((e) => e.includes("sold price"))).toBe(true);
+    expect(validated.status).toBe("WARNING");
+    expect(validated.warnings.some((e) => e.toLowerCase().includes("sold price"))).toBe(
+      true,
+    );
+    expect(validated.cleaned?.soldPricePkr).toBeTruthy();
   });
 
   it("flags conflicting data like 6F-RA33 with 5th floor", () => {

@@ -87,7 +87,7 @@ function renderHumanAction(row: AuditLogRow) {
     row.entity === "unit" ? (
       <Link
         href={`/units/${row.entityId}`}
-        className="mx-1 inline-flex items-center gap-1 font-mono font-medium text-primary hover:text-primary-hover hover:underline"
+        className="mx-1 inline-flex items-center gap-1 font-mono font-medium text-primary hover:text-accent-bright hover:underline"
       >
         {label}
       </Link>

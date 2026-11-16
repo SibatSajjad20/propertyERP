@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useServerInitialData } from "@/lib/query-cache";
 import { getDashboardData } from "../actions";
 import type {
   BlockBreakdownRow,
@@ -26,10 +27,11 @@ export function useDashboardQuery(
   filter: { propertyId?: string; blockId?: string } | undefined,
   initialData?: DashboardData,
 ) {
+  const serverData = useServerInitialData(initialData);
   return useQuery({
     queryKey: ["dashboard", filter?.propertyId ?? "", filter?.blockId ?? ""],
     queryFn: () => getDashboardData(filter),
-    initialData,
+    ...serverData,
     staleTime: 60_000,
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

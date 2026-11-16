@@ -8,9 +8,13 @@ const globalForDb = globalThis as unknown as {
 };
 
 function createClient() {
-  const url = process.env.DATABASE_URL;
+  let url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error("DATABASE_URL is not set");
+  }
+  const lacksSslMode = !/[?&]sslmode=/i.test(url);
+  if (lacksSslMode) {
+    url += url.includes("?") ? "&sslmode=require" : "?sslmode=require";
   }
   const max = process.env.DB_MAX_CONNECTIONS
     ? parseInt(process.env.DB_MAX_CONNECTIONS, 10)
@@ -22,7 +26,9 @@ function createClient() {
     max,
     idle_timeout: 20,
     connect_timeout: 10,
-  });
+    ...(lacksSslMode ? { ssl: "require" as const } : {}),
+    connection: { statement_timeout: 15000 },
+  } as unknown as postgres.Options<Record<string, never>>);
 }
 
 export const sql = globalForDb.sql ?? createClient();

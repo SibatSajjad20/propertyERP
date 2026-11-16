@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { cleanupTestData, guardEnvironment } from "./e2e-guard";
+import {
+  fillClientIdentity,
+  fillKinIdentity,
+  selectUnitByCode,
+  uploadKinDocs,
+  uploadRequiredDocs,
+} from "./form-helpers";
 
 const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
 const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
@@ -43,7 +50,7 @@ test.afterAll(async () => {
 test("Installments: search client by CNIC -> record payment -> receipt -> status updates", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   const code = `INST-${Date.now()}`;
   const cnicSeq = Math.floor(1000000 + Math.random() * 9000000);
   const clientCnic = `35201-${cnicSeq}-1`;
@@ -58,28 +65,31 @@ test("Installments: search client by CNIC -> record payment -> receipt -> status
   await expect(page).toHaveURL(/\/bookings\/new/, { timeout: 15_000 });
 
   // Step 1: Select Unit
-  const unitCard = page.locator(".card", { hasText: code });
-  await expect(unitCard).toBeVisible({ timeout: 10_000 });
-  await unitCard.click();
+  await selectUnitByCode(page, code);
   await page.getByRole("button", { name: "Next: Payment Plan" }).click();
 
   // Step 2: Payment Plan
   await page.getByRole("button", { name: "Next: Client Details" }).click();
 
   // Step 3: Client Details
-  await page.locator("#client-cnic").fill(clientCnic);
-  await page.locator("#client-name").fill("Farhan Qureshi");
-  await page.locator("#client-phone").fill("03009876543");
-  await page.locator("#client-home-address").fill("House 12, Street 4, Gulberg, Lahore");
-  await page
-    .locator("#client-postal-address")
-    .fill("House 12, Street 4, Gulberg, Lahore");
+  await fillClientIdentity(page, {
+    cnic: clientCnic,
+    name: "Farhan Qureshi",
+    phone: "03009876543",
+    relationName: "Qureshi Ali",
+  });
+  await uploadRequiredDocs(page);
   await page.getByRole("button", { name: "Next: Next of Kin" }).click();
 
   // Step 4: Next of Kin
-  await page.locator("#kin-name").fill("Zainab Farhan");
-  await page.locator("#kin-relation").fill("Spouse");
-  await page.locator("#kin-phone").fill("03009876544");
+  await fillKinIdentity(page, {
+    name: "Zainab Farhan",
+    relation: "Spouse",
+    relationName: "Farhan Qureshi",
+    phone: "03009876544",
+    cnic: `35202-${cnicSeq}-1`,
+  });
+  await uploadKinDocs(page);
   await page.getByRole("button", { name: "Next: Review & Confirm" }).click();
 
   // Step 5: Confirm & Create Booking
@@ -114,7 +124,7 @@ test("Installments: search client by CNIC -> record payment -> receipt -> status
   await expect(recordDialog.getByText("Record Installment Payment")).toBeVisible();
 
   // 7. Enter payment amount
-  await recordDialog.getByPlaceholder("e.g. 150000").fill("100000");
+  await recordDialog.getByPlaceholder("e.g. 1,50,000").fill("100000");
 
   // Waterfall allocation preview should appear
   await expect(recordDialog.getByText("Waterfall Allocation Preview")).toBeVisible();

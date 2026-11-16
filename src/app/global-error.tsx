@@ -16,8 +16,8 @@ export default function GlobalError({
         style={{
           margin: 0,
           minHeight: "100vh",
-          background: "#F7F5F0",
-          color: "#1A1A17",
+          background: "#F3F5F7",
+          color: "#0F172A",
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
         }}
       >
@@ -38,7 +38,7 @@ export default function GlobalError({
                 padding: "0 12px",
                 borderRadius: 6,
                 border: "none",
-                background: "#0E3A5B",
+                background: "#0B558B",
                 color: "#fff",
                 fontSize: 13,
                 cursor: "pointer",

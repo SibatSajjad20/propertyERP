@@ -1,0 +1,1 @@
+CREATE INDEX "units_property_archived_code_idx" ON "units" USING btree ("property_id","archived_at","unit_code");

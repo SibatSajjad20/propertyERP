@@ -79,7 +79,7 @@ function DonutInner({
         key: "booked",
         label: "Booked",
         value: bkNum,
-        color: "#0B558B",
+        color: "var(--booked)",
         formatted: formatPkrCompact(bookedValuePkr),
       });
     }
@@ -125,8 +125,8 @@ function DonutInner({
               pieValue={(d) => d.value}
               outerRadius={radius}
               innerRadius={innerRadius}
-              padAngle={0.03}
-              cornerRadius={3}
+              padAngle={radius > 0 ? 2 / radius : 0.04}
+              cornerRadius={2}
             >
               {(pie) =>
                 pie.arcs.map((arc, index) => {
@@ -137,6 +137,8 @@ function DonutInner({
                       key={arc.data.key}
                       d={pathData}
                       fill={arc.data.color}
+                      stroke="#FFFFFF"
+                      strokeWidth={2}
                       initial={{ opacity: 0, scale: 0.85 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{
@@ -166,7 +168,7 @@ function DonutInner({
           <span className="text-[24px] leading-none font-bold text-ink tabular-nums sm:text-[26px]">
             {soldPercent.toFixed(0)}%
           </span>
-          <span className="mt-1 text-[10px] font-medium tracking-wider text-ink-muted uppercase">
+          <span className="mt-1 text-[10px] font-medium tracking-wider text-ink-faint uppercase">
             Sold
           </span>
         </div>

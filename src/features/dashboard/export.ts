@@ -62,11 +62,11 @@ function applyHeaderStyles(worksheet: ExcelJS.Worksheet) {
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF0E3A5B" }, // #0E3A5B primary
+      fgColor: { argb: "FF0B558B" },
     };
     cell.alignment = { vertical: "middle", horizontal: "left" };
     cell.border = {
-      bottom: { style: "medium", color: { argb: "FF9A7B4F" } }, // brass hallmark border
+      bottom: { style: "medium", color: { argb: "FF0B558B" } },
     };
   });
 }

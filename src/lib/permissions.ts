@@ -39,6 +39,7 @@ export const actions = [
   "sales.create",
   "sales.buyback",
   "sales.large_discount",
+  "settings.manage",
 ] as const;
 
 export type Action = (typeof actions)[number];
@@ -91,6 +92,7 @@ const matrix: Record<Action, readonly UserRole[]> = {
   "sales.create": allRoles,
   "sales.buyback": ["ADMIN"],
   "sales.large_discount": ["ADMIN"],
+  "settings.manage": ["ADMIN"],
 };
 
 export function can(role: UserRole, action: Action): boolean {

@@ -21,6 +21,7 @@ vi.mock("@/db", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }));
 
 import { createUnit, updateUnit } from "@/features/units/actions";

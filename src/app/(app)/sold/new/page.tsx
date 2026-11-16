@@ -1,5 +1,4 @@
-import { getSelectableUnits } from "@/features/sales/queries";
-import { getInventoryFilterOptions } from "@/features/units/queries";
+import { getCachedInventoryFilterOptions } from "@/features/units/queries";
 import { DirectSaleScreen } from "@/features/sales/components/direct-sale-screen";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
@@ -14,14 +13,11 @@ export default async function NewDirectSalePage() {
   const session = await requireSession();
   assertCan(session.user.role, "sales.create");
 
-  const [units, options] = await Promise.all([
-    getSelectableUnits({}),
-    getInventoryFilterOptions(),
-  ]);
+  const options = await getCachedInventoryFilterOptions();
 
   return (
     <DirectSaleScreen
-      units={units}
+      units={[]}
       floors={options.floors}
       categories={options.categories}
       role={session.user.role}

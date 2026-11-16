@@ -316,14 +316,15 @@ export function PaymentPlanPanel({
                   <SelectContent>
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">
-                      Bank Transfer / Pay Order
-                    </SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
+                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {(paymentMethod === "CHEQUE" || paymentMethod === "BANK_TRANSFER") && (
+              {(paymentMethod === "CHEQUE" ||
+                paymentMethod === "BANK_TRANSFER" ||
+                paymentMethod === "PAY_ORDER") && (
                 <>
                   <div>
                     <Label htmlFor="cheque-no" className="mb-1 block text-[12px]">

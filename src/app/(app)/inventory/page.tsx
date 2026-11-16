@@ -23,7 +23,7 @@ export default async function InventoryRoute({
   assertCan(session.user.role, "units.read");
 
   const query = parseInventorySearchParams(await searchParams);
-  const [{ rows, totals }, options, history] = await Promise.all([
+  const [{ rows, totals, nextCursor, pageSize }, options, history] = await Promise.all([
     listInventory(query),
     getInventoryFilterOptions(),
     query.unitId ? listUnitStatusHistory(query.unitId) : Promise.resolve([]),
@@ -33,6 +33,8 @@ export default async function InventoryRoute({
     <InventoryScreen
       rows={rows}
       totals={totals}
+      nextCursor={nextCursor}
+      pageSize={pageSize}
       options={options}
       query={query}
       history={history}

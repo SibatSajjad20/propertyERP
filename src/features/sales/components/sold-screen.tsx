@@ -37,6 +37,9 @@ interface SoldScreenProps {
       status: string;
       bookingNo: string | null;
       bookingId: string | null;
+      serialNo: number;
+      applicationFormNo: string;
+      registrationNo: string;
     }>;
     kpi: {
       totalSold: number;
@@ -58,7 +61,10 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
         r.unitCode.toLowerCase().includes(term) ||
         r.clientName.toLowerCase().includes(term) ||
         r.clientCnic.toLowerCase().includes(term) ||
-        (r.bookingNo && r.bookingNo.toLowerCase().includes(term)),
+        (r.bookingNo && r.bookingNo.toLowerCase().includes(term)) ||
+        String(r.serialNo).includes(term) ||
+        r.applicationFormNo.toLowerCase().includes(term) ||
+        r.registrationNo.toLowerCase().includes(term),
     );
   }, [initialData.rows, search]);
 
@@ -111,7 +117,7 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search sold unit, owner, CNIC…"
+            placeholder="Search serial, form no, unit, owner…"
             className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary"
           />
         </div>
@@ -124,6 +130,7 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
             <thead className="border-b border-line bg-subtle/50 text-ink-muted select-none">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Unit</th>
+                <th className="px-4 py-2.5 font-medium">Form No</th>
                 <th className="px-4 py-2.5 font-medium">Owner</th>
                 <th className="px-4 py-2.5 font-medium">Sale Type</th>
                 <th className="px-4 py-2.5 text-right font-medium">Sale Price</th>
@@ -134,7 +141,7 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
             <tbody className="divide-y divide-line/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-ink-muted">
+                  <td colSpan={7} className="p-8 text-center text-ink-muted">
                     No sold units found.
                   </td>
                 </tr>
@@ -151,6 +158,17 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                       </span>
                       <p className="text-[11px] text-ink-muted">
                         {row.floorName} · {row.blockName}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-[13px] font-bold text-ink">
+                        {row.serialNo}
+                      </span>
+                      <p className="unit-code font-mono text-[11px] text-ink-muted">
+                        {row.applicationFormNo}
+                      </p>
+                      <p className="font-mono text-[11px] text-ink-faint">
+                        {row.registrationNo}
                       </p>
                     </td>
                     <td className="px-4 py-3">

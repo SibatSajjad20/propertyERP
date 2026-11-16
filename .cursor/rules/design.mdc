@@ -7,16 +7,16 @@ alwaysApply: true
 # Design System Rules
 
 ## 1. Tokens & Status Colours
-Tokens live in `src/styles/tokens.css` and are exposed via Tailwind in `src/styles/globals.css`:
-- Backgrounds: `--bg #F3F5F7`, `--surface #FFFFFF`, `--subtle #E9EEF2`
-- Borders: `--line #DDE3E8`, `--line-strong #C8D0D8`
-- Text: `--ink #0F172A`, `--ink-muted #64748B`, `--ink-faint #94A3B8`
-- Brand & Status:
+Tokens live in `src/styles/globals.css` `@theme` / `:root` (single source of truth). Motion/layout remain in `src/styles/tokens.css`.
+- Backgrounds: `--bg #F3F5F7`, `--surface #FFFFFF`, wash `--color-subtle #E9EEF2` (`bg-subtle`)
+- Borders: `--border #E3E7EC`, `--line #DDE3E8`, `--line-strong #C8D0D8`
+- Text: `--text #0F172A` (`text-ink`), `--text-secondary #334155`, `--muted #64748B`, `--subtle #94A3B8` (`text-ink-faint`)
+- Brand: `--primary #0B558B`, `--primary-hover #084572`, `--primary-active #063A61`, `--primary-foreground #FFFFFF`, `--primary-soft #E8F0F7`, `--primary-muted #A3BED2`, `--accent-bright #0274BE` (link hover / chart highlight only), `--ring #0B558B`
+- Status (data only — keep distinct from brand blue):
   - Available: `#1F7A4D` (`--available`)
   - Reserved: `#B7791F` (`--reserved`)
-  - Booked: `#0B558B` (`--booked`)
+  - Booked: `#64748B` (`--booked`)
   - Sold: `#9B2C2C` (`--sold`)
-  - Brass: `#9A7B4F` (`--accent`) ONLY for the logo hallmark and the active nav bar.
 - Radius: `8px` controls/buttons, `12px` cards, `16px` dialogs/modal sheets
 - Elevation: `--shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06)`; floating layer `--shadow-floating` for dialogs/toasts/popovers. Soft card elevation is allowed via the `.card` utility.
 
@@ -51,7 +51,7 @@ One scale across the entire application:
   - Sales: Bookings, Reservations, Installments, Sold
   - Reports: one link → `/reports` with tabs: Summary, Sold, Booked, Reserved, Collections, Client ledger (read-only; rows link to the matching Sales detail page for actions)
   - Admin: Users, Audit log
-  - Active item: subtle tint (`bg-subtle font-medium text-ink`) + brass left bar (`bg-accent`, `#9A7B4F`).
+  - Sidebar: white `#FFFFFF`, right hairline `#E3E7EC`. Nav text `#334155`, brand-blue icons at 80% (`#0B558B`). Hover: `#E8F0F7` with primary text. Active: `#0B558B` pill, white text and white icons, `rounded-md`. Logo: SM square `#0B558B` / white, `rounded-md` + “Sardar's Mall” `#0F172A` (no ERP tag).
 
 ## 5. Dashboard
 - Layout order:

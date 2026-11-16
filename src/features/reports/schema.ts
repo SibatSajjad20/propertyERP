@@ -12,7 +12,7 @@ export const reportPresets = [
 export type ReportPreset = (typeof reportPresets)[number];
 
 export const reportFiltersSchema = z.object({
-  preset: z.enum(reportPresets).default("this_month"),
+  preset: z.enum(reportPresets).catch("this_month").default("this_month"),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   floorId: z.string().optional(),

@@ -329,6 +329,8 @@ describe("Sales Validation & CNIC Normalization", () => {
   it("clientSchema successfully parses raw 13-digit and hyphenated CNICs", () => {
     const rawInput = {
       fullName: "Sibat Sajjad",
+      relationPrefix: "S/O" as const,
+      relationName: "Sajjad Ahmed",
       cnic: "3253232343241", // 13 digits raw
       phone: "0300-1234567",
       email: "sajjadsibat33@gmail.com",
@@ -345,6 +347,8 @@ describe("Sales Validation & CNIC Normalization", () => {
   it("clientSchema rejects 12-digit incomplete CNIC with helpful error", () => {
     const invalidInput = {
       fullName: "Sibat Sajjad",
+      relationPrefix: "S/O" as const,
+      relationName: "Sajjad Ahmed",
       cnic: "325323234324", // 12 digits (1 digit missing)
       phone: "0300-1234567",
       email: "sajjadsibat33@gmail.com",

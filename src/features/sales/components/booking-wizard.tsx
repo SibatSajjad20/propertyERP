@@ -24,6 +24,17 @@ import type {
   DiscountType,
   PaymentMethod,
 } from "@/db/schema/enums";
+import {
+  ClientDocumentFields,
+  KinDocumentFields,
+  type DocSlotMap,
+} from "@/features/documents/components/document-fields";
+import type { ExistingDocument } from "@/features/documents/components/document-upload";
+import {
+  collectPending,
+  flushPendingUploads,
+  isDocReady,
+} from "@/features/documents/upload-client";
 import { createBooking } from "../actions";
 import { CNIC_REGEX, formatCnic, type ClientInput, type NextOfKinInput } from "../schema";
 import { ClientForm } from "./client-form";
@@ -65,6 +76,9 @@ export function BookingWizard({
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(preselectedUnitId ? 2 : 1);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isAdvancing, setIsAdvancing] = React.useState(false);
+  const advancingRef = React.useRef(false);
+  const submittingRef = React.useRef(false);
 
   // Form State
   const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(() => {
@@ -86,28 +100,38 @@ export function BookingWizard({
     notes: "",
   });
 
-  const [client, setClient] = React.useState<ClientInput>(
-    () =>
-      initialClient ?? {
-        fullName: "",
-        cnic: "",
-        phone: "",
-        email: "",
-        homeAddress: "",
-        postalAddress: "",
-      },
-  );
+  const [client, setClient] = React.useState<ClientInput>(() => ({
+    fullName: "",
+    relationPrefix: "S/O",
+    relationName: "",
+    cnic: "",
+    phone: "",
+    phoneOffice: "",
+    phoneRes: "",
+    mobile2: "",
+    email: "",
+    homeAddress: "",
+    postalAddress: "",
+    ...initialClient,
+  }));
 
-  const [nextOfKin, setNextOfKin] = React.useState<NextOfKinInput>(
-    () =>
-      initialNextOfKin ?? {
-        name: "",
-        relation: "",
-        cnic: "",
-        phone: "",
-        address: "",
-      },
+  const [nextOfKin, setNextOfKin] = React.useState<NextOfKinInput>(() => ({
+    name: "",
+    relationPrefix: "S/O",
+    relationName: "",
+    relation: "",
+    cnic: "",
+    phone: "",
+    address: "",
+    ...initialNextOfKin,
+  }));
+  const [clientId, setClientId] = React.useState<string | null>(
+    preselectedClientId ?? null,
   );
+  const [kinId, setKinId] = React.useState<string | null>(null);
+  const [clientDocs, setClientDocs] = React.useState<DocSlotMap>({});
+  const [kinDocs, setKinDocs] = React.useState<DocSlotMap>({});
+  const [docErrors, setDocErrors] = React.useState<Partial<Record<string, string>>>({});
 
   // Automatically set default down payment when unit is selected
   React.useEffect(() => {
@@ -137,86 +161,216 @@ export function BookingWizard({
   const isKinCnicValid =
     !nextOfKin.cnic?.trim() || CNIC_REGEX.test(formatCnic(nextOfKin.cnic));
 
+  const clientDocsReady = Boolean(
+    isDocReady(clientDocs.PHOTO) &&
+    isDocReady(clientDocs.CNIC_FRONT) &&
+    isDocReady(clientDocs.CNIC_BACK),
+  );
+  const kinDocsReady = Boolean(
+    isDocReady(kinDocs.KIN_PHOTO) &&
+    isDocReady(kinDocs.CNIC_FRONT) &&
+    isDocReady(kinDocs.CNIC_BACK),
+  );
   const canProceedStep3 = Boolean(
     client.fullName.trim() &&
+    client.relationName.trim() &&
     isClientCnicValid &&
     client.phone.trim() &&
     client.homeAddress.trim() &&
-    client.postalAddress.trim(),
+    client.postalAddress.trim() &&
+    clientDocsReady,
   );
   const canProceedStep4 = Boolean(
-    !nextOfKin.name.trim() ||
-    (nextOfKin.name.trim() &&
-      nextOfKin.relation.trim() &&
-      nextOfKin.phone.trim() &&
-      isKinCnicValid),
+    nextOfKin.name.trim() &&
+    nextOfKin.relationName.trim() &&
+    nextOfKin.relation.trim() &&
+    nextOfKin.phone.trim() &&
+    isKinCnicValid &&
+    Boolean(nextOfKin.cnic?.trim()) &&
+    kinDocsReady,
   );
 
-  function nextStep() {
-    if (currentStep === 1 && !canProceedStep1) {
-      toast.error("Please select a unit to proceed");
-      return;
+  function applyMatchedDocs(match: {
+    clientId: string;
+    kinId: string | null;
+    documents: {
+      id: string;
+      ownerType: "CLIENT" | "KIN";
+      docType: "PHOTO" | "CNIC_FRONT" | "CNIC_BACK" | "KIN_PHOTO";
+      mimeType: string;
+    }[];
+  }) {
+    setClientId(match.clientId);
+    setKinId(match.kinId);
+    const nextClient: DocSlotMap = {};
+    const nextKin: DocSlotMap = {};
+    for (const doc of match.documents) {
+      const slot: ExistingDocument = {
+        id: doc.id,
+        mimeType: doc.mimeType,
+        usedExisting: true,
+      };
+      if (doc.ownerType === "CLIENT") nextClient[doc.docType] = slot;
+      else nextKin[doc.docType] = slot;
     }
-    if (currentStep === 2 && !canProceedStep2) {
-      toast.error("Please enter a valid down payment amount");
-      return;
-    }
-    if (currentStep === 3) {
-      if (!client.fullName.trim()) {
-        toast.error("Please enter the client's full name");
+    setClientDocs(nextClient);
+    setKinDocs(nextKin);
+  }
+
+  async function flushWizardDocs(scope: "client" | "kin" | "all") {
+    const pending = collectPending({ client: clientDocs, kin: kinDocs }).filter(
+      (item) => {
+        if (scope === "client") return item.ownerType === "CLIENT";
+        if (scope === "kin") return item.ownerType === "KIN";
+        return true;
+      },
+    );
+    if (pending.length === 0) return;
+    const saved = await flushPendingUploads({
+      pending,
+      client,
+      nextOfKin: scope === "client" ? undefined : nextOfKin,
+      clientId,
+      kinId,
+    });
+    setClientId(saved.clientId);
+    if (saved.kinId) setKinId(saved.kinId);
+    setClientDocs((prev) => {
+      const next = { ...prev };
+      for (const row of saved.documents) {
+        if (row.ownerType === "CLIENT") {
+          next[row.docType] = { id: row.id, mimeType: row.mimeType };
+        }
+      }
+      return next;
+    });
+    setKinDocs((prev) => {
+      const next = { ...prev };
+      for (const row of saved.documents) {
+        if (row.ownerType === "KIN") {
+          next[row.docType] = { id: row.id, mimeType: row.mimeType };
+        }
+      }
+      return next;
+    });
+  }
+
+  async function nextStep() {
+    if (advancingRef.current || isSubmitting) return;
+    advancingRef.current = true;
+    const step = currentStep;
+    setIsAdvancing(true);
+    try {
+      if (step === 1 && !canProceedStep1) {
+        toast.error("Please select a unit to proceed");
         return;
       }
-      if (!client.cnic.trim()) {
-        toast.error("Please enter the client's CNIC");
+      if (step === 2 && !canProceedStep2) {
+        toast.error("Please enter a valid down payment amount");
         return;
       }
-      if (!isClientCnicValid) {
-        const digits = client.cnic.replace(/\D/g, "").length;
-        toast.error(
-          `CNIC must be 13 digits matching format 12345-1234567-1 (currently ${digits} digits)`,
-        );
-        return;
+      if (step === 3) {
+        if (!client.fullName.trim()) {
+          toast.error("Please enter the client's full name");
+          return;
+        }
+        if (!client.relationName.trim()) {
+          toast.error("Please enter the client's S/O or W/O name");
+          return;
+        }
+        if (!client.cnic.trim()) {
+          toast.error("Please enter the client's CNIC");
+          return;
+        }
+        if (!isClientCnicValid) {
+          const digits = client.cnic.replace(/\D/g, "").length;
+          toast.error(
+            `CNIC must be 13 digits matching format 12345-1234567-1 (currently ${digits} digits)`,
+          );
+          return;
+        }
+        if (!client.phone.trim()) {
+          toast.error("Please enter the client's phone number");
+          return;
+        }
+        if (!client.homeAddress.trim() || !client.postalAddress.trim()) {
+          toast.error("Please fill in both home and postal addresses");
+          return;
+        }
+        if (!clientDocsReady) {
+          setDocErrors({
+            PHOTO: isDocReady(clientDocs.PHOTO)
+              ? undefined
+              : "Passport photo is required",
+            CNIC_FRONT: isDocReady(clientDocs.CNIC_FRONT)
+              ? undefined
+              : "CNIC front is required",
+            CNIC_BACK: isDocReady(clientDocs.CNIC_BACK)
+              ? undefined
+              : "CNIC back is required",
+          });
+          toast.error("Upload the client's photo and CNIC scans");
+          return;
+        }
+        setDocErrors({});
       }
-      if (!client.phone.trim()) {
-        toast.error("Please enter the client's phone number");
-        return;
-      }
-      if (!client.homeAddress.trim() || !client.postalAddress.trim()) {
-        toast.error("Please fill in both home and postal addresses");
-        return;
-      }
-    }
-    if (currentStep === 4) {
-      if (nextOfKin.name.trim()) {
-        if (!nextOfKin.relation.trim() || !nextOfKin.phone.trim()) {
+      if (step === 4) {
+        if (
+          !nextOfKin.name.trim() ||
+          !nextOfKin.relationName.trim() ||
+          !nextOfKin.relation.trim() ||
+          !nextOfKin.phone.trim()
+        ) {
           toast.error("Please fill in nominee name, relation, and phone");
           return;
         }
-        if (nextOfKin.cnic?.trim() && !isKinCnicValid) {
-          const digits = nextOfKin.cnic.replace(/\D/g, "").length;
+        if (!nextOfKin.cnic?.trim() || !isKinCnicValid) {
+          const digits = (nextOfKin.cnic || "").replace(/\D/g, "").length;
           toast.error(
             `Nominee CNIC must be 13 digits (format: 12345-1234567-1, currently ${digits} digits)`,
           );
           return;
         }
+        if (!kinDocsReady) {
+          setDocErrors({
+            KIN_PHOTO: isDocReady(kinDocs.KIN_PHOTO)
+              ? undefined
+              : "Nominee passport photo is required",
+            KIN_CNIC_FRONT: isDocReady(kinDocs.CNIC_FRONT)
+              ? undefined
+              : "Nominee CNIC front is required",
+            KIN_CNIC_BACK: isDocReady(kinDocs.CNIC_BACK)
+              ? undefined
+              : "Nominee CNIC back is required",
+          });
+          toast.error("Upload the nominee photo and CNIC scans");
+          return;
+        }
+        setDocErrors({});
       }
+      setCurrentStep(Math.min(5, step + 1));
+    } finally {
+      advancingRef.current = false;
+      setIsAdvancing(false);
     }
-    setCurrentStep((prev) => Math.min(5, prev + 1));
   }
 
   function prevStep() {
+    if (advancingRef.current || isSubmitting) return;
     setCurrentStep((prev) => Math.max(1, prev - 1));
   }
 
   async function handleConfirmBooking() {
-    if (!selectedUnit) return;
+    if (!selectedUnit || submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
+      await flushWizardDocs("all");
       const result = await createBooking({
         unitId: selectedUnit.id,
         reservationId,
         client,
-        nextOfKin: nextOfKin.name.trim() ? nextOfKin : undefined,
+        nextOfKin,
         discountType: paymentState.discountType || undefined,
         discountValue: paymentState.discountValue || undefined,
         discountReason: paymentState.discountReason || undefined,
@@ -231,12 +385,22 @@ export function BookingWizard({
         notes: paymentState.notes || undefined,
       });
 
-      toast.success(`Booking ${result?.bookingNo || ""} created successfully!`);
+      toast.success(`Booking ${result?.bookingNo || ""} created successfully!`, {
+        action: result?.id
+          ? {
+              label: "Download receipt",
+              onClick: () => {
+                window.location.href = `/api/documents/booking/${result.id}/receipt.pdf`;
+              },
+            }
+          : undefined,
+      });
       if (result?.id) {
         router.push(`/bookings/${result.id}` as never);
       }
     } catch (err: any) {
       toast.error(err?.message || "Failed to create booking");
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -249,8 +413,9 @@ export function BookingWizard({
             type="button"
             variant="primary"
             size="md"
-            onClick={nextStep}
-            disabled={!canProceedStep1}
+            onClick={() => void nextStep()}
+            disabled={!canProceedStep1 || isAdvancing}
+            loading={isAdvancing}
           >
             Next: Payment Plan
             <ArrowRight weight="light" className="ml-1.5 size-4" />
@@ -262,8 +427,9 @@ export function BookingWizard({
             type="button"
             variant="primary"
             size="md"
-            onClick={nextStep}
-            disabled={!canProceedStep2}
+            onClick={() => void nextStep()}
+            disabled={!canProceedStep2 || isAdvancing}
+            loading={isAdvancing}
           >
             Next: Client Details
             <ArrowRight weight="light" className="ml-1.5 size-4" />
@@ -275,8 +441,9 @@ export function BookingWizard({
             type="button"
             variant="primary"
             size="md"
-            onClick={nextStep}
-            disabled={!canProceedStep3}
+            onClick={() => void nextStep()}
+            disabled={!canProceedStep3 || isAdvancing}
+            loading={isAdvancing}
           >
             Next: Next of Kin
             <ArrowRight weight="light" className="ml-1.5 size-4" />
@@ -288,8 +455,9 @@ export function BookingWizard({
             type="button"
             variant="primary"
             size="md"
-            onClick={nextStep}
-            disabled={!canProceedStep4}
+            onClick={() => void nextStep()}
+            disabled={!canProceedStep4 || isAdvancing}
+            loading={isAdvancing}
           >
             Next: Review & Confirm
             <ArrowRight weight="light" className="ml-1.5 size-4" />
@@ -331,7 +499,8 @@ export function BookingWizard({
               <div
                 key={step.id}
                 onClick={() => {
-                  if (step.id < currentStep) setCurrentStep(step.id);
+                  if (!isAdvancing && !isSubmitting && step.id < currentStep)
+                    setCurrentStep(step.id);
                 }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors",
@@ -408,27 +577,70 @@ export function BookingWizard({
 
         {/* Step 3: Client Details */}
         {currentStep === 3 && (
-          <div className="card p-6">
+          <div className="card space-y-6 p-6">
             <ClientForm
               client={client}
               nextOfKin={nextOfKin}
               onChangeClient={setClient}
               onChangeNextOfKin={setNextOfKin}
               showNextOfKin={false}
+              onMatched={applyMatchedDocs}
             />
+            <div>
+              <h3 className="mb-3 text-[14px] font-semibold text-ink">
+                Client documents
+              </h3>
+              <ClientDocumentFields
+                clientId={clientId}
+                docs={clientDocs}
+                errors={{
+                  PHOTO: docErrors.PHOTO,
+                  CNIC_FRONT: docErrors.CNIC_FRONT,
+                  CNIC_BACK: docErrors.CNIC_BACK,
+                }}
+                onChange={(docType, doc) => {
+                  setClientDocs((prev) => ({ ...prev, [docType]: doc }));
+                  setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
+                }}
+              />
+            </div>
           </div>
         )}
 
         {/* Step 4: Next of Kin */}
         {currentStep === 4 && (
-          <div className="card p-6">
+          <div className="card space-y-6 p-6">
             <ClientForm
               client={client}
               nextOfKin={nextOfKin}
               onChangeClient={setClient}
               onChangeNextOfKin={setNextOfKin}
               showNextOfKin={true}
+              kinCnicRequired
+              onMatched={applyMatchedDocs}
             />
+            <div>
+              <h3 className="mb-3 text-[14px] font-semibold text-ink">
+                Nominee documents
+              </h3>
+              <KinDocumentFields
+                clientId={clientId}
+                kinId={kinId}
+                docs={kinDocs}
+                errors={{
+                  KIN_PHOTO: docErrors.KIN_PHOTO,
+                  CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
+                  CNIC_BACK: docErrors.KIN_CNIC_BACK,
+                }}
+                onChange={(docType, doc) => {
+                  setKinDocs((prev) => ({ ...prev, [docType]: doc }));
+                  setDocErrors((prev) => ({
+                    ...prev,
+                    [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]: undefined,
+                  }));
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -555,7 +767,7 @@ export function BookingWizard({
                   variant="secondary"
                   size="md"
                   onClick={prevStep}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isAdvancing}
                 >
                   <ArrowLeft weight="light" className="mr-1.5 size-4" />
                   Previous

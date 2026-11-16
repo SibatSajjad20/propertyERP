@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getSoldDetail } from "@/features/sales/queries";
+import { listActiveSignatories } from "@/features/documents/receipts";
+import { getSoldDetail, getSoldTitle } from "@/features/sales/queries";
 import { SoldDetailScreen } from "@/features/sales/components/sold-detail-screen";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
@@ -8,10 +9,8 @@ export const instant = false;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getSoldDetail(id);
-  if (!data) return { title: "Sale Not Found" };
-  const unitCode =
-    data.type === "DIRECT_SALE" ? data.data.unitCode : data.data.booking.unitCode;
+  const unitCode = await getSoldTitle(id);
+  if (!unitCode) return { title: "Sale Not Found" };
   return {
     title: `Sold Unit ${unitCode}`,
   };
@@ -26,8 +25,13 @@ export default async function SoldDetailPage({
   assertCan(session.user.role, "sales.read");
 
   const { id } = await params;
-  const data = await getSoldDetail(id);
+  const [data, signatories] = await Promise.all([
+    getSoldDetail(id),
+    listActiveSignatories(),
+  ]);
   if (!data) notFound();
 
-  return <SoldDetailScreen data={data} role={session.user.role} />;
+  return (
+    <SoldDetailScreen data={data} role={session.user.role} signatories={signatories} />
+  );
 }

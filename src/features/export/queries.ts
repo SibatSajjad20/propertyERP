@@ -21,7 +21,7 @@ function serialize<T extends Record<string, unknown>>(rows: T[]) {
 }
 
 export async function inventoryExportRows(query: InventoryQuery) {
-  const { rows } = await listInventory(query);
+  const { rows } = await listInventory({ ...query, unpaged: true });
   return rows.map((row) => ({
     unitCode: row.unitCode,
     unitNumber: row.unitNumber,

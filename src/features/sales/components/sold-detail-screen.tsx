@@ -38,6 +38,9 @@ import { formatPkr } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole, PaymentMethod } from "@/db/schema/enums";
+import { DocumentsSection } from "@/features/documents/components/documents-section";
+import { PdfDownloadBar } from "@/features/documents/components/pdf-download-bar";
+import { DownPaymentReceiptButton } from "@/features/documents/components/down-payment-receipt-button";
 import { buybackSale } from "../actions";
 import { calculateBuyback } from "../calculator";
 import { PrintableReceiptDialog } from "./printable-documents";
@@ -45,9 +48,14 @@ import { PrintableReceiptDialog } from "./printable-documents";
 interface SoldDetailScreenProps {
   data: any;
   role: UserRole;
+  signatories?: Array<{ id: string; name: string; designation: string }>;
 }
 
-export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
+export function SoldDetailScreen({
+  data,
+  role,
+  signatories = [],
+}: SoldDetailScreenProps) {
   const router = useRouter();
   const [buybackOpen, setBuybackOpen] = React.useState(false);
   const [receiptOpen, setReceiptOpen] = React.useState(false);
@@ -64,6 +72,9 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
   const isDirect = data.type === "DIRECT_SALE";
   const item = isDirect ? data.data : data.data.booking;
   const buybackRecord = data.buyback;
+  const clientId = isDirect ? data.data.clientId : data.data.booking.clientId;
+  const kin = isDirect ? data.data.nextOfKin : data.data.nextOfKin;
+  const documents = isDirect ? data.data.documents : data.data.documents;
 
   const originalPrice = isDirect ? item.salePrice : item.netPrice;
   const isBoughtBack = item.status === "BOUGHT_BACK" || Boolean(buybackRecord);
@@ -141,19 +152,38 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
               </Badge>
             </div>
             <p className="text-[12px] text-ink-muted">
-              {isDirect ? "Direct Sale" : `Booking ${item.bookingNo}`} · Buyer:{" "}
-              {item.clientName}
+              Serial {item.serialNo} · {item.applicationFormNo} · {item.registrationNo}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PdfDownloadBar
+            href={`/api/documents/sale/${isDirect ? data.data.id : data.data.booking.id}/pdf`}
+            printLabel="Print"
+            onPrint={() => window.print()}
+          />
+          <DownPaymentReceiptButton
+            href={
+              isDirect
+                ? `/api/documents/sale/${data.data.id}/receipt.pdf`
+                : `/api/documents/booking/${data.data.booking.id}/receipt.pdf`
+            }
+            signatories={signatories}
+            hasPayments={
+              isDirect
+                ? true
+                : (data.data.payments ?? []).some(
+                    (p: { isVoided?: boolean }) => !p.isVoided,
+                  )
+            }
+          />
           {!isBoughtBack && isAdmin && (
             <Button
               variant="secondary"
               size="md"
               onClick={() => setBuybackOpen(true)}
-              className="gap-1.5 text-accent hover:bg-accent/10"
+              className="gap-1.5 text-primary hover:bg-primary/10"
             >
               <ArrowUUpLeft weight="light" className="size-4" />
               Unit Buyback
@@ -174,6 +204,16 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
         </div>
       </div>
 
+      <DocumentsSection
+        clientId={clientId}
+        kinId={kin?.id ?? null}
+        documents={documents ?? []}
+        initialUrls={isDirect ? data.data.signedUrls : data.data.signedUrls}
+        urlKey={isDirect ? data.data.id : data.data.booking.id}
+        role={role}
+        replacePermission="sales.create"
+      />
+
       {/* Cards: Unit Details, Ownership, Sale Settlement */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* Unit Card */}
@@ -182,7 +222,7 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
             <h4 className="text-[13px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${item.unitId}`}
-              className="unit-code font-mono text-[13px] font-bold text-primary hover:underline"
+              className="unit-code font-mono text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
               {item.unitCode}
             </Link>
@@ -268,9 +308,9 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
 
       {/* Buyback History Banner if present */}
       {buybackRecord && (
-        <div className="card space-y-3 border-accent/30 bg-accent/5 p-5">
-          <div className="flex items-center justify-between border-b border-accent/20 pb-2">
-            <h4 className="text-[14px] font-semibold text-accent">
+        <div className="card space-y-3 border-primary/30 bg-primary/5 p-5">
+          <div className="flex items-center justify-between border-b border-primary/20 pb-2">
+            <h4 className="text-[14px] font-semibold text-primary">
               Official Buyback Record
             </h4>
             <span className="text-[12px] text-ink-muted">
@@ -286,7 +326,7 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
             </div>
             <div>
               <span className="text-ink-muted">Buyback Amount Paid:</span>
-              <p className="font-bold text-accent tabular-nums">
+              <p className="font-bold text-primary tabular-nums">
                 {formatPkr(buybackRecord.buybackAmount)}
               </p>
             </div>
@@ -445,7 +485,7 @@ export function SoldDetailScreen({ data, role }: SoldDetailScreenProps) {
               variant="primary"
               onClick={handleConfirmBuyback}
               disabled={isSubmitting || reason.trim().length < 10}
-              className="bg-accent hover:bg-accent/90"
+              className="bg-primary hover:bg-primary/90"
             >
               {isSubmitting ? "Processing Buyback..." : "Confirm Buyback"}
             </Button>

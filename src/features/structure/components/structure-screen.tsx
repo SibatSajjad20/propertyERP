@@ -281,7 +281,7 @@ export function StructureScreen({
                       className={cn(
                         "group flex h-10 items-center justify-between rounded-[6px] px-2.5 transition-colors duration-[120ms]",
                         selected
-                          ? "bg-subtle font-medium text-ink"
+                          ? "bg-primary-soft font-medium text-ink"
                           : "text-ink-muted hover:bg-subtle/60 hover:text-ink",
                       )}
                     >
@@ -413,7 +413,7 @@ export function StructureScreen({
                           {canManage ? (
                             <button
                               type="button"
-                              className="cursor-pointer text-left font-medium text-ink transition-colors hover:text-primary"
+                              className="cursor-pointer text-left font-medium text-primary transition-colors hover:text-accent-bright hover:underline"
                               onClick={() =>
                                 setPanel({
                                   kind: "floor",

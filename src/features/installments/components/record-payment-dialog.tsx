@@ -40,7 +40,9 @@ export function RecordPaymentDialog({
   onPaymentSuccess,
 }: RecordPaymentDialogProps) {
   const [amountPkr, setAmountPkr] = React.useState("");
-  const [method, setMethod] = React.useState<"CASH" | "CHEQUE" | "BANK_TRANSFER">("CASH");
+  const [method, setMethod] = React.useState<
+    "CASH" | "CHEQUE" | "BANK_TRANSFER" | "PAY_ORDER"
+  >("CASH");
   const [chequeNo, setChequeNo] = React.useState("");
   const [bank, setBank] = React.useState("");
   const [paidAt, setPaidAt] = React.useState(new Date().toISOString().split("T")[0]!);
@@ -184,9 +186,9 @@ export function RecordPaymentDialog({
               <div className="mt-1">
                 <Select
                   value={method}
-                  onValueChange={(val: "CASH" | "CHEQUE" | "BANK_TRANSFER") =>
-                    setMethod(val)
-                  }
+                  onValueChange={(
+                    val: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "PAY_ORDER",
+                  ) => setMethod(val)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -194,7 +196,8 @@ export function RecordPaymentDialog({
                   <SelectContent>
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
+                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -266,7 +269,7 @@ export function RecordPaymentDialog({
                       className={
                         alloc.newStatus === "PAID"
                           ? "font-medium text-available"
-                          : "font-medium text-accent"
+                          : "font-medium text-primary"
                       }
                     >
                       {alloc.newStatus}

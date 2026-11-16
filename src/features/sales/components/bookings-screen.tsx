@@ -31,6 +31,9 @@ interface BookingsScreenProps {
     rows: Array<{
       id: string;
       bookingNo: string;
+      serialNo: number;
+      applicationFormNo: string;
+      registrationNo: string;
       status: string;
       listPrice: string;
       netPrice: string;
@@ -68,6 +71,9 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
         const term = search.trim().toLowerCase();
         return (
           r.bookingNo.toLowerCase().includes(term) ||
+          String(r.serialNo).includes(term) ||
+          r.applicationFormNo.toLowerCase().includes(term) ||
+          r.registrationNo.toLowerCase().includes(term) ||
           r.unitCode.toLowerCase().includes(term) ||
           r.clientName.toLowerCase().includes(term) ||
           r.clientCnic.toLowerCase().includes(term) ||
@@ -134,7 +140,7 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search booking no, unit, client…"
+            placeholder="Search serial, form no, unit, client…"
             className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary"
           />
         </div>
@@ -161,7 +167,7 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
           <table className="w-full border-collapse text-left text-[13px]">
             <thead className="border-b border-line bg-subtle/50 text-ink-muted select-none">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Booking No</th>
+                <th className="px-4 py-2.5 font-medium">Serial / Form No</th>
                 <th className="px-4 py-2.5 font-medium">Unit</th>
                 <th className="px-4 py-2.5 font-medium">Client</th>
                 <th className="px-4 py-2.5 text-right font-medium">Net Price</th>
@@ -184,9 +190,15 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
                     className="cursor-pointer transition-colors hover:bg-subtle/40"
                   >
                     <td className="px-4 py-3">
-                      <span className="unit-code font-mono text-[13px] font-bold text-primary">
-                        {row.bookingNo}
+                      <span className="font-mono text-[13px] font-bold text-primary">
+                        {row.serialNo}
                       </span>
+                      <p className="unit-code font-mono text-[11px] text-ink-muted">
+                        {row.applicationFormNo}
+                      </p>
+                      <p className="font-mono text-[11px] text-ink-faint">
+                        {row.registrationNo}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <span className="unit-code font-mono text-[13px] font-semibold text-ink">

@@ -95,7 +95,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
   return (
     <div className="relative h-full w-full select-none">
       {activePoint && (
-        <div className="pointer-events-none absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[6px] border border-line bg-surface/95 px-2.5 py-1 font-sans text-[11px] text-ink tabular-nums shadow-xs backdrop-blur-xs">
+        <div className="pointer-events-none absolute top-1 right-2 z-10 flex items-center gap-2 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 font-sans text-[11px] text-ink tabular-nums shadow-card">
           <span className="font-medium text-ink-muted">{activePoint.label}:</span>
           <span className="font-semibold text-primary">
             {formatPkrCompact(activePoint.collectedPkr)}
@@ -112,8 +112,8 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
       >
         <defs>
           <linearGradient id="collections-area-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0B558B" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="#0B558B" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#0B558B" stopOpacity={0.14} />
+            <stop offset="100%" stopColor="#0B558B" stopOpacity={0} />
           </linearGradient>
         </defs>
 
@@ -121,8 +121,8 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="var(--line)"
-            strokeOpacity={0.6}
+            stroke="#EEF1F4"
+            strokeOpacity={1}
             strokeDasharray="2,3"
             numTicks={4}
           />
@@ -143,7 +143,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
                 x={(d) => xScale(d.month) ?? 0}
                 y={(d) => yScale(d.amount)}
                 curve={curveMonotoneX}
-                stroke="#0B558B"
+                stroke="var(--primary)"
                 strokeWidth={2}
               />
 
@@ -157,7 +157,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
                     cx={cx}
                     cy={cy}
                     r={isActive ? 4.5 : 2.5}
-                    fill={isActive ? "#9A7B4F" : "#0B558B"}
+                    fill={isActive ? "var(--accent-bright)" : "var(--primary)"}
                     stroke="#FFFFFF"
                     strokeWidth={1.5}
                     className="transition-all duration-150"
@@ -173,7 +173,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
               x2={activeX}
               y1={0}
               y2={innerHeight}
-              stroke="#9A7B4F"
+              stroke="var(--accent-bright)"
               strokeWidth={1}
               strokeDasharray="3,3"
               pointerEvents="none"
@@ -183,8 +183,8 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
           <AxisLeft
             scale={yScale}
             numTicks={4}
-            stroke="var(--line)"
-            tickStroke="var(--line)"
+            stroke="#EEF1F4"
+            tickStroke="#EEF1F4"
             tickFormat={(val) => {
               const num = typeof val === "number" ? val : Number(val);
               if (num === 0) return "Rs 0";
@@ -193,7 +193,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
               return `${num.toLocaleString()}`;
             }}
             tickLabelProps={{
-              fill: "var(--ink-muted)",
+              fill: "#94A3B8",
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontSize: 10,
               textAnchor: "end",
@@ -205,14 +205,14 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
           <AxisBottom
             top={innerHeight}
             scale={xScale}
-            stroke="var(--line)"
-            tickStroke="var(--line)"
+            stroke="#EEF1F4"
+            tickStroke="#EEF1F4"
             tickFormat={(m) => {
               const point = data.find((d) => d.month === m);
               return point ? point.label : (m as string);
             }}
             tickLabelProps={{
-              fill: "var(--ink-muted)",
+              fill: "#94A3B8",
               fontFamily: "var(--font-geist-sans), sans-serif",
               fontSize: 10,
               textAnchor: "middle",

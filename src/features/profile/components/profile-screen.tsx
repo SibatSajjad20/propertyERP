@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ name, email, mustChangePassword }: ProfileScreenProps) {
+  const router = useRouter();
   const nameForm = useForm<UpdateOwnNameInput>({
     resolver: zodResolver(updateOwnNameSchema),
     defaultValues: { name },
@@ -91,9 +93,16 @@ export function ProfileScreen({ name, email, mustChangePassword }: ProfileScreen
           className="space-y-3"
           onSubmit={passwordForm.handleSubmit(async (values) => {
             try {
-              await changeOwnPassword(values);
+              const result = await changeOwnPassword(values);
+              if (!result.ok) {
+                toast.error(result.error);
+                passwordForm.setError("newPassword", { message: result.error });
+                return;
+              }
               toast.success("Password updated");
               passwordForm.reset({ currentPassword: "", newPassword: "" });
+              router.replace("/" as never);
+              router.refresh();
             } catch (error) {
               toast.error(errorMessage(error));
             }

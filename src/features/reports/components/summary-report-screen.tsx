@@ -75,7 +75,7 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
             <p className="mt-1 text-[11px] text-ink-muted">Ready for booking/sale</p>
           </div>
 
-          <div className="card rounded-[12px] border-l-4 border-l-accent p-4">
+          <div className="card rounded-[12px] border-l-4 border-l-primary p-4">
             <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
               Reserved Units
             </span>
@@ -83,7 +83,7 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
               <span className="text-[22px] font-semibold text-ink tabular-nums">
                 {data.unitsByStatus.reserved.count}
               </span>
-              <span className="text-[13px] font-medium text-accent tabular-nums">
+              <span className="text-[13px] font-medium text-primary tabular-nums">
                 {formatPkrCompact(data.unitsByStatus.reserved.valuePkr)}
               </span>
             </div>
@@ -167,10 +167,10 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
                   Buybacks of Sold Units
                 </span>
                 <div className="mt-1 flex items-baseline justify-between">
-                  <span className="text-[18px] font-semibold text-accent tabular-nums">
+                  <span className="text-[18px] font-semibold text-primary tabular-nums">
                     {data.periodMetrics.buybacks.count}
                   </span>
-                  <span className="text-[13px] font-medium text-accent tabular-nums">
+                  <span className="text-[13px] font-medium text-primary tabular-nums">
                     {formatPkr(data.periodMetrics.buybacks.totalPkr)}
                   </span>
                 </div>

@@ -2,12 +2,13 @@
 "use server";
 
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import type { z } from "zod";
 import { db } from "@/db";
 import {
   bookings,
   buybacks,
+  clientDocuments,
   clients,
   installments,
   nextOfKin,
@@ -16,6 +17,9 @@ import {
   reservations,
   sales,
 } from "@/db/schema/sales";
+import { upsertClientAndKin } from "./client-upsert";
+import { allocateDocumentNumbers } from "./document-numbers";
+import { requiredDocumentErrorMessage } from "@/features/documents/required";
 import { units } from "@/db/schema/units";
 import { formatCnic } from "./schema";
 
@@ -38,7 +42,22 @@ export async function findClientByCnic(cnic: string) {
     .where(eq(nextOfKin.clientId, client.id))
     .limit(1);
 
-  return { client, nextOfKin: kin ?? null };
+  const documents = await db
+    .select({
+      id: clientDocuments.id,
+      ownerType: clientDocuments.ownerType,
+      clientId: clientDocuments.clientId,
+      kinId: clientDocuments.kinId,
+      docType: clientDocuments.docType,
+      mimeType: clientDocuments.mimeType,
+      replacedAt: clientDocuments.replacedAt,
+    })
+    .from(clientDocuments)
+    .where(
+      and(eq(clientDocuments.clientId, client.id), isNull(clientDocuments.replacedAt)),
+    );
+
+  return { client, nextOfKin: kin ?? null, documents };
 }
 
 function parseInput<T>(
@@ -79,9 +98,9 @@ import {
   returnBookingSchema,
 } from "./schema";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
 function revalidateSalesPaths(unitId?: string, bookingId?: string) {
+  revalidateTag("dashboard", "max");
+  revalidateTag("report-summary", "max");
   revalidatePath("/inventory");
   revalidatePath("/bookings");
   revalidatePath("/reservations");
@@ -91,94 +110,32 @@ function revalidateSalesPaths(unitId?: string, bookingId?: string) {
   if (bookingId) revalidatePath(`/bookings/${bookingId}`);
 }
 
-async function upsertClientAndKin(
-  tx: Tx,
-  clientData: {
-    fullName: string;
-    cnic: string;
-    phone: string;
-    email?: string | null;
-    homeAddress: string;
-    postalAddress: string;
-  },
-  kinData?: {
-    name: string;
-    relation: string;
-    cnic?: string | null;
-    phone: string;
-    address?: string | null;
-  } | null,
+async function requireClientDocuments(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  clientId: string,
+  kinId: string,
 ) {
-  let [client] = await tx
-    .select()
-    .from(clients)
-    .where(eq(clients.cnic, clientData.cnic.trim()))
-    .limit(1);
+  const docs = await tx
+    .select({
+      ownerType: clientDocuments.ownerType,
+      docType: clientDocuments.docType,
+      replacedAt: clientDocuments.replacedAt,
+      kinId: clientDocuments.kinId,
+    })
+    .from(clientDocuments)
+    .where(
+      and(eq(clientDocuments.clientId, clientId), isNull(clientDocuments.replacedAt)),
+    );
 
-  if (!client) {
-    [client] = await tx
-      .insert(clients)
-      .values({
-        fullName: clientData.fullName.trim(),
-        cnic: clientData.cnic.trim(),
-        phone: clientData.phone.trim(),
-        email: clientData.email?.trim() || null,
-        homeAddress: clientData.homeAddress.trim(),
-        postalAddress: clientData.postalAddress.trim(),
-      })
-      .returning();
-  } else {
-    // Update existing client details
-    [client] = await tx
-      .update(clients)
-      .set({
-        fullName: clientData.fullName.trim(),
-        phone: clientData.phone.trim(),
-        email: clientData.email?.trim() || null,
-        homeAddress: clientData.homeAddress.trim(),
-        postalAddress: clientData.postalAddress.trim(),
-        updatedAt: new Date(),
-      })
-      .where(eq(clients.id, client.id))
-      .returning();
-  }
-
-  if (kinData && client) {
-    const [existingKin] = await tx
-      .select({ id: nextOfKin.id })
-      .from(nextOfKin)
-      .where(eq(nextOfKin.clientId, client.id))
-      .limit(1);
-
-    if (existingKin) {
-      await tx
-        .update(nextOfKin)
-        .set({
-          name: kinData.name.trim(),
-          relation: kinData.relation.trim(),
-          cnic: kinData.cnic?.trim() || null,
-          phone: kinData.phone.trim(),
-          address: kinData.address?.trim() || null,
-        })
-        .where(eq(nextOfKin.id, existingKin.id));
-    } else {
-      await tx.insert(nextOfKin).values({
-        clientId: client.id,
-        name: kinData.name.trim(),
-        relation: kinData.relation.trim(),
-        cnic: kinData.cnic?.trim() || null,
-        phone: kinData.phone.trim(),
-        address: kinData.address?.trim() || null,
-      });
-    }
-  }
-
-  if (!client) {
-    throw new ValidationError("Failed to save client details");
-  }
-
-  return client;
+  const relevant = docs.filter(
+    (doc) =>
+      doc.ownerType === "CLIENT" || (doc.ownerType === "KIN" && doc.kinId === kinId),
+  );
+  const message = requiredDocumentErrorMessage(relevant);
+  if (message) throw new ValidationError(message);
 }
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function nextBookingNumber(tx: Tx): Promise<string> {
   const year = new Date().getFullYear();
@@ -210,7 +167,7 @@ export async function createReservation(input: unknown) {
   assertCan(session.user.role, "reservations.create");
 
   const created = await db.transaction(async (tx) => {
-    const client = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
+    const { client } = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
 
     const [unit] = await tx
       .select()
@@ -388,7 +345,11 @@ export async function createBooking(input: unknown) {
   assertCan(session.user.role, "bookings.create");
 
   const created = await db.transaction(async (tx) => {
-    const client = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
+    const { client, kin } = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
+    if (!kin) {
+      throw new ValidationError("Next of kin is required");
+    }
+    await requireClientDocuments(tx, client.id, kin.id);
 
     const [unit] = await tx
       .select()
@@ -459,6 +420,8 @@ export async function createBooking(input: unknown) {
 
     const bookingNo = await nextBookingNumber(tx);
     const receiptNo = await nextReceiptNumber(tx);
+    const bookedAt = new Date();
+    const numbers = await allocateDocumentNumbers(tx, unit.unitCode, bookedAt);
 
     const schedule = generateSchedule({
       listPricePkr,
@@ -495,6 +458,9 @@ export async function createBooking(input: unknown) {
         unitId: unit.id,
         clientId: client.id,
         bookingNo,
+        serialNo: numbers.serialNo,
+        applicationFormNo: numbers.applicationFormNo,
+        registrationNo: numbers.registrationNo,
         listPrice: listPricePkr,
         discountType: parsed.discountType || null,
         discountValue: parsed.discountValue || "0.00",
@@ -507,6 +473,8 @@ export async function createBooking(input: unknown) {
         startDate: new Date(parsed.startDate),
         status: isFullyPaid ? "COMPLETED" : "ACTIVE",
         paidTotal: parsed.downPaymentPkr,
+        salesAgent: session.user.name,
+        bookingOffice: "SARDAR'S MALL",
         createdBy: session.user.id,
       })
       .returning();
@@ -535,6 +503,7 @@ export async function createBooking(input: unknown) {
       method: parsed.paymentMethod,
       chequeNo: parsed.chequeNo?.trim() || null,
       bank: parsed.bank?.trim() || null,
+      reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Down payment",
       paidAt: new Date(),
       notes: parsed.notes?.trim() || "Down payment on booking",
       receivedBy: session.user.id,
@@ -561,6 +530,9 @@ export async function createBooking(input: unknown) {
         unitId: unit.id,
         clientId: client.id,
         bookingId: booking.id,
+        serialNo: numbers.serialNo,
+        applicationFormNo: numbers.applicationFormNo,
+        registrationNo: numbers.registrationNo,
         salePrice: netPricePkr,
         soldAt: new Date(),
         notes: `Completed booking ${bookingNo}`,
@@ -661,6 +633,7 @@ export async function recordPayment(input: unknown) {
         method: parsed.method,
         chequeNo: parsed.chequeNo?.trim() || null,
         bank: parsed.bank?.trim() || null,
+        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || null,
         paidAt,
         notes: parsed.notes?.trim() || null,
         receivedBy: session.user.id,
@@ -697,6 +670,9 @@ export async function recordPayment(input: unknown) {
         unitId: unit.id,
         clientId: booking.clientId,
         bookingId: booking.id,
+        serialNo: booking.serialNo,
+        applicationFormNo: booking.applicationFormNo,
+        registrationNo: booking.registrationNo,
         salePrice: booking.netPrice,
         soldAt: paidAt,
         notes: `Completed booking ${booking.bookingNo}`,
@@ -818,7 +794,11 @@ export async function createDirectSale(input: unknown) {
   assertCan(session.user.role, "sales.create");
 
   const created = await db.transaction(async (tx) => {
-    const client = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
+    const { client, kin } = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
+    if (!kin) {
+      throw new ValidationError("Next of kin is required");
+    }
+    await requireClientDocuments(tx, client.id, kin.id);
 
     const [unit] = await tx
       .select()
@@ -859,7 +839,9 @@ export async function createDirectSale(input: unknown) {
       }
     }
 
-    const saleRef = `SALE-${unit.unitCode}-${new Date().getFullYear()}`;
+    const soldAt = new Date();
+    const numbers = await allocateDocumentNumbers(tx, unit.unitCode, soldAt);
+    const saleRef = numbers.applicationFormNo;
 
     // Unit -> SOLD
     await changeUnitStatusInTx(
@@ -880,9 +862,18 @@ export async function createDirectSale(input: unknown) {
       .values({
         unitId: unit.id,
         clientId: client.id,
+        serialNo: numbers.serialNo,
+        applicationFormNo: numbers.applicationFormNo,
+        registrationNo: numbers.registrationNo,
         salePrice: parsed.salePricePkr,
-        soldAt: new Date(),
+        soldAt,
         notes: parsed.notes?.trim() || null,
+        paymentMethod: parsed.paymentMethod,
+        chequeNo: parsed.chequeNo?.trim() || null,
+        bank: parsed.bank?.trim() || null,
+        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Full payment",
+        salesAgent: session.user.name,
+        bookingOffice: "SARDAR'S MALL",
         status: "ACTIVE",
         createdBy: session.user.id,
       })

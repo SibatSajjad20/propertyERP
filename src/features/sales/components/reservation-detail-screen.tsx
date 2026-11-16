@@ -100,14 +100,14 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="unit-code font-mono text-[18px] font-bold text-accent">
+              <span className="unit-code font-mono text-[18px] font-bold text-primary">
                 HOLD-{reservation.unitCode}
               </span>
               <Badge tone={isActive ? "accent" : "muted"}>
                 {isActive ? "Active Hold" : reservation.status}
               </Badge>
               {isActive && (
-                <span className="text-[12px] font-medium text-accent">
+                <span className="text-[12px] font-medium text-primary">
                   {countdown.label}
                 </span>
               )}
@@ -164,8 +164,8 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
 
       {/* Expiry Banner */}
       {isActive && (
-        <div className="flex items-center justify-between rounded-[8px] border border-accent/30 bg-accent/10 px-4 py-3">
-          <div className="flex items-center gap-2 text-accent">
+        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
+          <div className="flex items-center gap-2 text-primary">
             <ClockCountdown weight="bold" className="size-5" />
             <span className="text-[13px] font-medium">
               Reservation is active — expires on{" "}
@@ -178,7 +178,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
               })}
             </span>
           </div>
-          <span className="font-semibold text-accent tabular-nums">
+          <span className="font-semibold text-primary tabular-nums">
             {countdown.label}
           </span>
         </div>
@@ -192,7 +192,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
             <h4 className="text-[14px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${reservation.unitId}`}
-              className="unit-code font-mono text-[14px] font-bold text-primary hover:underline"
+              className="unit-code font-mono text-[14px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
               {reservation.unitCode}
             </Link>
@@ -286,7 +286,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
                   className={cn(
                     "rounded border p-2 text-center text-[12px] font-medium transition-colors",
                     extendDays === days
-                      ? "border-accent bg-accent/10 font-bold text-accent"
+                      ? "border-primary bg-primary/10 font-bold text-primary"
                       : "border-line text-ink hover:bg-subtle",
                   )}
                 >

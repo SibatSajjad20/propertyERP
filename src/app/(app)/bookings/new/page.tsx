@@ -1,5 +1,5 @@
 import { getReservationDetail, getSelectableUnits } from "@/features/sales/queries";
-import { getInventoryFilterOptions } from "@/features/units/queries";
+import { getCachedInventoryFilterOptions } from "@/features/units/queries";
 import { BookingWizard } from "@/features/sales/components/booking-wizard";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
@@ -25,16 +25,24 @@ export default async function NewBookingPage({
     typeof params.reservationId === "string" ? params.reservationId : undefined;
 
   const [units, options, resData] = await Promise.all([
-    getSelectableUnits({ clientId }),
-    getInventoryFilterOptions(),
+    unitId ? getSelectableUnits({ unitId, clientId }) : Promise.resolve([]),
+    getCachedInventoryFilterOptions(),
     reservationId ? getReservationDetail(reservationId) : null,
   ]);
 
   const initialClient = resData?.reservation
     ? {
         fullName: resData.reservation.clientName,
+        relationPrefix:
+          resData.reservation.clientRelationPrefix === "W/O"
+            ? ("W/O" as const)
+            : ("S/O" as const),
+        relationName: resData.reservation.clientRelationName,
         cnic: resData.reservation.clientCnic,
         phone: resData.reservation.clientPhone,
+        phoneOffice: resData.reservation.clientPhoneOffice ?? "",
+        phoneRes: resData.reservation.clientPhoneRes ?? "",
+        mobile2: resData.reservation.clientMobile2 ?? "",
         email: resData.reservation.clientEmail ?? "",
         homeAddress: resData.reservation.homeAddress,
         postalAddress: resData.reservation.postalAddress,
@@ -44,6 +52,12 @@ export default async function NewBookingPage({
   const initialNextOfKin = resData?.nextOfKin
     ? {
         name: resData.nextOfKin.name,
+        relationPrefix: ((): "S/O" | "D/O" | "W/O" => {
+          const prefix = resData.nextOfKin.relationPrefix;
+          if (prefix === "D/O" || prefix === "W/O" || prefix === "S/O") return prefix;
+          return "S/O";
+        })(),
+        relationName: resData.nextOfKin.relationName,
         relation: resData.nextOfKin.relation,
         cnic: resData.nextOfKin.cnic ?? "",
         phone: resData.nextOfKin.phone,

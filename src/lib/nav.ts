@@ -28,6 +28,7 @@ export const reportsNav: AppNavItem[] = [
 
 export const adminNav: AppNavItem[] = [
   { href: "/settings/users" as Route, label: "Users", action: "users.read" },
+  { href: "/settings/company" as Route, label: "Company", action: "settings.manage" },
   { href: "/audit" as Route, label: "Audit log", action: "audit.read" },
 ];
 

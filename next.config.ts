@@ -7,7 +7,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
+    value: "camera=(self), microphone=(), geolocation=(), payment=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
@@ -25,10 +25,17 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   poweredByHeader: false,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  images: {
+    qualities: [75, 85],
+  },
+  serverExternalPackages: ["@react-pdf/renderer", "@supabase/supabase-js"],
   experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
     staleTimes: {
-      dynamic: 60,
-      static: 180,
+      dynamic: 300,
+      static: 300,
     },
   },
   turbopack: {

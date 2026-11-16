@@ -26,7 +26,7 @@ interface ImportPreviewTableProps {
   committing: boolean;
 }
 
-type FilterTab = "ALL" | "VALID" | "WARNING" | "ERROR";
+type FilterTab = "ALL" | "VALID" | "WARNING" | "ERROR" | "SKIPPED";
 
 export function ImportPreviewTable({
   fileName,
@@ -42,11 +42,16 @@ export function ImportPreviewTable({
   const validCount = rows.filter((r) => r.status === "VALID").length;
   const warningCount = rows.filter((r) => r.status === "WARNING").length;
   const errorCount = rows.filter((r) => r.status === "ERROR").length;
+  const skippedCount = rows.filter((r) => r.status === "SKIPPED").length;
+  const importableCount = validCount + warningCount;
+  const countsMatch =
+    validCount + warningCount + errorCount + skippedCount === rows.length;
 
   const filteredRows = React.useMemo(() => {
     if (filter === "VALID") return rows.filter((r) => r.status === "VALID");
     if (filter === "WARNING") return rows.filter((r) => r.status === "WARNING");
     if (filter === "ERROR") return rows.filter((r) => r.status === "ERROR");
+    if (filter === "SKIPPED") return rows.filter((r) => r.status === "SKIPPED");
     return rows;
   }, [rows, filter]);
 
@@ -60,7 +65,7 @@ export function ImportPreviewTable({
     overscan: 12,
   });
 
-  const canCommit = (validCount > 0 || warningCount > 0) && errorCount === 0;
+  const canCommit = importableCount > 0;
 
   return (
     <div className="space-y-4">
@@ -76,7 +81,12 @@ export function ImportPreviewTable({
                 {fileName}
               </span>
               <span className="text-[12px] text-ink-muted">
-                ({mode === "CREATE_ONLY" ? "Create new only" : "Create + update existing"}
+                (
+                {mode === "CREATE_ONLY"
+                  ? "Create new only"
+                  : mode === "UPSERT"
+                    ? "Upsert by unit code"
+                    : "Create + update existing"}
                 )
               </span>
             </div>
@@ -122,14 +132,29 @@ export function ImportPreviewTable({
               onClick={() => setFilter("WARNING")}
               className={`flex items-center gap-1.5 rounded-[4px] border px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 filter === "WARNING"
-                  ? "border-accent bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-accent"
+                  ? "border-primary bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-primary"
                   : "border-line bg-surface text-ink hover:bg-subtle"
               }`}
             >
-              <WarningCircle weight="fill" className="size-3 text-accent" />
+              <WarningCircle weight="fill" className="size-3 text-primary" />
               <span>Warnings</span>
-              <span className="font-mono text-[11px] text-accent tabular-nums">
+              <span className="font-mono text-[11px] text-primary tabular-nums">
                 {warningCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("SKIPPED")}
+              className={`flex items-center gap-1.5 rounded-[4px] border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                filter === "SKIPPED"
+                  ? "border-line-strong bg-subtle text-ink"
+                  : "border-line bg-surface text-ink hover:bg-subtle"
+              }`}
+            >
+              <span>Skipped</span>
+              <span className="font-mono text-[11px] text-ink-muted tabular-nums">
+                {skippedCount}
               </span>
             </button>
 
@@ -185,7 +210,9 @@ export function ImportPreviewTable({
             leftIcon={<UploadSimple weight="light" className="size-4" />}
             onClick={onCommit}
           >
-            Commit {validCount + warningCount} units
+            {errorCount > 0
+              ? `Import valid + warning rows (${importableCount})`
+              : `Commit ${importableCount} units`}
           </Button>
         </div>
       </div>
@@ -237,7 +264,7 @@ export function ImportPreviewTable({
                       item.status === "ERROR"
                         ? "bg-[color-mix(in_srgb,var(--sold)_3%,transparent)]"
                         : item.status === "WARNING"
-                          ? "bg-[color-mix(in_srgb,var(--accent)_3%,transparent)]"
+                          ? "bg-[color-mix(in_srgb,var(--primary)_3%,transparent)]"
                           : ""
                     }`}
                     style={{
@@ -266,6 +293,11 @@ export function ImportPreviewTable({
                           Error
                         </Badge>
                       )}
+                      {item.status === "SKIPPED" && (
+                        <Badge tone="muted" showDot={false}>
+                          Skipped
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Inline Reasons */}
@@ -279,7 +311,7 @@ export function ImportPreviewTable({
                           {item.errors.length > 1 && ` (+${item.errors.length - 1} more)`}
                         </span>
                       ) : item.warnings.length > 0 ? (
-                        <span className="text-accent" title={item.warnings.join("; ")}>
+                        <span className="text-primary" title={item.warnings.join("; ")}>
                           {item.warnings[0]}
                         </span>
                       ) : (
@@ -346,13 +378,19 @@ export function ImportPreviewTable({
             of <span className="font-mono text-ink tabular-nums">{rows.length}</span> rows
           </div>
           <div>
-            {errorCount > 0 ? (
-              <span className="font-medium text-sold">
-                {errorCount} rows must be corrected before importing.
+            {countsMatch ? (
+              <span
+                className={
+                  errorCount > 0 ? "font-medium text-ink" : "font-medium text-available"
+                }
+              >
+                {validCount} valid + {warningCount} warnings + {errorCount} errors +{" "}
+                {skippedCount} skipped = {rows.length} data rows
+                {errorCount > 0 ? ` · ${importableCount} can still be imported` : ""}
               </span>
             ) : (
-              <span className="font-medium text-available">
-                Ready to import {validCount + warningCount} units into the system.
+              <span className="font-medium text-sold">
+                Counts do not add up to {rows.length} data rows.
               </span>
             )}
           </div>

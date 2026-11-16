@@ -9,7 +9,6 @@ import {
   ArrowUUpLeft,
   CheckCircle,
   CurrencyDollar,
-  FileText,
   Plus,
   Printer,
   Receipt,
@@ -41,6 +40,9 @@ import { toast } from "sonner";
 import type { UserRole, PaymentMethod } from "@/db/schema/enums";
 import { recordPayment, returnBooking } from "../actions";
 import { allocatePayment, calculateRefund } from "../calculator";
+import { DocumentsSection } from "@/features/documents/components/documents-section";
+import { PdfDownloadBar } from "@/features/documents/components/pdf-download-bar";
+import { DownPaymentReceiptButton } from "@/features/documents/components/down-payment-receipt-button";
 import {
   PrintableReceiptDialog,
   PrintableBookingFormDialog,
@@ -49,11 +51,16 @@ import {
 interface BookingDetailScreenProps {
   data: any;
   role: UserRole;
+  signatories?: Array<{ id: string; name: string; designation: string }>;
 }
 
-export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
+export function BookingDetailScreen({
+  data,
+  role,
+  signatories = [],
+}: BookingDetailScreenProps) {
   const router = useRouter();
-  const { booking, nextOfKin, installments, payments, refunds } = data;
+  const { booking, nextOfKin, installments, payments, refunds, documents } = data;
 
   // Dialog states
   const [recordPaymentOpen, setRecordPaymentOpen] = React.useState(false);
@@ -176,7 +183,7 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
           <div>
             <div className="flex items-center gap-2">
               <span className="unit-code font-mono text-[18px] font-bold text-primary">
-                {booking.bookingNo}
+                {booking.applicationFormNo}
               </span>
               {booking.status === "ACTIVE" && (
                 <Badge tone="primary">Active ({booking.paidPercent}%)</Badge>
@@ -188,21 +195,23 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
               {booking.status === "CANCELLED" && <Badge tone="sold">Cancelled</Badge>}
             </div>
             <p className="text-[12px] text-ink-muted">
-              Unit {booking.unitCode} · Registered to {booking.clientName}
+              Serial {booking.serialNo} · {booking.registrationNo} · Unit{" "}
+              {booking.unitCode}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="md"
-            onClick={() => setBookingFormOpen(true)}
-            className="gap-1.5"
-          >
-            <FileText weight="light" className="size-4" />
-            Booking Form
-          </Button>
+          <PdfDownloadBar
+            href={`/api/documents/booking/${booking.id}/pdf`}
+            printLabel="Print"
+            onPrint={() => setBookingFormOpen(true)}
+          />
+          <DownPaymentReceiptButton
+            href={`/api/documents/booking/${booking.id}/receipt.pdf`}
+            signatories={signatories}
+            hasPayments={payments.some((p: { isVoided?: boolean }) => !p.isVoided)}
+          />
 
           {isActive && (
             <Button
@@ -238,7 +247,7 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
             <h4 className="text-[13px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${booking.unitId}`}
-              className="unit-code font-mono text-[13px] font-bold text-primary hover:underline"
+              className="unit-code font-mono text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
               {booking.unitCode}
             </Link>
@@ -283,6 +292,10 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
               <span className="font-medium text-ink">{booking.clientName}</span>
             </div>
             <div className="flex justify-between">
+              <span className="text-ink-muted">{booking.clientRelationPrefix}:</span>
+              <span className="font-medium text-ink">{booking.clientRelationName}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-ink-muted">Phone:</span>
               <span className="font-medium text-ink tabular-nums">
                 {booking.clientPhone}
@@ -292,7 +305,8 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
               <div className="flex justify-between">
                 <span className="text-ink-muted">Nominee:</span>
                 <span className="font-medium text-ink">
-                  {nextOfKin.name} ({nextOfKin.relation})
+                  {nextOfKin.name} {nextOfKin.relationPrefix} {nextOfKin.relationName} (
+                  {nextOfKin.relation})
                 </span>
               </div>
             )}
@@ -344,6 +358,16 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
           </div>
         </div>
       </div>
+
+      <DocumentsSection
+        clientId={booking.clientId}
+        kinId={nextOfKin?.id ?? null}
+        documents={documents ?? []}
+        initialUrls={data.signedUrls}
+        urlKey={booking.id}
+        role={role}
+        replacePermission="bookings.create"
+      />
 
       {/* Installment Schedule Table */}
       <div className="card overflow-hidden">
@@ -583,15 +607,16 @@ export function BookingDetailScreen({ data, role }: BookingDetailScreenProps) {
                   <SelectContent>
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">
-                      Bank Transfer / Pay Order
-                    </SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
+                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {(paymentMethod === "CHEQUE" || paymentMethod === "BANK_TRANSFER") && (
+            {(paymentMethod === "CHEQUE" ||
+              paymentMethod === "BANK_TRANSFER" ||
+              paymentMethod === "PAY_ORDER") && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="chq-no" className="text-[12px]">

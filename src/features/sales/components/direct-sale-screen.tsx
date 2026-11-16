@@ -20,6 +20,17 @@ import { formatPkr } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole, PaymentMethod } from "@/db/schema/enums";
+import {
+  ClientDocumentFields,
+  KinDocumentFields,
+  type DocSlotMap,
+} from "@/features/documents/components/document-fields";
+import type { ExistingDocument } from "@/features/documents/components/document-upload";
+import {
+  collectPending,
+  flushPendingUploads,
+  isDocReady,
+} from "@/features/documents/upload-client";
 import { createDirectSale } from "../actions";
 import { CNIC_REGEX, formatCnic, type ClientInput, type NextOfKinInput } from "../schema";
 import { ClientForm } from "./client-form";
@@ -44,8 +55,13 @@ export function DirectSaleScreen({
 
   const [client, setClient] = React.useState<ClientInput>({
     fullName: "",
+    relationPrefix: "S/O",
+    relationName: "",
     cnic: "",
     phone: "",
+    phoneOffice: "",
+    phoneRes: "",
+    mobile2: "",
     email: "",
     homeAddress: "",
     postalAddress: "",
@@ -53,6 +69,8 @@ export function DirectSaleScreen({
 
   const [nextOfKin, setNextOfKin] = React.useState<NextOfKinInput>({
     name: "",
+    relationPrefix: "S/O",
+    relationName: "",
     relation: "",
     cnic: "",
     phone: "",
@@ -66,6 +84,13 @@ export function DirectSaleScreen({
   const [bank, setBank] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isAdvancing, setIsAdvancing] = React.useState(false);
+  const advancingRef = React.useRef(false);
+  const [clientId, setClientId] = React.useState<string | null>(null);
+  const [kinId, setKinId] = React.useState<string | null>(null);
+  const [clientDocs, setClientDocs] = React.useState<DocSlotMap>({});
+  const [kinDocs, setKinDocs] = React.useState<DocSlotMap>({});
+  const [docErrors, setDocErrors] = React.useState<Partial<Record<string, string>>>({});
 
   React.useEffect(() => {
     if (selectedUnit && !salePrice) {
@@ -87,6 +112,10 @@ export function DirectSaleScreen({
       toast.error("Please enter the client's full name");
       return;
     }
+    if (!client.relationName.trim()) {
+      toast.error("Please enter the client's S/O or W/O name");
+      return;
+    }
     if (!isClientCnicValid) {
       const digits = client.cnic.replace(/\D/g, "").length;
       toast.error(
@@ -102,11 +131,31 @@ export function DirectSaleScreen({
       toast.error("Please fill in client addresses");
       return;
     }
-    if (nextOfKin.cnic?.trim() && !isKinCnicValid) {
-      const digits = nextOfKin.cnic.replace(/\D/g, "").length;
+    if (
+      !nextOfKin.name.trim() ||
+      !nextOfKin.relationName.trim() ||
+      !nextOfKin.relation.trim() ||
+      !nextOfKin.phone.trim()
+    ) {
+      toast.error("Please fill in next of kin name, relation, and phone");
+      return;
+    }
+    if (!nextOfKin.cnic?.trim() || !isKinCnicValid) {
+      const digits = (nextOfKin.cnic || "").replace(/\D/g, "").length;
       toast.error(
         `Nominee CNIC must be 13 digits (format 12345-1234567-1, currently ${digits} digits)`,
       );
+      return;
+    }
+    if (
+      !isDocReady(clientDocs.PHOTO) ||
+      !isDocReady(clientDocs.CNIC_FRONT) ||
+      !isDocReady(clientDocs.CNIC_BACK) ||
+      !isDocReady(kinDocs.KIN_PHOTO) ||
+      !isDocReady(kinDocs.CNIC_FRONT) ||
+      !isDocReady(kinDocs.CNIC_BACK)
+    ) {
+      toast.error("Upload the required client and nominee documents");
       return;
     }
 
@@ -121,10 +170,22 @@ export function DirectSaleScreen({
 
     setIsSubmitting(true);
     try {
+      const pending = collectPending({ client: clientDocs, kin: kinDocs });
+      if (pending.length > 0) {
+        const saved = await flushPendingUploads({
+          pending,
+          client,
+          nextOfKin,
+          clientId,
+          kinId,
+        });
+        setClientId(saved.clientId);
+        if (saved.kinId) setKinId(saved.kinId);
+      }
       const result = await createDirectSale({
         unitId: selectedUnit.id,
         client,
-        nextOfKin: nextOfKin.name ? nextOfKin : undefined,
+        nextOfKin,
         salePricePkr: salePrice,
         priceAdjustmentReason: isCustomPrice ? priceAdjustmentReason : undefined,
         paymentMethod,
@@ -133,7 +194,16 @@ export function DirectSaleScreen({
         notes: notes || undefined,
       });
 
-      toast.success(`Unit ${selectedUnit.unitCode} sold successfully!`);
+      toast.success(`Unit ${selectedUnit.unitCode} sold successfully!`, {
+        action: result?.id
+          ? {
+              label: "Download receipt",
+              onClick: () => {
+                window.location.href = `/api/documents/sale/${result.id}/receipt.pdf`;
+              },
+            }
+          : undefined,
+      });
       if (result?.id) {
         router.push(`/sold/${result.id}` as never);
       }
@@ -143,19 +213,73 @@ export function DirectSaleScreen({
     }
   }
 
-  function handleNextStep() {
-    if (currentStep === 1 && !selectedUnit) {
-      toast.error("Please select a unit to sell");
-      return;
+  async function handleNextStep() {
+    if (advancingRef.current || isSubmitting) return;
+    advancingRef.current = true;
+    const step = currentStep;
+    setIsAdvancing(true);
+    try {
+      if (step === 1 && !selectedUnit) {
+        toast.error("Please select a unit to sell");
+        return;
+      }
+      if (step === 2) {
+        if (
+          !client.fullName.trim() ||
+          !client.relationName.trim() ||
+          !client.cnic.trim() ||
+          !client.phone.trim()
+        ) {
+          toast.error("Please fill in required buyer details");
+          return;
+        }
+        if (
+          !nextOfKin.name.trim() ||
+          !nextOfKin.relationName.trim() ||
+          !nextOfKin.relation.trim() ||
+          !nextOfKin.phone.trim() ||
+          !nextOfKin.cnic?.trim()
+        ) {
+          toast.error("Please fill in required next of kin details");
+          return;
+        }
+        if (
+          !isDocReady(clientDocs.PHOTO) ||
+          !isDocReady(clientDocs.CNIC_FRONT) ||
+          !isDocReady(clientDocs.CNIC_BACK) ||
+          !isDocReady(kinDocs.KIN_PHOTO) ||
+          !isDocReady(kinDocs.CNIC_FRONT) ||
+          !isDocReady(kinDocs.CNIC_BACK)
+        ) {
+          setDocErrors({
+            PHOTO: isDocReady(clientDocs.PHOTO)
+              ? undefined
+              : "Passport photo is required",
+            CNIC_FRONT: isDocReady(clientDocs.CNIC_FRONT)
+              ? undefined
+              : "CNIC front is required",
+            CNIC_BACK: isDocReady(clientDocs.CNIC_BACK)
+              ? undefined
+              : "CNIC back is required",
+            KIN_PHOTO: isDocReady(kinDocs.KIN_PHOTO)
+              ? undefined
+              : "Nominee passport photo is required",
+            KIN_CNIC_FRONT: isDocReady(kinDocs.CNIC_FRONT)
+              ? undefined
+              : "Nominee CNIC front is required",
+            KIN_CNIC_BACK: isDocReady(kinDocs.CNIC_BACK)
+              ? undefined
+              : "Nominee CNIC back is required",
+          });
+          toast.error("Upload the required client and nominee documents");
+          return;
+        }
+      }
+      setCurrentStep(step + 1);
+    } finally {
+      advancingRef.current = false;
+      setIsAdvancing(false);
     }
-    if (
-      currentStep === 2 &&
-      (!client.fullName.trim() || !client.cnic.trim() || !client.phone.trim())
-    ) {
-      toast.error("Please fill in required buyer details");
-      return;
-    }
-    setCurrentStep((prev) => prev + 1);
   }
 
   function renderActionButtons() {
@@ -166,8 +290,21 @@ export function DirectSaleScreen({
             type="button"
             variant="primary"
             size="md"
-            onClick={handleNextStep}
-            disabled={currentStep === 1 && !selectedUnit}
+            onClick={() => void handleNextStep()}
+            loading={isAdvancing}
+            disabled={
+              isAdvancing ||
+              (currentStep === 1 && !selectedUnit) ||
+              (currentStep === 2 &&
+                (!isDocReady(clientDocs.PHOTO) ||
+                  !isDocReady(clientDocs.CNIC_FRONT) ||
+                  !isDocReady(clientDocs.CNIC_BACK) ||
+                  !isDocReady(kinDocs.KIN_PHOTO) ||
+                  !isDocReady(kinDocs.CNIC_FRONT) ||
+                  !isDocReady(kinDocs.CNIC_BACK) ||
+                  !nextOfKin.name.trim() ||
+                  !nextOfKin.cnic?.trim()))
+            }
           >
             Next Step
             <ArrowRight weight="light" className="ml-1.5 size-4" />
@@ -257,14 +394,68 @@ export function DirectSaleScreen({
 
       {/* Step 2: Buyer Form */}
       {currentStep === 2 && (
-        <div className="card p-6">
+        <div className="card space-y-6 p-6">
           <ClientForm
             client={client}
             nextOfKin={nextOfKin}
             onChangeClient={setClient}
             onChangeNextOfKin={setNextOfKin}
             showNextOfKin={true}
+            kinCnicRequired
+            onMatched={(match) => {
+              setClientId(match.clientId);
+              setKinId(match.kinId);
+              const nextClient: DocSlotMap = {};
+              const nextKin: DocSlotMap = {};
+              for (const doc of match.documents) {
+                const slot: ExistingDocument = {
+                  id: doc.id,
+                  mimeType: doc.mimeType,
+                  usedExisting: true,
+                };
+                if (doc.ownerType === "CLIENT") nextClient[doc.docType] = slot;
+                else nextKin[doc.docType] = slot;
+              }
+              setClientDocs(nextClient);
+              setKinDocs(nextKin);
+            }}
           />
+          <div>
+            <h3 className="mb-3 text-[14px] font-semibold text-ink">Client documents</h3>
+            <ClientDocumentFields
+              clientId={clientId}
+              docs={clientDocs}
+              errors={{
+                PHOTO: docErrors.PHOTO,
+                CNIC_FRONT: docErrors.CNIC_FRONT,
+                CNIC_BACK: docErrors.CNIC_BACK,
+              }}
+              onChange={(docType, doc) => {
+                setClientDocs((prev) => ({ ...prev, [docType]: doc }));
+                setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
+              }}
+            />
+          </div>
+          <div>
+            <h3 className="mb-3 text-[14px] font-semibold text-ink">Nominee documents</h3>
+            <KinDocumentFields
+              clientId={clientId}
+              kinId={kinId}
+              docs={kinDocs}
+              errors={{
+                KIN_PHOTO: docErrors.KIN_PHOTO,
+                CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
+                CNIC_BACK: docErrors.KIN_CNIC_BACK,
+              }}
+              onChange={(docType, doc) => {
+                setKinDocs((prev) => ({ ...prev, [docType]: doc }));
+                setDocErrors((prev) => ({
+                  ...prev,
+                  [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]: undefined,
+                }));
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -327,14 +518,15 @@ export function DirectSaleScreen({
                   <SelectContent>
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">
-                      Bank Transfer / Pay Order
-                    </SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
+                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {(paymentMethod === "CHEQUE" || paymentMethod === "BANK_TRANSFER") && (
+              {(paymentMethod === "CHEQUE" ||
+                paymentMethod === "BANK_TRANSFER" ||
+                paymentMethod === "PAY_ORDER") && (
                 <>
                   <div>
                     <Label className="mb-1 block text-[12px]">
@@ -408,7 +600,7 @@ export function DirectSaleScreen({
                   variant="secondary"
                   size="md"
                   onClick={() => setCurrentStep((prev) => prev - 1)}
-                  disabled={isSubmitting}
+                  disabled={isAdvancing || isSubmitting}
                 >
                   <ArrowLeft weight="light" className="mr-1.5 size-4" />
                   Previous

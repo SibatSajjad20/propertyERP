@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import "server-only";
 
+import { cache } from "react";
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
@@ -16,6 +17,7 @@ import {
   reservations,
   sales,
 } from "@/db/schema/sales";
+import { listCurrentDocumentsForClient } from "@/features/documents/queries";
 import { units, unitStatusHistory } from "@/db/schema/units";
 import { computeTotalPrice, formatDecimal, parseDecimal } from "@/lib/money";
 
@@ -23,7 +25,10 @@ export async function getSelectableUnits(params: {
   floorId?: string;
   categoryId?: string;
   clientId?: string;
+  unitId?: string;
+  search?: string;
 }) {
+  const search = params.search?.trim() ?? "";
   const now = new Date();
   const conditions = [isNull(units.archivedAt), eq(units.isSellable, true)];
 
@@ -32,6 +37,13 @@ export async function getSelectableUnits(params: {
   }
   if (params.categoryId) {
     conditions.push(eq(units.categoryId, params.categoryId));
+  }
+  if (params.unitId) {
+    conditions.push(eq(units.id, params.unitId));
+  }
+  if (search.length >= 2) {
+    const term = `%${search}%`;
+    conditions.push(or(ilike(units.unitCode, term), ilike(units.unitNumber, term))!);
   }
 
   // Get active reservations that have not expired
@@ -107,6 +119,9 @@ export async function listBookings(filters?: { status?: string; q?: string }) {
     conditions.push(
       or(
         ilike(bookings.bookingNo, term),
+        ilike(bookings.applicationFormNo, term),
+        ilike(bookings.registrationNo, term),
+        sql`${bookings.serialNo}::text ilike ${term}`,
         ilike(units.unitCode, term),
         ilike(clients.fullName, term),
         ilike(clients.cnic, term),
@@ -115,88 +130,62 @@ export async function listBookings(filters?: { status?: string; q?: string }) {
     );
   }
 
-  const rows = await db
-    .select({
-      id: bookings.id,
-      bookingNo: bookings.bookingNo,
-      status: bookings.status,
-      listPrice: bookings.listPrice,
-      netPrice: bookings.netPrice,
-      downPayment: bookings.downPayment,
-      paidTotal: bookings.paidTotal,
-      plan: bookings.plan,
-      installmentCount: bookings.installmentCount,
-      startDate: bookings.startDate,
-      createdAt: bookings.createdAt,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitVersion: units.version,
-      floorName: floors.name,
-      blockName: blocks.name,
-      clientId: clients.id,
-      clientName: clients.fullName,
-      clientPhone: clients.phone,
-      clientCnic: clients.cnic,
-    })
-    .from(bookings)
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(clients, eq(bookings.clientId, clients.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(bookings.createdAt));
-
-  // Calculate KPIs across all bookings (unfiltered by search for summary cards)
-  const allRows = await db
-    .select({
-      status: bookings.status,
-      netPrice: bookings.netPrice,
-      paidTotal: bookings.paidTotal,
-    })
-    .from(bookings);
-
-  let activeBookings = 0;
-  let collectedPaisa = 0n;
-  let outstandingPaisa = 0n;
-
-  for (const b of allRows) {
-    if (b.status === "ACTIVE") {
-      activeBookings++;
-      const netP = parseDecimal(b.netPrice);
-      const paidP = parseDecimal(b.paidTotal);
-      collectedPaisa += paidP;
-      const rem = netP - paidP;
-      if (rem > 0n) {
-        outstandingPaisa += rem;
-      }
-    } else if (b.status === "COMPLETED") {
-      collectedPaisa += parseDecimal(b.paidTotal);
-    }
-  }
-
-  // Calculate overdue amount across all active installments
   const now = new Date();
-  const overdueRows = await db
-    .select({
-      amount: installments.amount,
-      paidAmount: installments.paidAmount,
-    })
-    .from(installments)
-    .innerJoin(bookings, eq(installments.bookingId, bookings.id))
-    .where(
-      and(
-        eq(bookings.status, "ACTIVE"),
-        lte(installments.dueDate, now),
-        sql`${installments.paidAmount} < ${installments.amount}`,
+  const [rows, [kpiRow], [overdueRow]] = await Promise.all([
+    db
+      .select({
+        id: bookings.id,
+        bookingNo: bookings.bookingNo,
+        serialNo: bookings.serialNo,
+        applicationFormNo: bookings.applicationFormNo,
+        registrationNo: bookings.registrationNo,
+        status: bookings.status,
+        listPrice: bookings.listPrice,
+        netPrice: bookings.netPrice,
+        downPayment: bookings.downPayment,
+        paidTotal: bookings.paidTotal,
+        plan: bookings.plan,
+        installmentCount: bookings.installmentCount,
+        startDate: bookings.startDate,
+        createdAt: bookings.createdAt,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitVersion: units.version,
+        floorName: floors.name,
+        blockName: blocks.name,
+        clientId: clients.id,
+        clientName: clients.fullName,
+        clientPhone: clients.phone,
+        clientCnic: clients.cnic,
+      })
+      .from(bookings)
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(clients, eq(bookings.clientId, clients.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(bookings.createdAt)),
+    db
+      .select({
+        activeBookings: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE')::int`,
+        collectedPkr: sql<string>`coalesce(sum(${bookings.paidTotal}) filter (where ${bookings.status} in ('ACTIVE', 'COMPLETED')), 0)::text`,
+        outstandingPkr: sql<string>`coalesce(sum(greatest(${bookings.netPrice} - ${bookings.paidTotal}, 0)) filter (where ${bookings.status} = 'ACTIVE'), 0)::text`,
+      })
+      .from(bookings),
+    db
+      .select({
+        overduePkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}), 0)::text`,
+      })
+      .from(installments)
+      .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+      .where(
+        and(
+          eq(bookings.status, "ACTIVE"),
+          lte(installments.dueDate, now),
+          sql`${installments.paidAmount} < ${installments.amount}`,
+        ),
       ),
-    );
-
-  let overduePaisa = 0n;
-  for (const row of overdueRows) {
-    const due = parseDecimal(row.amount);
-    const paid = parseDecimal(row.paidAmount);
-    overduePaisa += due - paid;
-  }
+  ]);
 
   return {
     rows: rows.map((r) => {
@@ -210,19 +199,22 @@ export async function listBookings(filters?: { status?: string; q?: string }) {
       };
     }),
     kpi: {
-      activeBookings,
-      collectedPkr: formatDecimal(collectedPaisa),
-      outstandingPkr: formatDecimal(outstandingPaisa),
-      overduePkr: formatDecimal(overduePaisa),
+      activeBookings: Number(kpiRow?.activeBookings ?? 0),
+      collectedPkr: formatDecimal(parseDecimal(kpiRow?.collectedPkr ?? "0")),
+      outstandingPkr: formatDecimal(parseDecimal(kpiRow?.outstandingPkr ?? "0")),
+      overduePkr: formatDecimal(parseDecimal(overdueRow?.overduePkr ?? "0")),
     },
   };
 }
 
-export async function getBookingDetail(id: string) {
+export const getBookingDetail = cache(async function getBookingDetail(id: string) {
   const [booking] = await db
     .select({
       id: bookings.id,
       bookingNo: bookings.bookingNo,
+      serialNo: bookings.serialNo,
+      applicationFormNo: bookings.applicationFormNo,
+      registrationNo: bookings.registrationNo,
       status: bookings.status,
       listPrice: bookings.listPrice,
       discountType: bookings.discountType,
@@ -235,7 +227,10 @@ export async function getBookingDetail(id: string) {
       installmentCount: bookings.installmentCount,
       startDate: bookings.startDate,
       paidTotal: bookings.paidTotal,
+      salesAgent: bookings.salesAgent,
+      bookingOffice: bookings.bookingOffice,
       createdAt: bookings.createdAt,
+      updatedAt: bookings.updatedAt,
       createdByName: user.name,
       unitId: units.id,
       unitCode: units.unitCode,
@@ -252,8 +247,13 @@ export async function getBookingDetail(id: string) {
       categoryName: categories.name,
       clientId: clients.id,
       clientName: clients.fullName,
+      clientRelationPrefix: clients.relationPrefix,
+      clientRelationName: clients.relationName,
       clientCnic: clients.cnic,
       clientPhone: clients.phone,
+      clientPhoneOffice: clients.phoneOffice,
+      clientPhoneRes: clients.phoneRes,
+      clientMobile2: clients.mobile2,
       clientEmail: clients.email,
       homeAddress: clients.homeAddress,
       postalAddress: clients.postalAddress,
@@ -270,54 +270,52 @@ export async function getBookingDetail(id: string) {
 
   if (!booking) return null;
 
-  const [kin] = await db
-    .select()
-    .from(nextOfKin)
-    .where(eq(nextOfKin.clientId, booking.clientId))
-    .limit(1);
-
-  const installmentRows = await db
-    .select()
-    .from(installments)
-    .where(eq(installments.bookingId, booking.id))
-    .orderBy(asc(installments.seq));
-
-  const paymentRows = await db
-    .select({
-      id: payments.id,
-      receiptNo: payments.receiptNo,
-      amount: payments.amount,
-      method: payments.method,
-      chequeNo: payments.chequeNo,
-      bank: payments.bank,
-      paidAt: payments.paidAt,
-      notes: payments.notes,
-      receivedByName: user.name,
-      createdAt: payments.createdAt,
-    })
-    .from(payments)
-    .leftJoin(user, eq(payments.receivedBy, user.id))
-    .where(eq(payments.bookingId, booking.id))
-    .orderBy(desc(payments.paidAt));
-
-  const refundRows = await db
-    .select({
-      id: refunds.id,
-      paidTotal: refunds.paidTotal,
-      deduction: refunds.deduction,
-      refundAmount: refunds.refundAmount,
-      method: refunds.method,
-      chequeNo: refunds.chequeNo,
-      bank: refunds.bank,
-      reason: refunds.reason,
-      paidAt: refunds.paidAt,
-      approvedByName: user.name,
-      createdAt: refunds.createdAt,
-    })
-    .from(refunds)
-    .leftJoin(user, eq(refunds.approvedBy, user.id))
-    .where(eq(refunds.bookingId, booking.id))
-    .orderBy(desc(refunds.createdAt));
+  const [[kin], installmentRows, paymentRows, refundRows, documents] = await Promise.all([
+    db.select().from(nextOfKin).where(eq(nextOfKin.clientId, booking.clientId)).limit(1),
+    db
+      .select()
+      .from(installments)
+      .where(eq(installments.bookingId, booking.id))
+      .orderBy(asc(installments.seq)),
+    db
+      .select({
+        id: payments.id,
+        receiptNo: payments.receiptNo,
+        amount: payments.amount,
+        method: payments.method,
+        chequeNo: payments.chequeNo,
+        bank: payments.bank,
+        reference: payments.reference,
+        paidAt: payments.paidAt,
+        isVoided: payments.isVoided,
+        notes: payments.notes,
+        receivedByName: user.name,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .leftJoin(user, eq(payments.receivedBy, user.id))
+      .where(eq(payments.bookingId, booking.id))
+      .orderBy(desc(payments.paidAt)),
+    db
+      .select({
+        id: refunds.id,
+        paidTotal: refunds.paidTotal,
+        deduction: refunds.deduction,
+        refundAmount: refunds.refundAmount,
+        method: refunds.method,
+        chequeNo: refunds.chequeNo,
+        bank: refunds.bank,
+        reason: refunds.reason,
+        paidAt: refunds.paidAt,
+        approvedByName: user.name,
+        createdAt: refunds.createdAt,
+      })
+      .from(refunds)
+      .leftJoin(user, eq(refunds.approvedBy, user.id))
+      .where(eq(refunds.bookingId, booking.id))
+      .orderBy(desc(refunds.createdAt)),
+    listCurrentDocumentsForClient(booking.clientId),
+  ]);
 
   const now = new Date();
   const schedule = installmentRows.map((inst) => {
@@ -345,11 +343,44 @@ export async function getBookingDetail(id: string) {
       remainingBalancePkr: formatDecimal(remainingPaisa > 0n ? remainingPaisa : 0n),
     },
     nextOfKin: kin ?? null,
+    documents,
+    signedUrls: [] as {
+      id: string;
+      previewUrl: string | null;
+      fullUrl: string | null;
+      mimeType: string;
+    }[],
     installments: schedule,
     payments: paymentRows,
     refunds: refundRows,
   };
-}
+});
+
+export const getBookingTitle = cache(async function getBookingTitle(id: string) {
+  const [row] = await db
+    .select({ bookingNo: bookings.bookingNo })
+    .from(bookings)
+    .where(eq(bookings.id, id))
+    .limit(1);
+  return row?.bookingNo ?? null;
+});
+
+export const getSoldTitle = cache(async function getSoldTitle(id: string) {
+  const [sale] = await db
+    .select({ unitCode: units.unitCode })
+    .from(sales)
+    .innerJoin(units, eq(sales.unitId, units.id))
+    .where(eq(sales.id, id))
+    .limit(1);
+  if (sale) return sale.unitCode;
+  const [booking] = await db
+    .select({ unitCode: units.unitCode })
+    .from(bookings)
+    .innerJoin(units, eq(bookings.unitId, units.id))
+    .where(eq(bookings.id, id))
+    .limit(1);
+  return booking?.unitCode ?? null;
+});
 
 export async function listReservations(filters?: { status?: string; q?: string }) {
   const conditions = [];
@@ -370,68 +401,63 @@ export async function listReservations(filters?: { status?: string; q?: string }
     );
   }
 
-  const rows = await db
-    .select({
-      id: reservations.id,
-      status: reservations.status,
-      startAt: reservations.startAt,
-      expiresAt: reservations.expiresAt,
-      durationDays: reservations.durationDays,
-      notes: reservations.notes,
-      createdAt: reservations.createdAt,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitVersion: units.version,
-      floorName: floors.name,
-      blockName: blocks.name,
-      clientId: clients.id,
-      clientName: clients.fullName,
-      clientPhone: clients.phone,
-      clientCnic: clients.cnic,
-      createdByName: user.name,
-    })
-    .from(reservations)
-    .innerJoin(units, eq(reservations.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(clients, eq(reservations.clientId, clients.id))
-    .leftJoin(user, eq(reservations.createdBy, user.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(reservations.createdAt));
-
-  const allReservations = await db.select().from(reservations);
   const now = new Date();
-  let activeCount = 0;
-  let expiringSoonCount = 0;
-  let convertedCount = 0;
-  let cancelledCount = 0;
+  const nowIso = now.toISOString();
+  const in24hIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-  for (const r of allReservations) {
-    if (r.status === "ACTIVE") {
-      activeCount++;
-      const msLeft = r.expiresAt.getTime() - now.getTime();
-      if (msLeft > 0 && msLeft < 24 * 60 * 60 * 1000) {
-        expiringSoonCount++;
-      }
-    } else if (r.status === "CONVERTED") {
-      convertedCount++;
-    } else if (r.status === "CANCELLED") {
-      cancelledCount++;
-    }
-  }
+  const [rows, [kpiRow]] = await Promise.all([
+    db
+      .select({
+        id: reservations.id,
+        status: reservations.status,
+        startAt: reservations.startAt,
+        expiresAt: reservations.expiresAt,
+        durationDays: reservations.durationDays,
+        notes: reservations.notes,
+        createdAt: reservations.createdAt,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitVersion: units.version,
+        floorName: floors.name,
+        blockName: blocks.name,
+        clientId: clients.id,
+        clientName: clients.fullName,
+        clientPhone: clients.phone,
+        clientCnic: clients.cnic,
+        createdByName: user.name,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(reservations.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(clients, eq(reservations.clientId, clients.id))
+      .leftJoin(user, eq(reservations.createdBy, user.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(reservations.createdAt)),
+    db
+      .select({
+        activeCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE')::int`,
+        expiringSoonCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > ${nowIso}::timestamptz and ${reservations.expiresAt} < ${in24hIso}::timestamptz)::int`,
+        convertedCount: sql<number>`count(*) filter (where ${reservations.status} = 'CONVERTED')::int`,
+        cancelledCount: sql<number>`count(*) filter (where ${reservations.status} = 'CANCELLED')::int`,
+      })
+      .from(reservations),
+  ]);
 
   return {
     rows,
     kpi: {
-      activeCount,
-      expiringSoonCount,
-      convertedCount,
-      cancelledCount,
+      activeCount: Number(kpiRow?.activeCount ?? 0),
+      expiringSoonCount: Number(kpiRow?.expiringSoonCount ?? 0),
+      convertedCount: Number(kpiRow?.convertedCount ?? 0),
+      cancelledCount: Number(kpiRow?.cancelledCount ?? 0),
     },
   };
 }
 
-export async function getReservationDetail(id: string) {
+export const getReservationDetail = cache(async function getReservationDetail(
+  id: string,
+) {
   const [res] = await db
     .select({
       id: reservations.id,
@@ -458,8 +484,13 @@ export async function getReservationDetail(id: string) {
       categoryName: categories.name,
       clientId: clients.id,
       clientName: clients.fullName,
+      clientRelationPrefix: clients.relationPrefix,
+      clientRelationName: clients.relationName,
       clientCnic: clients.cnic,
       clientPhone: clients.phone,
+      clientPhoneOffice: clients.phoneOffice,
+      clientPhoneRes: clients.phoneRes,
+      clientMobile2: clients.mobile2,
       clientEmail: clients.email,
       homeAddress: clients.homeAddress,
       postalAddress: clients.postalAddress,
@@ -486,7 +517,7 @@ export async function getReservationDetail(id: string) {
     reservation: res,
     nextOfKin: kin ?? null,
   };
-}
+});
 
 export async function listSoldUnits(filters?: { q?: string }) {
   // Query sales records (both direct sales and completed bookings with sales records)
@@ -512,6 +543,9 @@ export async function listSoldUnits(filters?: { q?: string }) {
       status: sales.status,
       bookingNo: bookings.bookingNo,
       bookingId: sales.bookingId,
+      serialNo: sales.serialNo,
+      applicationFormNo: sales.applicationFormNo,
+      registrationNo: sales.registrationNo,
     })
     .from(sales)
     .innerJoin(units, eq(sales.unitId, units.id))
@@ -541,6 +575,9 @@ export async function listSoldUnits(filters?: { q?: string }) {
       status: sql<string>`'ACTIVE'`.as("status"),
       bookingNo: bookings.bookingNo,
       bookingId: bookings.id,
+      serialNo: bookings.serialNo,
+      applicationFormNo: bookings.applicationFormNo,
+      registrationNo: bookings.registrationNo,
     })
     .from(bookings)
     .innerJoin(units, eq(bookings.unitId, units.id))
@@ -572,7 +609,10 @@ export async function listSoldUnits(filters?: { q?: string }) {
         r.clientName.toLowerCase().includes(term) ||
         r.clientCnic.toLowerCase().includes(term) ||
         r.clientPhone.toLowerCase().includes(term) ||
-        (r.bookingNo && r.bookingNo.toLowerCase().includes(term)),
+        (r.bookingNo && r.bookingNo.toLowerCase().includes(term)) ||
+        String(r.serialNo).includes(term) ||
+        r.applicationFormNo.toLowerCase().includes(term) ||
+        r.registrationNo.toLowerCase().includes(term),
     );
   }
 
@@ -600,7 +640,7 @@ export async function listSoldUnits(filters?: { q?: string }) {
   };
 }
 
-export async function getSoldDetail(id: string) {
+export const getSoldDetail = cache(async function getSoldDetail(id: string) {
   // Check if direct sale first
   const [sale] = await db
     .select({
@@ -608,9 +648,18 @@ export async function getSoldDetail(id: string) {
       unitId: sales.unitId,
       clientId: sales.clientId,
       bookingId: sales.bookingId,
+      serialNo: sales.serialNo,
+      applicationFormNo: sales.applicationFormNo,
+      registrationNo: sales.registrationNo,
       salePrice: sales.salePrice,
       soldAt: sales.soldAt,
       notes: sales.notes,
+      paymentMethod: sales.paymentMethod,
+      chequeNo: sales.chequeNo,
+      bank: sales.bank,
+      reference: sales.reference,
+      salesAgent: sales.salesAgent,
+      bookingOffice: sales.bookingOffice,
       status: sales.status,
       createdByName: user.name,
       createdAt: sales.createdAt,
@@ -626,8 +675,13 @@ export async function getSoldDetail(id: string) {
       blockName: blocks.name,
       categoryName: categories.name,
       clientName: clients.fullName,
+      clientRelationPrefix: clients.relationPrefix,
+      clientRelationName: clients.relationName,
       clientCnic: clients.cnic,
       clientPhone: clients.phone,
+      clientPhoneOffice: clients.phoneOffice,
+      clientPhoneRes: clients.phoneRes,
+      clientMobile2: clients.mobile2,
       clientEmail: clients.email,
       homeAddress: clients.homeAddress,
       postalAddress: clients.postalAddress,
@@ -643,27 +697,41 @@ export async function getSoldDetail(id: string) {
     .limit(1);
 
   if (sale) {
-    const [buyback] = await db
-      .select({
-        id: buybacks.id,
-        buybackAmount: buybacks.buybackAmount,
-        originalPrice: buybacks.originalPrice,
-        method: buybacks.method,
-        chequeNo: buybacks.chequeNo,
-        bank: buybacks.bank,
-        reason: buybacks.reason,
-        paidAt: buybacks.paidAt,
-        approvedByName: user.name,
-        createdAt: buybacks.createdAt,
-      })
-      .from(buybacks)
-      .leftJoin(user, eq(buybacks.approvedBy, user.id))
-      .where(eq(buybacks.saleId, sale.id))
-      .limit(1);
+    const [[buyback], [kin], documents] = await Promise.all([
+      db
+        .select({
+          id: buybacks.id,
+          buybackAmount: buybacks.buybackAmount,
+          originalPrice: buybacks.originalPrice,
+          method: buybacks.method,
+          chequeNo: buybacks.chequeNo,
+          bank: buybacks.bank,
+          reason: buybacks.reason,
+          paidAt: buybacks.paidAt,
+          approvedByName: user.name,
+          createdAt: buybacks.createdAt,
+        })
+        .from(buybacks)
+        .leftJoin(user, eq(buybacks.approvedBy, user.id))
+        .where(eq(buybacks.saleId, sale.id))
+        .limit(1),
+      db.select().from(nextOfKin).where(eq(nextOfKin.clientId, sale.clientId)).limit(1),
+      listCurrentDocumentsForClient(sale.clientId),
+    ]);
 
     return {
       type: "DIRECT_SALE" as const,
-      data: sale,
+      data: {
+        ...sale,
+        nextOfKin: kin ?? null,
+        documents,
+        signedUrls: [] as {
+          id: string;
+          previewUrl: string | null;
+          fullUrl: string | null;
+          mimeType: string;
+        }[],
+      },
       buyback: buyback ?? null,
     };
   }
@@ -697,7 +765,7 @@ export async function getSoldDetail(id: string) {
   }
 
   return null;
-}
+});
 
 export interface UnitTimelineEvent {
   id: string;
@@ -798,6 +866,71 @@ export async function getUnitOwnershipTimeline(
     });
   }
 
+  const bookingIds = bRows.map((b) => b.id);
+  const emptyPay: Array<{
+    id: string;
+    bookingId: string;
+    receiptNo: string;
+    amount: string;
+    method: string;
+    paidAt: Date;
+    actorName: string | null;
+  }> = [];
+  const emptyRef: Array<{
+    id: string;
+    bookingId: string;
+    refundAmount: string;
+    deduction: string;
+    reason: string;
+    paidAt: Date;
+    actorName: string | null;
+  }> = [];
+
+  const [pRowsAll, refRowsAll] =
+    bookingIds.length === 0
+      ? [emptyPay, emptyRef]
+      : await Promise.all([
+          db
+            .select({
+              id: payments.id,
+              bookingId: payments.bookingId,
+              receiptNo: payments.receiptNo,
+              amount: payments.amount,
+              method: payments.method,
+              paidAt: payments.paidAt,
+              actorName: user.name,
+            })
+            .from(payments)
+            .leftJoin(user, eq(payments.receivedBy, user.id))
+            .where(inArray(payments.bookingId, bookingIds)),
+          db
+            .select({
+              id: refunds.id,
+              bookingId: refunds.bookingId,
+              refundAmount: refunds.refundAmount,
+              deduction: refunds.deduction,
+              reason: refunds.reason,
+              paidAt: refunds.paidAt,
+              actorName: user.name,
+            })
+            .from(refunds)
+            .leftJoin(user, eq(refunds.approvedBy, user.id))
+            .where(inArray(refunds.bookingId, bookingIds)),
+        ]);
+
+  const paymentsByBooking = new Map<string, typeof pRowsAll>();
+  for (const p of pRowsAll) {
+    const list = paymentsByBooking.get(p.bookingId) ?? [];
+    list.push(p);
+    paymentsByBooking.set(p.bookingId, list);
+  }
+  const refundsByBooking = new Map<string, typeof refRowsAll>();
+  for (const ref of refRowsAll) {
+    const list = refundsByBooking.get(ref.bookingId) ?? [];
+    list.push(ref);
+    refundsByBooking.set(ref.bookingId, list);
+  }
+
   for (const b of bRows) {
     events.push({
       id: `bk-${b.id}`,
@@ -810,21 +943,7 @@ export async function getUnitOwnershipTimeline(
       details: { bookingNo: b.bookingNo, status: b.status },
     });
 
-    // Payments for this booking
-    const pRows = await db
-      .select({
-        id: payments.id,
-        receiptNo: payments.receiptNo,
-        amount: payments.amount,
-        method: payments.method,
-        paidAt: payments.paidAt,
-        actorName: user.name,
-      })
-      .from(payments)
-      .leftJoin(user, eq(payments.receivedBy, user.id))
-      .where(eq(payments.bookingId, b.id));
-
-    for (const p of pRows) {
+    for (const p of paymentsByBooking.get(b.id) ?? []) {
       events.push({
         id: `pay-${p.id}`,
         type: "PAYMENT",
@@ -836,21 +955,7 @@ export async function getUnitOwnershipTimeline(
       });
     }
 
-    // Refunds for this booking
-    const refRows = await db
-      .select({
-        id: refunds.id,
-        refundAmount: refunds.refundAmount,
-        deduction: refunds.deduction,
-        reason: refunds.reason,
-        paidAt: refunds.paidAt,
-        actorName: user.name,
-      })
-      .from(refunds)
-      .leftJoin(user, eq(refunds.approvedBy, user.id))
-      .where(eq(refunds.bookingId, b.id));
-
-    for (const ref of refRows) {
+    for (const ref of refundsByBooking.get(b.id) ?? []) {
       events.push({
         id: `ref-${ref.id}`,
         type: "REFUND",

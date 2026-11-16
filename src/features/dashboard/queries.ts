@@ -1,11 +1,20 @@
 import "server-only";
 
+import { cacheLife, cacheTag } from "next/cache";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { db, sql as rawSql } from "@/db";
+import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
-import { buybacks, payments, refunds, sales } from "@/db/schema/sales";
+import {
+  bookings,
+  buybacks,
+  installments,
+  payments,
+  refunds,
+  reservations,
+  sales,
+} from "@/db/schema/sales";
 import { units, unitStatusHistory } from "@/db/schema/units";
 import { getMonthlyRefundsAndBuybacks } from "@/features/sales/queries";
 import { logger } from "@/lib/logger";
@@ -425,6 +434,10 @@ export async function getDashboardBundle(filter?: {
   propertyId?: string;
   blockId?: string;
 }): Promise<DashboardBundle> {
+  "use cache";
+  cacheTag("dashboard");
+  cacheLife("minutes");
+
   const t0 = performance.now();
 
   const now = new Date();
@@ -432,38 +445,69 @@ export async function getDashboardBundle(filter?: {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).toISOString();
 
-  const [floorsData, salesOverTime, [sums]] = await Promise.all([
+  const [
+    floorsData,
+    salesOverTime,
+    [paymentRow],
+    [saleRow],
+    [refundRow],
+    [buybackRow],
+    [installmentRow],
+    [reservationRow],
+  ] = await Promise.all([
     getFloorsLedger(filter),
     getSalesOverTime(filter),
-    rawSql<
-      {
-        payments_total: string;
-        sales_total: string;
-        refunds_total: string;
-        buybacks_total: string;
-        refunds_month: string;
-        buybacks_month: string;
-        overdue_count: number;
-        overdue_pkr: string;
-        due_this_week_count: number;
-        due_this_week_pkr: string;
-        expiring_reservations_count: number;
-      }[]
-    >`
-      SELECT 
-        (SELECT coalesce(sum(amount), 0)::text FROM payments) as payments_total,
-        (SELECT coalesce(sum(sale_price), 0)::text FROM sales) as sales_total,
-        (SELECT coalesce(sum(refund_amount), 0)::text FROM refunds) as refunds_total,
-        (SELECT coalesce(sum(buyback_amount), 0)::text FROM buybacks) as buybacks_total,
-        (SELECT coalesce(sum(refund_amount), 0)::text FROM refunds WHERE paid_at >= ${startOfMonth}) as refunds_month,
-        (SELECT coalesce(sum(buyback_amount), 0)::text FROM buybacks WHERE paid_at >= ${startOfMonth}) as buybacks_month,
-        (SELECT count(*)::int FROM installments i JOIN bookings b ON i.booking_id = b.id WHERE b.status = 'ACTIVE' AND i.paid_amount < i.amount AND i.due_date < now()) as overdue_count,
-        (SELECT coalesce(sum(i.amount - i.paid_amount), 0)::text FROM installments i JOIN bookings b ON i.booking_id = b.id WHERE b.status = 'ACTIVE' AND i.paid_amount < i.amount AND i.due_date < now()) as overdue_pkr,
-        (SELECT count(*)::int FROM installments i JOIN bookings b ON i.booking_id = b.id WHERE b.status = 'ACTIVE' AND i.paid_amount < i.amount AND i.due_date >= now() AND i.due_date <= now() + interval '7 days') as due_this_week_count,
-        (SELECT coalesce(sum(i.amount - i.paid_amount), 0)::text FROM installments i JOIN bookings b ON i.booking_id = b.id WHERE b.status = 'ACTIVE' AND i.paid_amount < i.amount AND i.due_date >= now() AND i.due_date <= now() + interval '7 days') as due_this_week_pkr,
-        (SELECT count(*)::int FROM reservations r WHERE r.status = 'ACTIVE' AND r.expires_at > now() AND r.expires_at <= now() + interval '48 hours') as expiring_reservations_count
-    `,
+    db
+      .select({
+        payments_total: sql<string>`coalesce(sum(${payments.amount}), 0)::text`,
+      })
+      .from(payments),
+    db
+      .select({
+        sales_total: sql<string>`coalesce(sum(${sales.salePrice}), 0)::text`,
+      })
+      .from(sales),
+    db
+      .select({
+        refunds_total: sql<string>`coalesce(sum(${refunds.refundAmount}), 0)::text`,
+        refunds_month: sql<string>`coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text`,
+      })
+      .from(refunds),
+    db
+      .select({
+        buybacks_total: sql<string>`coalesce(sum(${buybacks.buybackAmount}), 0)::text`,
+        buybacks_month: sql<string>`coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text`,
+      })
+      .from(buybacks),
+    db
+      .select({
+        overdue_count: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int`,
+        overdue_pkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text`,
+        due_this_week_count: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int`,
+        due_this_week_pkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text`,
+      })
+      .from(installments)
+      .innerJoin(bookings, eq(installments.bookingId, bookings.id)),
+    db
+      .select({
+        expiring_reservations_count: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int`,
+      })
+      .from(reservations),
   ]);
+
+  const sums = {
+    payments_total: paymentRow?.payments_total ?? "0",
+    sales_total: saleRow?.sales_total ?? "0",
+    refunds_total: refundRow?.refunds_total ?? "0",
+    buybacks_total: buybackRow?.buybacks_total ?? "0",
+    refunds_month: refundRow?.refunds_month ?? "0",
+    buybacks_month: buybackRow?.buybacks_month ?? "0",
+    overdue_count: installmentRow?.overdue_count ?? 0,
+    overdue_pkr: installmentRow?.overdue_pkr ?? "0",
+    due_this_week_count: installmentRow?.due_this_week_count ?? 0,
+    due_this_week_pkr: installmentRow?.due_this_week_pkr ?? "0",
+    expiring_reservations_count: reservationRow?.expiring_reservations_count ?? 0,
+  };
 
   let totalUnits = 0;
   let availableUnits = 0;
@@ -723,6 +767,9 @@ export async function getRecentActivity(limit = 10): Promise<RecentActivityItem[
 }
 
 export async function getDashboardFilterOptions(): Promise<DashboardFilterOptions> {
+  "use cache";
+  cacheTag("dashboard");
+
   const [props, blks] = await Promise.all([
     db
       .select({ id: properties.id, name: properties.name })

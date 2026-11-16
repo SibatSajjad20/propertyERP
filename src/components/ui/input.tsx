@@ -16,7 +16,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       return (
         <div
           className={cn(
-            "flex w-full items-center rounded-[8px] border border-line bg-surface transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus-ring)]",
+            "flex w-full items-center rounded-[8px] border border-line bg-surface transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus-ring)]",
             sizeVariant === "sm" ? "h-8 text-[13px]" : "h-9 text-[13px]",
             className,
           )}
@@ -46,7 +46,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         className={cn(
-          "w-full rounded-[8px] border border-line bg-surface text-ink transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-ink-faint hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+          "w-full rounded-[8px] border border-line bg-surface text-ink transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-ink-faint hover:border-line-strong focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
           sizeVariant === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-3 text-[13px]",
           className,
         )}

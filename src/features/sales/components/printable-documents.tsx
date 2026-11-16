@@ -75,19 +75,23 @@ export function PrintableReceiptDialog({
         <div className="space-y-6 p-8 text-[12px] print:p-4">
           {/* Header */}
           <div className="flex items-start justify-between border-b-2 border-primary pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="size-2.5 rounded-[2px] bg-accent" />
-                <h1 className="font-serif text-[20px] font-bold tracking-tight text-ink">
+            <div className="flex items-center gap-3.5">
+              <img
+                src="/images/logo.png"
+                alt="Sardar's Mall"
+                className="h-14 w-auto object-contain"
+              />
+              <div>
+                <h1 className="text-[20px] font-bold tracking-tight text-ink">
                   Sardar&apos;s Mall
                 </h1>
+                <p className="text-[11px] text-ink-muted">
+                  Commercial Enterprise & Property Management
+                </p>
+                <p className="text-[11px] text-ink-muted">
+                  Main Commercial Boulevard, Islamabad
+                </p>
               </div>
-              <p className="text-[11px] text-ink-muted">
-                Commercial Enterprise & Property Management
-              </p>
-              <p className="text-[11px] text-ink-muted">
-                Main Commercial Boulevard, Islamabad
-              </p>
             </div>
             <div className="text-right">
               <span className="inline-block rounded border border-line bg-subtle px-2 py-0.5 font-mono text-[13px] font-bold text-primary">
@@ -212,13 +216,20 @@ export function PrintableBookingFormDialog({
         <div className="max-h-[85vh] space-y-6 overflow-y-auto p-8 text-[12px] print:max-h-none print:overflow-visible print:p-4">
           {/* Header */}
           <div className="flex items-start justify-between border-b-2 border-primary pb-4">
-            <div>
-              <h1 className="font-serif text-[22px] font-bold text-ink">
-                Sardar&apos;s Mall
-              </h1>
-              <p className="text-[11px] text-ink-muted">
-                Commercial Space Booking Agreement
-              </p>
+            <div className="flex items-center gap-3.5">
+              <img
+                src="/images/logo.png"
+                alt="Sardar's Mall"
+                className="h-14 w-auto object-contain"
+              />
+              <div>
+                <h1 className="text-[20px] font-bold tracking-tight text-ink">
+                  Sardar&apos;s Mall
+                </h1>
+                <p className="text-[11px] text-ink-muted">
+                  Commercial Space Booking Agreement
+                </p>
+              </div>
             </div>
             <div className="text-right">
               <span className="font-mono text-[14px] font-bold text-primary">

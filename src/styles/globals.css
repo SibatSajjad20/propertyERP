@@ -1,18 +1,57 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Brand tokens — single source of truth */
+:root {
+  --primary: #0b558b;
+  --primary-hover: #084572;
+  --primary-active: #063a61;
+  --primary-foreground: #ffffff;
+  --primary-soft: #e8f0f7;
+  --primary-muted: #a3bed2;
+  --accent-bright: #0274be;
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --border: #e3e7ec;
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --muted: #64748b;
+  --subtle: #94a3b8;
+  --ring: #0b558b;
+  --wash: #e9eef2;
+  --line: #dde3e8;
+  --line-strong: #c8d0d8;
+  --ink: var(--text);
+  --ink-muted: var(--muted);
+  --ink-faint: var(--subtle);
+  --available: #1f7a4d;
+  --reserved: #b7791f;
+  --booked: #64748b;
+  --sold: #9b2c2c;
+  --focus-ring: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-subtle: var(--subtle);
+  --color-subtle: var(--wash);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-faint: var(--ink-faint);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--muted);
+  --color-ink-faint: var(--subtle);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-muted: var(--muted);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
-  --color-accent: var(--accent);
+  --color-primary-active: var(--primary-active);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-muted: var(--primary-muted);
+  --color-accent-bright: var(--accent-bright);
+  --color-ring: var(--ring);
+  --color-border: var(--border);
   --color-available: var(--available);
   --color-reserved: var(--reserved);
   --color-booked: var(--booked);
@@ -110,15 +149,16 @@ td,
   font-family: var(--font-sans);
 }
 
-/* Focus ring: 2px brass at 40% opacity, offset 2px */
+/* Focus ring: 2px primary at 30% + primary border */
 :focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+  border-color: var(--primary);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 24%, white);
-  color: var(--ink);
+  background: color-mix(in srgb, var(--primary) 24%, white);
+  color: var(--text);
 }
 
 /* Floating shadow class for popovers, dialogs, dropdowns, toasts */

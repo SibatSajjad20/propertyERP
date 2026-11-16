@@ -39,10 +39,10 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
       <Group top={margin.top} left={margin.left}>
         <AxisLeft
           scale={y}
-          stroke="var(--line)"
-          tickStroke="var(--line)"
+          stroke="#EEF1F4"
+          tickStroke="#EEF1F4"
           tickLabelProps={{
-            fill: "var(--ink-muted)",
+            fill: "#94A3B8",
             fontSize: 11,
             textAnchor: "end",
             dx: -4,
@@ -51,10 +51,10 @@ export function OccupancyChart({ data }: OccupancyChartProps) {
         <AxisBottom
           scale={x}
           top={innerHeight}
-          stroke="var(--line)"
-          tickStroke="var(--line)"
+          stroke="#EEF1F4"
+          tickStroke="#EEF1F4"
           tickLabelProps={{
-            fill: "var(--ink-muted)",
+            fill: "#94A3B8",
             fontSize: 11,
             textAnchor: "middle",
           }}

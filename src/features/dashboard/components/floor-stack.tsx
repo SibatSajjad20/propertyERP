@@ -81,7 +81,7 @@ export function FloorStack({ floors }: FloorStackProps) {
             <Link
               key={floor.floorId}
               href={`/inventory?floorId=${floor.floorId}`}
-              className="group relative flex items-center gap-3 rounded-[6px] border border-transparent p-1.5 transition-colors hover:border-line hover:bg-subtle/50"
+              className="group relative flex items-center gap-3 rounded-[6px] border border-transparent p-1.5 transition-colors hover:bg-primary-soft"
               title={tooltip}
             >
               {/* Floor Label (no L-number) */}
@@ -100,7 +100,7 @@ export function FloorStack({ floors }: FloorStackProps) {
               </div>
 
               {/* 8px rounded segmented bar: Available at 18% opacity, others solid */}
-              <div className="relative flex h-5 flex-1 overflow-hidden rounded-[8px] bg-line/40">
+              <div className="relative flex h-5 flex-1 overflow-hidden rounded-[8px] bg-[#F1F3F5]">
                 {floor.total > 0 ? (
                   <>
                     {/* Available Segment: #1F7A4D at 18% opacity */}
@@ -131,11 +131,11 @@ export function FloorStack({ floors }: FloorStackProps) {
                         }}
                       />
                     )}
-                    {/* Booked Segment: Solid #0B558B */}
+                    {/* Booked Segment: Solid slate */}
                     {bkPct > 0 && (
                       <motion.div
                         className="h-full transition-opacity group-hover:opacity-90"
-                        style={{ backgroundColor: "#0B558B" }}
+                        style={{ backgroundColor: "var(--booked)" }}
                         initial={{ width: 0 }}
                         animate={{ width: `${bkPct}%` }}
                         transition={{
@@ -213,7 +213,7 @@ export function FloorStack({ floors }: FloorStackProps) {
           <div className="flex items-center gap-1.5">
             <span
               className="size-2 rounded-full"
-              style={{ backgroundColor: "#0B558B" }}
+              style={{ backgroundColor: "var(--booked)" }}
               aria-hidden="true"
             />
             <span>Booked</span>

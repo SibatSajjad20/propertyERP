@@ -3,7 +3,7 @@
 import { and, eq, isNull, ne } from "drizzle-orm";
 import type { UserRole } from "@/db/schema/enums";
 import type { ChangeUnitStatusInput } from "./schema";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { blocks, categories, floors } from "@/db/schema/property";
@@ -49,6 +49,8 @@ function staleUnit(): never {
 }
 
 function revalidateUnits(unitId?: string) {
+  revalidateTag("dashboard", "max");
+  revalidateTag("report-summary", "max");
   revalidatePath("/inventory");
   revalidatePath("/dashboard");
   if (unitId) {

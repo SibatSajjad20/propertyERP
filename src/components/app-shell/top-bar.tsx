@@ -6,6 +6,7 @@ import { List, MagnifyingGlass, SignOut, UserCircle } from "@phosphor-icons/reac
 import type { UserRole } from "@/db/schema/enums";
 import { CommandMenu } from "./command-menu";
 import { useBreadcrumbOverride } from "./breadcrumb-context";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import {
   DropdownMenu,
@@ -20,6 +21,7 @@ interface TopBarProps {
   title?: string;
   userName?: string;
   role: UserRole;
+  navLocked?: boolean;
   onOpenNav?: () => void;
 }
 
@@ -100,10 +102,7 @@ function getBreadcrumbName(pathname: string): { parent?: string; current: string
   if (pathname.startsWith("/sold/")) {
     return { parent: "Sales", current: "Sold Unit Detail" };
   }
-  if (pathname === "/reports") {
-    return { current: "Reports" };
-  }
-  if (pathname === "/reports/summary") {
+  if (pathname === "/reports" || pathname === "/reports/summary") {
     return { parent: "Reports", current: "Summary" };
   }
   if (pathname === "/reports/sold") {
@@ -136,7 +135,12 @@ function getBreadcrumbName(pathname: string): { parent?: string; current: string
   return { current: "Dashboard" };
 }
 
-export function TopBar({ userName = "Staff", role, onOpenNav }: TopBarProps) {
+export function TopBar({
+  userName = "Staff",
+  role,
+  navLocked = false,
+  onOpenNav,
+}: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -159,7 +163,7 @@ export function TopBar({ userName = "Staff", role, onOpenNav }: TopBarProps) {
   const initials = getInitials(userName);
 
   return (
-    <header className="sticky top-0 z-30 flex h-[52px] items-center justify-between gap-3 border-b border-line bg-[color-mix(in_srgb,var(--bg)_80%,transparent)] px-4 backdrop-blur-md select-none lg:px-6">
+    <header className="sticky top-0 z-30 flex h-[52px] items-center justify-between gap-3 border-b border-[#E3E7EC] bg-surface px-4 select-none lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {onOpenNav ? (
           <button
@@ -190,7 +194,13 @@ export function TopBar({ userName = "Staff", role, onOpenNav }: TopBarProps) {
       <div className="flex items-center gap-2.5">
         <button
           type="button"
-          onClick={() => setCommandOpen(true)}
+          onClick={() => {
+            if (navLocked) {
+              toast.error("Set a new password before using the ledger.");
+              return;
+            }
+            setCommandOpen(true);
+          }}
           className="flex h-9 w-10 cursor-pointer items-center justify-center rounded-[8px] border border-line bg-surface px-2.5 text-[13px] text-ink-muted transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] hover:border-line-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] sm:w-52 sm:justify-between lg:w-64"
           aria-label="Search or jump to page"
         >
@@ -241,7 +251,12 @@ export function TopBar({ userName = "Staff", role, onOpenNav }: TopBarProps) {
         </DropdownMenu>
       </div>
 
-      <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} role={role} />
+      <CommandMenu
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        role={role}
+        navLocked={navLocked}
+      />
     </header>
   );
 }

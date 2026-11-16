@@ -17,10 +17,8 @@ const badgeVariants = cva(
           "border-[color-mix(in_srgb,var(--booked)_25%,transparent)] bg-[color-mix(in_srgb,var(--booked)_6%,transparent)] text-booked",
         sold: "border-[color-mix(in_srgb,var(--sold)_25%,transparent)] bg-[color-mix(in_srgb,var(--sold)_6%,transparent)] text-sold",
         muted: "border-line bg-subtle text-ink-muted",
-        accent:
-          "border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-accent",
-        primary:
-          "border-[color-mix(in_srgb,var(--primary)_25%,transparent)] bg-[color-mix(in_srgb,var(--primary)_6%,transparent)] text-primary",
+        accent: "border-transparent bg-primary-soft text-primary",
+        primary: "border-transparent bg-primary-soft text-primary",
       },
     },
     defaultVariants: {
@@ -35,7 +33,7 @@ const dotColors: Record<string, string> = {
   booked: "bg-booked",
   sold: "bg-sold",
   muted: "bg-ink-muted",
-  accent: "bg-accent",
+  accent: "bg-primary",
   primary: "bg-primary",
 };
 

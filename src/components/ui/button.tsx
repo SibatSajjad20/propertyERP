@@ -12,11 +12,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-primary hover:bg-primary-hover text-surface border border-transparent shadow-xs",
+          "bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground border border-transparent shadow-xs",
         secondary:
-          "bg-surface hover:bg-subtle text-ink border border-line-strong shadow-xs",
-        outline: "bg-surface hover:bg-subtle text-ink border border-line-strong",
-        ghost: "bg-transparent hover:bg-subtle text-ink border border-transparent",
+          "bg-surface hover:bg-bg hover:border-primary/40 text-ink border border-border shadow-xs",
+        outline:
+          "bg-surface hover:bg-bg hover:border-primary/40 text-ink border border-border",
+        ghost: "bg-transparent hover:bg-primary-soft text-ink border border-transparent",
         danger:
           "bg-surface hover:bg-[color-mix(in_srgb,var(--sold)_10%,transparent)] text-sold border border-sold",
         dangerSolid:

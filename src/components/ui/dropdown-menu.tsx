@@ -82,7 +82,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-primary-soft focus:bg-primary-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       variant === "danger"
         ? "text-sold hover:bg-[color-mix(in_srgb,var(--sold)_8%,transparent)] focus:bg-[color-mix(in_srgb,var(--sold)_8%,transparent)]"
         : "text-ink",
@@ -101,7 +101,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer items-center rounded-[6px] py-1.5 pr-2 pl-8 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-subtle focus:bg-subtle data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-pointer items-center rounded-[6px] py-1.5 pr-2 pl-8 text-[13px] transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] outline-none select-none hover:bg-primary-soft focus:bg-primary-soft data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     checked={checked}

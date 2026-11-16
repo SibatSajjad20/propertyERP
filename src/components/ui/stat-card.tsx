@@ -46,7 +46,7 @@ export function StatCard({
               indicator === "reserved" && "bg-reserved",
               indicator === "booked" && "bg-booked",
               indicator === "sold" && "bg-sold",
-              indicator === "accent" && "bg-accent",
+              indicator === "accent" && "bg-primary",
               indicator === "neutral" && "bg-line-strong",
             )}
             aria-hidden="true"

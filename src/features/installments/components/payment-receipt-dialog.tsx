@@ -72,17 +72,21 @@ export function PaymentReceiptDialog({
         {/* Printable Receipt Paper */}
         <div className="bg-surface p-6 font-sans text-ink" id="printable-receipt">
           {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-accent pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="size-2.5 rounded-[2px] bg-accent" />
+          <div className="flex items-start justify-between border-b-2 border-primary pb-4">
+            <div className="flex items-center gap-3.5">
+              <img
+                src="/images/logo.png"
+                alt="Sardar's Mall"
+                className="h-14 w-auto object-contain"
+              />
+              <div>
                 <h2 className="text-[18px] font-bold tracking-tight text-ink">
                   Sardar&apos;s Mall
                 </h2>
+                <p className="mt-0.5 text-[11px] tracking-wider text-ink-muted uppercase">
+                  Official Payment Receipt
+                </p>
               </div>
-              <p className="mt-0.5 text-[11px] tracking-wider text-ink-muted uppercase">
-                Official Payment Receipt
-              </p>
             </div>
             <div className="text-right">
               <span className="font-mono text-[13px] font-bold text-primary">

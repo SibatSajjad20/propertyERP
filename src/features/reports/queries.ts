@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cache } from "react";
 import {
   and,
   asc,
@@ -14,7 +13,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { db, sql as rawSql } from "@/db";
+import { db } from "@/db";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
 import type {
   BookingStatus,
@@ -33,6 +32,7 @@ import {
   sales,
 } from "@/db/schema/sales";
 import { units } from "@/db/schema/units";
+import { logger } from "@/lib/logger";
 import { formatDecimal, parseDecimal } from "@/lib/money";
 import {
   calculateClientLedger,
@@ -47,7 +47,7 @@ export interface FilterOptions {
   categories: Array<{ id: string; name: string }>;
 }
 
-export const getReportFilterOptions = cache(async (): Promise<FilterOptions> => {
+export async function getReportFilterOptions(): Promise<FilterOptions> {
   const [props, blks, flrs, cats] = await Promise.all([
     db.select({ id: properties.id, name: properties.name }).from(properties),
     db.select({ id: blocks.id, name: blocks.name }).from(blocks),
@@ -67,7 +67,7 @@ export const getReportFilterOptions = cache(async (): Promise<FilterOptions> => 
     floors: flrs,
     categories: cats,
   };
-});
+}
 
 // -------------------------------------------------------------
 // A) SUMMARY REPORT
@@ -131,6 +131,9 @@ export interface SummaryReportData {
 export async function getSummaryReport(
   filters: ReportFilters,
 ): Promise<SummaryReportData> {
+  const t0 = performance.now();
+  const floorId = filters.floorId ?? "";
+  const categoryId = filters.categoryId ?? "";
   const { startDate, endDate } = resolvePresetDates(
     filters.preset,
     filters.startDate,
@@ -144,19 +147,17 @@ export async function getSummaryReport(
 
   // Unit conditions
   const unitConditions = [isNull(units.archivedAt)];
-  if (filters.floorId && filters.floorId !== "ALL") {
-    unitConditions.push(eq(units.floorId, filters.floorId));
+  if (floorId && floorId !== "ALL") {
+    unitConditions.push(eq(units.floorId, floorId));
   }
-  if (filters.categoryId && filters.categoryId !== "ALL") {
-    unitConditions.push(eq(units.categoryId, filters.categoryId));
+  if (categoryId && categoryId !== "ALL") {
+    unitConditions.push(eq(units.categoryId, categoryId));
   }
 
   const computedPriceSql = sql`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
 
-  // Run all report sections in parallel to avoid sequential network roundtrips
-  const [statusStatsQuery, [metricsRow], monthlyQuery, floorRows, categoryRows] =
+  const [statusStatsQuery, salesRows, paymentsRows, refundsRows, buybacksRows] =
     await Promise.all([
-      // 1. Units by status counts & values (direct computation without slow view join)
       db
         .select({
           status: units.status,
@@ -166,44 +167,47 @@ export async function getSummaryReport(
         .from(units)
         .where(and(...unitConditions))
         .groupBy(units.status),
+      db
+        .select({
+          sales_count: sql<number>`count(*) filter (where ${sales.status} = 'ACTIVE' and ${sales.soldAt} >= ${startIso}::timestamptz and ${sales.soldAt} <= ${endIso}::timestamptz)::int`,
+          sales_total: sql<string>`coalesce(sum(${sales.salePrice}) filter (where ${sales.status} = 'ACTIVE' and ${sales.soldAt} >= ${startIso}::timestamptz and ${sales.soldAt} <= ${endIso}::timestamptz), 0)::text`,
+        })
+        .from(sales),
+      db
+        .select({
+          payments_total: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= ${startIso}::timestamptz and ${payments.paidAt} <= ${endIso}::timestamptz), 0)::text`,
+        })
+        .from(payments),
+      db
+        .select({
+          refunds_count: sql<number>`count(*) filter (where ${refunds.paidAt} >= ${startIso}::timestamptz and ${refunds.paidAt} <= ${endIso}::timestamptz)::int`,
+          refunds_total: sql<string>`coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startIso}::timestamptz and ${refunds.paidAt} <= ${endIso}::timestamptz), 0)::text`,
+        })
+        .from(refunds),
+      db
+        .select({
+          buybacks_count: sql<number>`count(*) filter (where ${buybacks.paidAt} >= ${startIso}::timestamptz and ${buybacks.paidAt} <= ${endIso}::timestamptz)::int`,
+          buybacks_total: sql<string>`coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startIso}::timestamptz and ${buybacks.paidAt} <= ${endIso}::timestamptz), 0)::text`,
+        })
+        .from(buybacks),
+    ]);
 
-      // 2. Period metrics consolidated in a single query
-      rawSql<
-        {
-          sales_count: number;
-          sales_total: string;
-          payments_total: string;
-          refunds_count: number;
-          refunds_total: string;
-          buybacks_count: number;
-          buybacks_total: string;
-          receivables_total: string;
-          overdue_count: number;
-          overdue_total: string;
-          discounts_count: number;
-          discounts_total: string;
-        }[]
-      >`
-        SELECT
-          (SELECT count(*)::int FROM sales WHERE status = 'ACTIVE' AND sold_at >= ${startIso} AND sold_at <= ${endIso}) as sales_count,
-          (SELECT coalesce(sum(sale_price), 0)::text FROM sales WHERE status = 'ACTIVE' AND sold_at >= ${startIso} AND sold_at <= ${endIso}) as sales_total,
-          (SELECT coalesce(sum(amount), 0)::text FROM payments WHERE is_voided = false AND paid_at >= ${startIso} AND paid_at <= ${endIso}) as payments_total,
-          (SELECT count(*)::int FROM refunds WHERE paid_at >= ${startIso} AND paid_at <= ${endIso}) as refunds_count,
-          (SELECT coalesce(sum(refund_amount), 0)::text FROM refunds WHERE paid_at >= ${startIso} AND paid_at <= ${endIso}) as refunds_total,
-          (SELECT count(*)::int FROM buybacks WHERE paid_at >= ${startIso} AND paid_at <= ${endIso}) as buybacks_count,
-          (SELECT coalesce(sum(buyback_amount), 0)::text FROM buybacks WHERE paid_at >= ${startIso} AND paid_at <= ${endIso}) as buybacks_total,
-          (SELECT coalesce(sum(net_price - paid_total), 0)::text FROM bookings WHERE status = 'ACTIVE') as receivables_total,
-          (SELECT count(*)::int FROM installments INNER JOIN bookings ON installments.booking_id = bookings.id
-           WHERE bookings.status = 'ACTIVE' AND installments.status IN ('PENDING', 'PARTIAL', 'OVERDUE')
-             AND installments.paid_amount < installments.amount AND installments.due_date <= ${nowIso}) as overdue_count,
-          (SELECT coalesce(sum(installments.amount - installments.paid_amount), 0)::text FROM installments INNER JOIN bookings ON installments.booking_id = bookings.id
-           WHERE bookings.status = 'ACTIVE' AND installments.status IN ('PENDING', 'PARTIAL', 'OVERDUE')
-             AND installments.paid_amount < installments.amount AND installments.due_date <= ${nowIso}) as overdue_total,
-          (SELECT count(*)::int FROM bookings WHERE created_at >= ${startIso} AND created_at <= ${endIso} AND discount_value > 0) as discounts_count,
-          (SELECT coalesce(sum(discount_value), 0)::text FROM bookings WHERE created_at >= ${startIso} AND created_at <= ${endIso} AND discount_value > 0) as discounts_total
-      `,
-
-      // 3. Monthly collections (past 12 months for chart)
+  const [bookingsRows, overdueRows, monthlyQuery, floorRows, categoryRows] =
+    await Promise.all([
+      db
+        .select({
+          receivables_total: sql<string>`coalesce(sum(${bookings.netPrice} - ${bookings.paidTotal}) filter (where ${bookings.status} = 'ACTIVE'), 0)::text`,
+          discounts_count: sql<number>`count(*) filter (where ${bookings.createdAt} >= ${startIso}::timestamptz and ${bookings.createdAt} <= ${endIso}::timestamptz and ${bookings.discountValue} > 0)::int`,
+          discounts_total: sql<string>`coalesce(sum(${bookings.discountValue}) filter (where ${bookings.createdAt} >= ${startIso}::timestamptz and ${bookings.createdAt} <= ${endIso}::timestamptz and ${bookings.discountValue} > 0), 0)::text`,
+        })
+        .from(bookings),
+      db
+        .select({
+          overdue_count: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.status} in ('PENDING', 'PARTIAL', 'OVERDUE') and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} <= ${nowIso}::timestamptz)::int`,
+          overdue_total: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.status} in ('PENDING', 'PARTIAL', 'OVERDUE') and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} <= ${nowIso}::timestamptz), 0)::text`,
+        })
+        .from(installments)
+        .innerJoin(bookings, eq(installments.bookingId, bookings.id)),
       db
         .select({
           monthKey: sql<string>`to_char(${payments.paidAt}, 'YYYY-MM')`,
@@ -213,8 +217,6 @@ export async function getSummaryReport(
         .where(and(eq(payments.isVoided, false), gte(payments.paidAt, twelveMonthsAgo)))
         .groupBy(sql`to_char(${payments.paidAt}, 'YYYY-MM')`)
         .orderBy(sql`to_char(${payments.paidAt}, 'YYYY-MM')`),
-
-      // 4. Breakdown by floor (without view join)
       db
         .select({
           floorId: floors.id,
@@ -233,8 +235,6 @@ export async function getSummaryReport(
         .leftJoin(units, and(eq(units.floorId, floors.id), isNull(units.archivedAt)))
         .groupBy(floors.id, floors.name, floors.level, blocks.name)
         .orderBy(asc(floors.level)),
-
-      // 5. Breakdown by category (without view join)
       db
         .select({
           categoryId: categories.id,
@@ -254,6 +254,13 @@ export async function getSummaryReport(
         .groupBy(categories.id, categories.name)
         .orderBy(asc(categories.name)),
     ]);
+
+  const [salesAgg] = salesRows;
+  const [paymentsAgg] = paymentsRows;
+  const [refundsAgg] = refundsRows;
+  const [buybacksAgg] = buybacksRows;
+  const [bookingsAgg] = bookingsRows;
+  const [overdueAgg] = overdueRows;
 
   const unitsByStatus = {
     available: { count: 0, valuePkr: "0.00" },
@@ -299,21 +306,21 @@ export async function getSummaryReport(
     valuePkr: formatDecimal(totalUnitPaisa),
   };
 
-  const salesValuePkr = metricsRow?.sales_total || "0.00";
-  const salesCount = Number(metricsRow?.sales_count || 0);
+  const salesValuePkr = salesAgg?.sales_total || "0.00";
+  const salesCount = Number(salesAgg?.sales_count || 0);
 
-  const grossCollectedPaisa = parseDecimal(metricsRow?.payments_total || "0");
-  const refundsPaisa = parseDecimal(metricsRow?.refunds_total || "0");
-  const refundsCount = Number(metricsRow?.refunds_count || 0);
-  const buybacksPaisa = parseDecimal(metricsRow?.buybacks_total || "0");
-  const buybacksCount = Number(metricsRow?.buybacks_count || 0);
+  const grossCollectedPaisa = parseDecimal(paymentsAgg?.payments_total || "0");
+  const refundsPaisa = parseDecimal(refundsAgg?.refunds_total || "0");
+  const refundsCount = Number(refundsAgg?.refunds_count || 0);
+  const buybacksPaisa = parseDecimal(buybacksAgg?.buybacks_total || "0");
+  const buybacksCount = Number(buybacksAgg?.buybacks_count || 0);
 
   const netCollectedPaisa = grossCollectedPaisa - refundsPaisa - buybacksPaisa;
-  const outstandingReceivablesPkr = metricsRow?.receivables_total || "0.00";
-  const overdueAmountPkr = metricsRow?.overdue_total || "0.00";
-  const overdueCount = Number(metricsRow?.overdue_count || 0);
-  const discountsGivenPkr = metricsRow?.discounts_total || "0.00";
-  const discountsCount = Number(metricsRow?.discounts_count || 0);
+  const outstandingReceivablesPkr = bookingsAgg?.receivables_total || "0.00";
+  const overdueAmountPkr = overdueAgg?.overdue_total || "0.00";
+  const overdueCount = Number(overdueAgg?.overdue_count || 0);
+  const discountsGivenPkr = bookingsAgg?.discounts_total || "0.00";
+  const discountsCount = Number(bookingsAgg?.discounts_count || 0);
 
   const monthlyCollections = monthlyQuery.map((m) => {
     const [year, month] = m.monthKey.split("-");
@@ -352,7 +359,7 @@ export async function getSummaryReport(
     soldValuePkr: formatDecimal(parseDecimal(c.soldValue || "0")),
   }));
 
-  return {
+  const result: SummaryReportData = {
     period: {
       startDate: startDate.toISOString().split("T")[0]!,
       endDate: endDate.toISOString().split("T")[0]!,
@@ -375,6 +382,10 @@ export async function getSummaryReport(
     floorBreakdown,
     categoryBreakdown,
   };
+
+  const durationMs = Math.round(performance.now() - t0);
+  logger.info({ durationMs, filters }, "server timing: summary report");
+  return result;
 }
 
 // -------------------------------------------------------------
@@ -1063,36 +1074,103 @@ export async function getClientLedgerReport(
     return null;
   }
 
-  const [kin] = await db
-    .select()
-    .from(nextOfKin)
-    .where(eq(nextOfKin.clientId, client.id))
-    .limit(1);
-
   const { startDate, endDate } = resolvePresetDates(
     filters.preset,
     filters.startDate,
     filters.endDate,
   );
 
+  const [
+    [kin],
+    clientBookings,
+    clientSales,
+    clientReservations,
+    clientPayments,
+    clientRefunds,
+    clientBuybacks,
+  ] = await Promise.all([
+    db.select().from(nextOfKin).where(eq(nextOfKin.clientId, client.id)).limit(1),
+    db
+      .select({
+        id: bookings.id,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        netPrice: bookings.netPrice,
+        status: bookings.status,
+        createdAt: bookings.createdAt,
+      })
+      .from(bookings)
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .where(eq(bookings.clientId, client.id)),
+    db
+      .select({
+        id: sales.id,
+        bookingId: sales.bookingId,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        salePrice: sales.salePrice,
+        status: sales.status,
+        soldAt: sales.soldAt,
+      })
+      .from(sales)
+      .innerJoin(units, eq(sales.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .where(eq(sales.clientId, client.id)),
+    db
+      .select({
+        id: reservations.id,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        startAt: reservations.startAt,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(reservations.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .where(
+        and(eq(reservations.clientId, client.id), eq(reservations.status, "ACTIVE")),
+      ),
+    db
+      .select({
+        id: payments.id,
+        receiptNo: payments.receiptNo,
+        amount: payments.amount,
+        paidAt: payments.paidAt,
+        notes: payments.notes,
+        isVoided: payments.isVoided,
+        bookingNo: bookings.bookingNo,
+        unitCode: units.unitCode,
+      })
+      .from(payments)
+      .innerJoin(bookings, eq(payments.bookingId, bookings.id))
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .where(and(eq(bookings.clientId, client.id), eq(payments.isVoided, false))),
+    db
+      .select({
+        id: refunds.id,
+        refundAmount: refunds.refundAmount,
+        deduction: refunds.deduction,
+        paidAt: refunds.paidAt,
+        bookingId: refunds.bookingId,
+      })
+      .from(refunds)
+      .where(eq(refunds.clientId, client.id)),
+    db
+      .select({
+        id: buybacks.id,
+        buybackAmount: buybacks.buybackAmount,
+        paidAt: buybacks.paidAt,
+        reason: buybacks.reason,
+      })
+      .from(buybacks)
+      .where(eq(buybacks.clientId, client.id)),
+  ]);
+
   // 1. Fetch client units
   const associatedUnits: ClientLedgerReportData["units"] = [];
-
-  // Bookings
-  const clientBookings = await db
-    .select({
-      id: bookings.id,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      floorName: floors.name,
-      netPrice: bookings.netPrice,
-      status: bookings.status,
-      createdAt: bookings.createdAt,
-    })
-    .from(bookings)
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .where(eq(bookings.clientId, client.id));
 
   for (const b of clientBookings) {
     associatedUnits.push({
@@ -1105,22 +1183,6 @@ export async function getClientLedgerReport(
     });
   }
 
-  // Sales (direct or completed bookings)
-  const clientSales = await db
-    .select({
-      id: sales.id,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      floorName: floors.name,
-      salePrice: sales.salePrice,
-      status: sales.status,
-      soldAt: sales.soldAt,
-    })
-    .from(sales)
-    .innerJoin(units, eq(sales.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .where(eq(sales.clientId, client.id));
-
   for (const s of clientSales) {
     associatedUnits.push({
       unitId: s.unitId,
@@ -1131,20 +1193,6 @@ export async function getClientLedgerReport(
       amountPkr: s.salePrice,
     });
   }
-
-  // Active reservations
-  const clientReservations = await db
-    .select({
-      id: reservations.id,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      floorName: floors.name,
-      startAt: reservations.startAt,
-    })
-    .from(reservations)
-    .innerJoin(units, eq(reservations.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .where(and(eq(reservations.clientId, client.id), eq(reservations.status, "ACTIVE")));
 
   for (const r of clientReservations) {
     associatedUnits.push({
@@ -1173,13 +1221,7 @@ export async function getClientLedgerReport(
 
   // Direct Sales (if any without booking)
   for (const s of clientSales) {
-    // Check if linked to a booking (if linked, booking already debited the contract value)
-    const [saleRow] = await db
-      .select({ bookingId: sales.bookingId })
-      .from(sales)
-      .where(eq(sales.id, s.id));
-
-    if (!saleRow?.bookingId) {
+    if (!s.bookingId) {
       rawEntries.push({
         date: s.soldAt,
         description: `Direct Sale (Unit ${s.unitCode})`,
@@ -1191,22 +1233,6 @@ export async function getClientLedgerReport(
   }
 
   // Credits: Payments made by this client
-  const clientPayments = await db
-    .select({
-      id: payments.id,
-      receiptNo: payments.receiptNo,
-      amount: payments.amount,
-      paidAt: payments.paidAt,
-      notes: payments.notes,
-      isVoided: payments.isVoided,
-      bookingNo: bookings.bookingNo,
-      unitCode: units.unitCode,
-    })
-    .from(payments)
-    .innerJoin(bookings, eq(payments.bookingId, bookings.id))
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .where(and(eq(bookings.clientId, client.id), eq(payments.isVoided, false)));
-
   for (const p of clientPayments) {
     rawEntries.push({
       date: p.paidAt,
@@ -1218,17 +1244,6 @@ export async function getClientLedgerReport(
   }
 
   // Refunds
-  const clientRefunds = await db
-    .select({
-      id: refunds.id,
-      refundAmount: refunds.refundAmount,
-      deduction: refunds.deduction,
-      paidAt: refunds.paidAt,
-      bookingId: refunds.bookingId,
-    })
-    .from(refunds)
-    .where(eq(refunds.clientId, client.id));
-
   for (const ref of clientRefunds) {
     // When a booking was cancelled/returned, the original debit contract was reversed
     rawEntries.push({
@@ -1241,16 +1256,6 @@ export async function getClientLedgerReport(
   }
 
   // Buybacks
-  const clientBuybacks = await db
-    .select({
-      id: buybacks.id,
-      buybackAmount: buybacks.buybackAmount,
-      paidAt: buybacks.paidAt,
-      reason: buybacks.reason,
-    })
-    .from(buybacks)
-    .where(eq(buybacks.clientId, client.id));
-
   for (const bb of clientBuybacks) {
     rawEntries.push({
       date: bb.paidAt,

@@ -157,7 +157,6 @@ export function DashboardScreen({
           label="Available"
           value={stats.available}
           indicator="available"
-          tone="available"
           caption={formatPkrCompact(stats.availableValuePkr)}
           captionTooltip={`${stats.available} available (${formatPkrLedger(stats.availableValuePkr)})`}
         />
@@ -165,7 +164,6 @@ export function DashboardScreen({
           label="Reserved"
           value={stats.reserved}
           indicator="reserved"
-          tone="reserved"
           caption={formatPkrCompact(stats.reservedValuePkr)}
           captionTooltip={`${stats.reserved} reserved (${formatPkrLedger(stats.reservedValuePkr)})`}
         />
@@ -173,7 +171,6 @@ export function DashboardScreen({
           label="Booked"
           value={stats.booked}
           indicator="booked"
-          tone="booked"
           caption={formatPkrCompact(stats.bookedValuePkr)}
           captionTooltip={`${stats.booked} booked (${formatPkrLedger(stats.bookedValuePkr)})`}
         />
@@ -181,7 +178,6 @@ export function DashboardScreen({
           label="Sold"
           value={stats.sold}
           indicator="sold"
-          tone="sold"
           caption={`${stats.soldPercent.toFixed(1)}% (${formatPkrCompact(stats.soldValuePkr)})`}
           captionTooltip={`${stats.sold} sold (${formatPkrLedger(stats.soldValuePkr)})`}
         />
@@ -335,7 +331,7 @@ export function DashboardScreen({
             </div>
             <Link
               href="/inventory"
-              className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+              className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:text-accent-bright hover:underline"
             >
               Browse all units
               <ArrowRight
@@ -359,7 +355,7 @@ export function DashboardScreen({
             {canSeeAudit && (
               <Link
                 href="/audit"
-                className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+                className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:text-accent-bright hover:underline"
               >
                 View all
                 <ArrowRight

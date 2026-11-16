@@ -190,9 +190,39 @@ type RequireSessionOptions = {
 
 export const getSession = cache(async () => {
   const resolvedHeaders = await headers();
-  return auth.api.getSession({
+  const session = await auth.api.getSession({
     headers: resolvedHeaders,
   });
+  if (!session) {
+    return null;
+  }
+
+  // Cookie cache can keep `mustChangePassword` / `disabled` stale for up to 5
+  // minutes. Privileged flags always come from the live user row.
+  const [row] = await db
+    .select({
+      mustChangePassword: user.mustChangePassword,
+      disabled: user.disabled,
+      role: user.role,
+      name: user.name,
+    })
+    .from(user)
+    .where(eq(user.id, session.user.id))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      mustChangePassword: row.mustChangePassword,
+      disabled: row.disabled,
+      role: row.role,
+      name: row.name,
+    },
+  };
 });
 
 export async function requireSession(options: RequireSessionOptions = {}) {
@@ -211,7 +241,10 @@ export async function requireSession(options: RequireSessionOptions = {}) {
     redirect("/login");
   }
   if (resolved.user.mustChangePassword && !options.allowMustChangePassword) {
-    throw new ForbiddenError("Change your temporary password before continuing");
+    if (options.redirect === false) {
+      throw new ForbiddenError("Change your temporary password before continuing");
+    }
+    redirect("/settings/profile");
   }
   return resolved;
 }

@@ -324,7 +324,7 @@ export function UnitForm({
                 {...form.register("grossAreaSqft")}
               />
               {grossWarning && (
-                <p className="mt-1 text-[12px] text-accent">
+                <p className="mt-1 text-[12px] text-primary">
                   Gross area is smaller than net area.
                 </p>
               )}

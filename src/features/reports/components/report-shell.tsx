@@ -64,6 +64,89 @@ const PRESET_LABELS: Record<ReportPreset, string> = {
   all: "All Time",
 };
 
+function ReportTabs({ pathname }: { pathname: string }) {
+  return (
+    <div className="flex items-center gap-1 border-b border-line">
+      {(
+        [
+          { href: "/reports/summary" as Route, label: "Summary" },
+          { href: "/reports/sold" as Route, label: "Sold" },
+          { href: "/reports/booked" as Route, label: "Booked" },
+          { href: "/reports/reserved" as Route, label: "Reserved" },
+          { href: "/reports/installments" as Route, label: "Collections" },
+          { href: "/reports/client-ledger" as Route, label: "Client ledger" },
+        ] as const
+      ).map((tab) => {
+        const active =
+          pathname === tab.href ||
+          (tab.href === "/reports/summary" && pathname === "/reports");
+        return (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            className={cn(
+              "-mb-px border-b-2 px-3.5 py-2 text-[13px] font-medium transition-colors",
+              active
+                ? "border-primary font-semibold text-ink"
+                : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
+            )}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReportStatCards({ stats }: { stats: ReportStatCard[] }) {
+  if (stats.length === 0) return null;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5 print:grid-cols-4 print:gap-2">
+      {stats.map((stat, idx) => {
+        const toneBorder =
+          stat.tone === "accent"
+            ? "border-l-primary"
+            : stat.tone === "available"
+              ? "border-l-available"
+              : stat.tone === "sold"
+                ? "border-l-sold"
+                : stat.tone === "primary"
+                  ? "border-l-primary"
+                  : "border-l-line-strong";
+
+        return (
+          <div
+            key={idx}
+            className={cn(
+              "card flex flex-col justify-between rounded-[12px] border-l-4 p-3.5 transition-transform hover:-translate-y-0.5",
+              toneBorder,
+            )}
+          >
+            <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+              {stat.label}
+            </span>
+            <div className="mt-1 flex items-baseline justify-between gap-1">
+              <span className="font-sans text-[18px] font-semibold tracking-tight text-ink tabular-nums sm:text-[20px]">
+                {stat.value}
+              </span>
+            </div>
+            {stat.subValue && (
+              <span className="mt-0.5 font-sans text-[11px] text-ink-muted tabular-nums">
+                {stat.subValue}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FilterBarSkeleton() {
+  return <div className="card h-[120px] rounded-[12px] print:hidden" aria-hidden />;
+}
+
 export function ReportShell({
   title,
   description,
@@ -73,6 +156,93 @@ export function ReportShell({
   filterOptions,
   children,
 }: ReportShellProps) {
+  const pathname = usePathname();
+
+  return (
+    <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
+      <div className="space-y-4 print:hidden">
+        <PageHeader
+          title={title}
+          description={description}
+          actions={
+            <React.Suspense
+              fallback={
+                <div className="flex items-center gap-2">
+                  <div className="h-9 w-28 rounded-[8px] bg-subtle" />
+                  <div className="h-9 w-32 rounded-[8px] bg-subtle" />
+                </div>
+              }
+            >
+              <ReportHeaderActions exportType={exportType} />
+            </React.Suspense>
+          }
+        />
+        <ReportTabs pathname={pathname} />
+      </div>
+
+      <React.Suspense fallback={<FilterBarSkeleton />}>
+        <ReportFilterBar
+          title={title}
+          exportType={exportType}
+          filterConfig={filterConfig}
+          filterOptions={filterOptions}
+        />
+      </React.Suspense>
+
+      <ReportStatCards stats={stats} />
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function ReportHeaderActions({
+  exportType,
+}: {
+  exportType: ReportShellProps["exportType"];
+}) {
+  const searchParams = useSearchParams();
+  const [isExporting, setIsExporting] = React.useState(false);
+
+  function handlePrint() {
+    window.print();
+  }
+
+  function handleExportExcel() {
+    setIsExporting(true);
+    const url = `/api/export/reports/${exportType}?${searchParams.toString()}`;
+    window.open(url, "_blank");
+    window.setTimeout(() => setIsExporting(false), 1000);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="secondary" size="md" onClick={handlePrint}>
+        <Printer weight="light" className="size-4" />
+        <span>Print / PDF</span>
+      </Button>
+      <Button
+        variant="primary"
+        size="md"
+        onClick={handleExportExcel}
+        disabled={isExporting}
+      >
+        <DownloadSimple weight="light" className="size-4" />
+        <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+      </Button>
+    </div>
+  );
+}
+
+function ReportFilterBar({
+  title,
+  filterConfig,
+  filterOptions,
+}: {
+  title: string;
+  exportType: ReportShellProps["exportType"];
+  filterConfig: ReportFilterConfig;
+  filterOptions: ReportShellProps["filterOptions"];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -88,10 +258,8 @@ export function ReportShell({
   const currentQ = searchParams.get("q") || "";
 
   const [searchVal, setSearchVal] = React.useState(currentQ);
-  const [isExporting, setIsExporting] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
 
-  // Update URL params helper
   const updateParams = React.useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -129,32 +297,12 @@ export function ReportShell({
     });
   }
 
-  async function handleExportExcel() {
-    try {
-      setIsExporting(true);
-      const url = `/api/export/reports/${exportType}?${searchParams.toString()}`;
-      window.open(url, "_blank");
-    } finally {
-      setTimeout(() => setIsExporting(false), 1000);
-    }
-  }
-
-  function handlePrint() {
-    window.print();
-  }
-
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-6 p-4 transition-opacity duration-150 select-none sm:p-6 print:p-0",
-        isPending && "opacity-60",
-      )}
-    >
-      {/* Printable mall header (visible ONLY during print) */}
-      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#9A7B4F] print:pb-4">
+    <>
+      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#0B558B] print:pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded-xs bg-[#9A7B4F]" />
+            <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
           <span className="font-mono text-xs text-[#64748B]">
@@ -169,65 +317,13 @@ export function ReportShell({
         </div>
       </div>
 
-      {/* Screen Page Header */}
-      <div className="space-y-4 print:hidden">
-        <PageHeader
-          title={title}
-          description={description}
-          actions={
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="md" onClick={handlePrint}>
-                <Printer weight="light" className="size-4" />
-                <span>Print / PDF</span>
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleExportExcel}
-                disabled={isExporting}
-              >
-                <DownloadSimple weight="light" className="size-4" />
-                <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
-              </Button>
-            </div>
-          }
-        />
-
-        {/* Reports Navigation Tabs */}
-        <div className="flex items-center gap-1 border-b border-line">
-          {[
-            { href: "/reports/summary" as Route, label: "Summary" },
-            { href: "/reports/sold" as Route, label: "Sold" },
-            { href: "/reports/booked" as Route, label: "Booked" },
-            { href: "/reports/reserved" as Route, label: "Reserved" },
-            { href: "/reports/installments" as Route, label: "Collections" },
-            { href: "/reports/client-ledger" as Route, label: "Client ledger" },
-          ].map((tab) => {
-            const active =
-              pathname === tab.href ||
-              (tab.href === "/reports/summary" && pathname === "/reports");
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "-mb-px border-b-2 px-3.5 py-2 text-[13px] font-medium transition-colors",
-                  active
-                    ? "border-primary font-semibold text-primary"
-                    : "border-transparent text-ink-muted hover:border-line-strong hover:text-ink",
-                )}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Filter Bar (screen only) */}
-      <div className="card flex flex-col gap-3 rounded-[12px] p-4 print:hidden">
+      <div
+        className={cn(
+          "card flex flex-col gap-3 rounded-[12px] p-4 print:hidden",
+          isPending && "opacity-60",
+        )}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Preset Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-[12px] font-medium text-ink-muted">Period:</span>
             {reportPresets.map((preset) => {
@@ -250,7 +346,6 @@ export function ReportShell({
             })}
           </div>
 
-          {/* Quick Filters (if configured) */}
           {filterConfig.quickFilters && filterConfig.quickFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-[12px] font-medium text-ink-muted">Quick:</span>
@@ -264,7 +359,7 @@ export function ReportShell({
                     className={cn(
                       "cursor-pointer rounded-[6px] px-2.5 py-1 text-[12px] font-medium transition-colors",
                       active
-                        ? "bg-accent text-white"
+                        ? "bg-primary text-white"
                         : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
                     )}
                   >
@@ -276,7 +371,6 @@ export function ReportShell({
           )}
         </div>
 
-        {/* Custom date range pickers if preset === custom */}
         {currentPreset === "custom" && (
           <div className="flex flex-wrap items-center gap-3 border-t border-line/60 pt-3">
             <div className="flex items-center gap-2">
@@ -300,7 +394,6 @@ export function ReportShell({
           </div>
         )}
 
-        {/* Dropdown selects & search */}
         <div className="flex flex-wrap items-center gap-3 border-t border-line/60 pt-3">
           {filterConfig.showFloors && filterOptions?.floors && (
             <div className="w-40">
@@ -423,51 +516,6 @@ export function ReportShell({
           </Button>
         </div>
       </div>
-
-      {/* KPI Stat Cards on top */}
-      {stats.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5 print:grid-cols-4 print:gap-2">
-          {stats.map((stat, idx) => {
-            const toneBorder =
-              stat.tone === "accent"
-                ? "border-l-accent"
-                : stat.tone === "available"
-                  ? "border-l-available"
-                  : stat.tone === "sold"
-                    ? "border-l-sold"
-                    : stat.tone === "primary"
-                      ? "border-l-primary"
-                      : "border-l-line-strong";
-
-            return (
-              <div
-                key={idx}
-                className={cn(
-                  "card flex flex-col justify-between rounded-[12px] border-l-4 p-3.5 transition-transform hover:-translate-y-0.5",
-                  toneBorder,
-                )}
-              >
-                <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                  {stat.label}
-                </span>
-                <div className="mt-1 flex items-baseline justify-between gap-1">
-                  <span className="font-sans text-[18px] font-semibold tracking-tight text-ink tabular-nums sm:text-[20px]">
-                    {stat.value}
-                  </span>
-                </div>
-                {stat.subValue && (
-                  <span className="mt-0.5 font-sans text-[11px] text-ink-muted tabular-nums">
-                    {stat.subValue}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Report Content */}
-      <div className="min-w-0">{children}</div>
-    </div>
+    </>
   );
 }

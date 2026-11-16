@@ -198,8 +198,8 @@ export function DevUiScreen() {
             3. Status Colours Palette &amp; Strict Tokens
           </h2>
           <p className="text-[12px] text-ink-muted">
-            Available #1F7A4D · Reserved #B7791F · Booked #0B558B · Sold #9B2C2C. Brass
-            #9A7B4F reserved strictly for Hallmark and Active Nav bar.
+            Available #1F7A4D · Reserved #B7791F · Booked #64748B · Sold #9B2C2C. Brand
+            primary is #0B558B.
           </p>
         </div>
 
@@ -234,7 +234,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Booked</span>
               <span className="size-2.5 rounded-full bg-booked" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#0B558B</div>
+            <div className="mt-2 font-mono text-[11px] text-ink-muted">#64748B</div>
             <div className="mt-3 flex items-center gap-2">
               <UnitStatusBadge status="BOOKED" paidPercent={60} />
             </div>
@@ -252,17 +252,14 @@ export function DevUiScreen() {
             </div>
           </div>
 
-          {/* Brass (Hallmark & Nav ONLY) */}
-          <div className="card flex flex-col justify-between border-l-4 border-l-accent p-4">
+          <div className="card flex flex-col justify-between border-l-4 border-l-primary p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-ink">
-                Brass (Brand Only)
-              </span>
-              <span className="size-2.5 rounded-[2px] bg-accent" />
+              <span className="text-[12px] font-semibold text-ink">Brand</span>
+              <span className="size-2.5 rounded-[2px] bg-primary" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#9A7B4F</div>
+            <div className="mt-2 font-mono text-[11px] text-ink-muted">#0B558B</div>
             <p className="mt-2 text-[10px] text-ink-muted">
-              Logo mark &amp; active sidebar bar only
+              Buttons, active nav, links, focus
             </p>
           </div>
         </div>

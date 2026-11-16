@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { cleanupTestData, guardEnvironment } from "./e2e-guard";
+import {
+  fillClientIdentity,
+  fillKinIdentity,
+  selectUnitByCode,
+  uploadKinDocs,
+  uploadRequiredDocs,
+} from "./form-helpers";
 
 const inventoryEmail = process.env.INVENTORY_EMAIL ?? "inventory@sardarsmall.local";
 const inventoryPassword = process.env.INVENTORY_PASSWORD ?? "ChangeMe_Inventory_2026!";
@@ -29,10 +36,7 @@ async function signOut(page: import("@playwright/test").Page) {
       await closeBtn.click();
     }
   }
-  await page
-    .getByRole("button", { name: "Account menu" })
-    .filter({ visible: true })
-    .click();
+  await page.getByRole("banner").getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
 }
@@ -63,7 +67,7 @@ test.afterAll(async () => {
 test("full sales lifecycle: reserve -> convert to booking -> pay in full -> auto-sold -> admin buyback", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   const code = `LC-${Date.now()}`;
   const cnicSeq = Math.floor(1000000 + Math.random() * 9000000);
   const clientCnic = `35201-${cnicSeq}-1`;
@@ -79,24 +83,17 @@ test("full sales lifecycle: reserve -> convert to booking -> pay in full -> auto
   await page.goto("/reservations/new");
   await expect(page).toHaveURL(/\/reservations\/new/, { timeout: 15_000 });
 
-  // Select the unit card
-  const unitCard = page.locator(".card", { hasText: code });
-  await expect(unitCard).toBeVisible({ timeout: 10_000 });
-  await unitCard.click();
+  await selectUnitByCode(page, code);
 
   // Step 1 -> Step 2
   await page.getByRole("button", { name: "Next: Client Details" }).click();
 
-  // Fill Client Form
-  await page.locator("#client-cnic").fill(clientCnic);
-  await page.locator("#client-name").fill("Tariq Mahmood");
-  await page.locator("#client-phone").fill("03001234567");
-  await page
-    .locator("#client-home-address")
-    .fill("House 42, Block B, Model Town, Lahore");
-  await page
-    .locator("#client-postal-address")
-    .fill("House 42, Block B, Model Town, Lahore");
+  await fillClientIdentity(page, {
+    cnic: clientCnic,
+    name: "Tariq Mahmood",
+    phone: "03001234567",
+    relationName: "Mahmood Ali",
+  });
 
   // Step 2 -> Step 3
   await page.getByRole("button", { name: "Next: Duration & Notes" }).click();
@@ -119,11 +116,17 @@ test("full sales lifecycle: reserve -> convert to booking -> pay in full -> auto
 
   // Step 2 -> Step 3
   await page.getByRole("button", { name: "Next: Client Details" }).click();
-
-  // Step 3 -> Step 4
+  await uploadRequiredDocs(page);
   await page.getByRole("button", { name: "Next: Next of Kin" }).click();
 
-  // Step 4 -> Step 5
+  await fillKinIdentity(page, {
+    name: "Ayesha Tariq",
+    relation: "Spouse",
+    relationName: "Tariq Mahmood",
+    phone: "03007654321",
+    cnic: `35202-${cnicSeq}-1`,
+  });
+  await uploadKinDocs(page);
   await page.getByRole("button", { name: "Next: Review & Confirm" }).click();
 
   // Step 5: Confirm & Create Booking
@@ -155,10 +158,10 @@ test("full sales lifecycle: reserve -> convert to booking -> pay in full -> auto
   await page.goto("/sold");
   await expect(page).toHaveURL(/\/sold/, { timeout: 15_000 });
 
-  // Open the sold unit detail page
-  const row = page.getByRole("cell", { name: code });
-  await expect(row).toBeVisible({ timeout: 10_000 });
-  await row.click();
+  // Open the sold unit detail page (exact unit code, not the application number)
+  const unitCell = page.getByText(code, { exact: true });
+  await expect(unitCell).toBeVisible({ timeout: 10_000 });
+  await unitCell.click();
   await expect(page).toHaveURL(/\/sold\/[0-9a-f-]+/, { timeout: 15_000 });
 
   // Click Unit Buyback button
