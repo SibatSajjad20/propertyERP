@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { Route } from "next";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { DownloadSimple, FileCsv, FileXls } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,6 @@ export function DashboardFilters({
 }: DashboardFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   // Filter blocks by selected property if applicable
   const availableBlocks = React.useMemo(() => {
@@ -44,7 +43,9 @@ export function DashboardFilters({
   }, [options.blocks, selectedPropertyId]);
 
   function updateQuery(updates: Record<string, string | null>) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
     for (const [key, val] of Object.entries(updates)) {
       if (!val || val === "all") {
         params.delete(key);

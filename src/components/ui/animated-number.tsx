@@ -79,6 +79,7 @@ export function AnimatedNumber({
   return (
     <span
       ref={containerRef}
+      suppressHydrationWarning
       className={cn(
         "t-digit-group font-sans tabular-nums",
         animating && "is-animating",

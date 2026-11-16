@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import type { Route } from "next";
 import { CaretDown, CaretLeft, CaretRight, Clock } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
@@ -278,7 +278,6 @@ function groupRowsByDay(
 export function AuditScreen({ initialResult }: AuditScreenProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [actionFilter, setActionFilter] = useState("");
@@ -342,7 +341,9 @@ export function AuditScreen({ initialResult }: AuditScreenProps) {
   }
 
   function goToPage(newPage: number) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
     params.set("page", String(newPage));
     router.push(`${pathname}?${params.toString()}` as Route);
   }

@@ -386,7 +386,10 @@ export function DashboardScreen({
                               {act.targetName}
                             </span>
                           </p>
-                          <span className="shrink-0 text-[10px] text-ink-muted">
+                          <span
+                            suppressHydrationWarning
+                            className="shrink-0 text-[10px] text-ink-muted"
+                          >
                             {formatRelativeTime(act.createdAt)}
                           </span>
                         </div>
