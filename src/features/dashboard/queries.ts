@@ -440,68 +440,41 @@ export async function getDashboardBundle(filter?: {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).toISOString();
 
-  const [
-    floorsData,
-    salesOverTime,
-    [paymentRow],
-    [saleRow],
-    [refundRow],
-    [buybackRow],
-    [installmentRow],
-    [reservationRow],
-  ] = await Promise.all([
+  const [floorsData, salesOverTime, sumsRows] = await Promise.all([
     getFloorsLedger(filter),
     getSalesOverTime(filter),
-    db
-      .select({
-        payments_total: sql<string>`coalesce(sum(${payments.amount}), 0)::text`,
-      })
-      .from(payments),
-    db
-      .select({
-        sales_total: sql<string>`coalesce(sum(${sales.salePrice}), 0)::text`,
-      })
-      .from(sales),
-    db
-      .select({
-        refunds_total: sql<string>`coalesce(sum(${refunds.refundAmount}), 0)::text`,
-        refunds_month: sql<string>`coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text`,
-      })
-      .from(refunds),
-    db
-      .select({
-        buybacks_total: sql<string>`coalesce(sum(${buybacks.buybackAmount}), 0)::text`,
-        buybacks_month: sql<string>`coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text`,
-      })
-      .from(buybacks),
-    db
-      .select({
-        overdue_count: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int`,
-        overdue_pkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text`,
-        due_this_week_count: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int`,
-        due_this_week_pkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text`,
-      })
-      .from(installments)
-      .innerJoin(bookings, eq(installments.bookingId, bookings.id)),
-    db
-      .select({
-        expiring_reservations_count: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int`,
-      })
-      .from(reservations),
+    db.execute(sql`
+      select
+        (select coalesce(sum(${payments.amount}), 0)::text from ${payments}) as payments_total,
+        (select coalesce(sum(${sales.salePrice}), 0)::text from ${sales}) as sales_total,
+        (select coalesce(sum(${refunds.refundAmount}), 0)::text from ${refunds}) as refunds_total,
+        (select coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${refunds}) as refunds_month,
+        (select coalesce(sum(${buybacks.buybackAmount}), 0)::text from ${buybacks}) as buybacks_total,
+        (select coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${buybacks}) as buybacks_month,
+        (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_count,
+        (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_pkr,
+        (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_count,
+        (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_pkr,
+        (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count
+    `),
   ]);
 
+  const sumsRow = ((sumsRows as unknown as Record<string, unknown>[])[0] ?? {}) as Record<
+    string,
+    unknown
+  >;
   const sums = {
-    payments_total: paymentRow?.payments_total ?? "0",
-    sales_total: saleRow?.sales_total ?? "0",
-    refunds_total: refundRow?.refunds_total ?? "0",
-    buybacks_total: buybackRow?.buybacks_total ?? "0",
-    refunds_month: refundRow?.refunds_month ?? "0",
-    buybacks_month: buybackRow?.buybacks_month ?? "0",
-    overdue_count: installmentRow?.overdue_count ?? 0,
-    overdue_pkr: installmentRow?.overdue_pkr ?? "0",
-    due_this_week_count: installmentRow?.due_this_week_count ?? 0,
-    due_this_week_pkr: installmentRow?.due_this_week_pkr ?? "0",
-    expiring_reservations_count: reservationRow?.expiring_reservations_count ?? 0,
+    payments_total: String(sumsRow.payments_total ?? "0"),
+    sales_total: String(sumsRow.sales_total ?? "0"),
+    refunds_total: String(sumsRow.refunds_total ?? "0"),
+    buybacks_total: String(sumsRow.buybacks_total ?? "0"),
+    refunds_month: String(sumsRow.refunds_month ?? "0"),
+    buybacks_month: String(sumsRow.buybacks_month ?? "0"),
+    overdue_count: Number(sumsRow.overdue_count ?? 0),
+    overdue_pkr: String(sumsRow.overdue_pkr ?? "0"),
+    due_this_week_count: Number(sumsRow.due_this_week_count ?? 0),
+    due_this_week_pkr: String(sumsRow.due_this_week_pkr ?? "0"),
+    expiring_reservations_count: Number(sumsRow.expiring_reservations_count ?? 0),
   };
 
   let totalUnits = 0;

@@ -44,11 +44,48 @@ export default async function DashboardPage({
 
   const isSales = session.user.role === "SALES";
 
-  const [bundle, activities, filterOptions] = await Promise.all([
-    getDashboardBundle(filter),
-    isSales ? Promise.resolve([]) : getRecentActivity(8),
-    getDashboardFilterOptions(),
-  ]);
+  let bundle: Awaited<ReturnType<typeof getDashboardBundle>>;
+  let activities: Awaited<ReturnType<typeof getRecentActivity>> = [];
+  let filterOptions: Awaited<ReturnType<typeof getDashboardFilterOptions>> = {
+    properties: [],
+    blocks: [],
+  };
+
+  try {
+    [bundle, activities, filterOptions] = await Promise.all([
+      getDashboardBundle(filter),
+      isSales ? Promise.resolve([]) : getRecentActivity(8),
+      getDashboardFilterOptions(),
+    ]);
+  } catch (err) {
+    console.error("Dashboard bundle fetch error during SSR:", err);
+    bundle = {
+      stats: {
+        total: 0,
+        available: 0,
+        reserved: 0,
+        booked: 0,
+        sold: 0,
+        soldPercent: 0,
+        availableValuePkr: "0",
+        reservedValuePkr: "0",
+        bookedValuePkr: "0",
+        soldValuePkr: "0",
+        monthReversalsPkr: "0",
+        netCollectedPkr: "0",
+      },
+      attention: {
+        overdueCount: 0,
+        overduePkr: "0",
+        dueThisWeekCount: 0,
+        dueThisWeekPkr: "0",
+        expiringReservationsCount: 0,
+      },
+      floors: [],
+      blocks: [],
+      salesOverTime: [],
+    };
+  }
 
   return (
     <DashboardScreen

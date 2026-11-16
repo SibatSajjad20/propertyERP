@@ -18,16 +18,14 @@ function createClient() {
   }
   const max = process.env.DB_MAX_CONNECTIONS
     ? parseInt(process.env.DB_MAX_CONNECTIONS, 10)
-    : process.env.VERCEL
-      ? 5
-      : 10;
+    : 10;
   return postgres(url, {
     prepare: false,
     max,
     idle_timeout: 20,
-    connect_timeout: 10,
+    connect_timeout: 30,
     ...(lacksSslMode ? { ssl: "require" as const } : {}),
-    connection: { statement_timeout: 15000 },
+    connection: { statement_timeout: 45000 },
   } as unknown as postgres.Options<Record<string, never>>);
 }
 
