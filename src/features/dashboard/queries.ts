@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -434,10 +433,6 @@ export async function getDashboardBundle(filter?: {
   propertyId?: string;
   blockId?: string;
 }): Promise<DashboardBundle> {
-  "use cache";
-  cacheTag("dashboard");
-  cacheLife("minutes");
-
   const t0 = performance.now();
 
   const now = new Date();
@@ -767,9 +762,6 @@ export async function getRecentActivity(limit = 10): Promise<RecentActivityItem[
 }
 
 export async function getDashboardFilterOptions(): Promise<DashboardFilterOptions> {
-  "use cache";
-  cacheTag("dashboard");
-
   const [props, blks] = await Promise.all([
     db
       .select({ id: properties.id, name: properties.name })

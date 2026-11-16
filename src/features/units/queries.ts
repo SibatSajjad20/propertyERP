@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/schema/auth";
@@ -258,9 +257,6 @@ export async function getInventoryFilterOptions(): Promise<InventoryFilterOption
 }
 
 export async function getCachedInventoryFilterOptions(): Promise<InventoryFilterOptions> {
-  "use cache";
-  cacheTag("structure");
-  cacheLife("hours");
   return getInventoryFilterOptions();
 }
 

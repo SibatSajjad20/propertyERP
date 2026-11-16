@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cacheTag } from "next/cache";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { blocks, floors, properties } from "@/db/schema/property";
@@ -36,9 +35,6 @@ export async function getStructureScreenData(
   propertyId?: string,
   blockId?: string,
 ): Promise<StructureScreenData> {
-  "use cache";
-  cacheTag("structure");
-
   const [propertyRows, blockRows, floorRows] = await Promise.all([
     db
       .select({

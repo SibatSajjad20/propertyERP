@@ -19,7 +19,7 @@ function createClient() {
   const max = process.env.DB_MAX_CONNECTIONS
     ? parseInt(process.env.DB_MAX_CONNECTIONS, 10)
     : process.env.VERCEL
-      ? 1
+      ? 5
       : 10;
   return postgres(url, {
     prepare: false,

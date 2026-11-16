@@ -34,8 +34,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
     staleTimes: {
-      dynamic: 300,
-      static: 300,
+      dynamic: 30,
+      static: 180,
     },
   },
   turbopack: {

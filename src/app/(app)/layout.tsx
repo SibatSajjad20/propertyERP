@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { PageSkeleton } from "@/components/page-skeleton";
 import { auth, getSession } from "@/lib/auth";
 import type { UserRole } from "@/db/schema/enums";
 import { MustChangePasswordGate } from "./must-change-password-gate";
@@ -40,7 +38,7 @@ export default async function AppGroupLayout({
       navLocked={mustChangePassword}
     >
       <MustChangePasswordGate mustChangePassword={mustChangePassword}>
-        <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+        {children}
       </MustChangePasswordGate>
     </AppShell>
   );
