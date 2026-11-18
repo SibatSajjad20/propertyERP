@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["@react-pdf/renderer", "@supabase/supabase-js"],
   experimental: {
+    agentUpgrade: "security",
     serverActions: {
       bodySizeLimit: "10mb",
     },
