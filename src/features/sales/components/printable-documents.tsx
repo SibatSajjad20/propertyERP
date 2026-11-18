@@ -5,6 +5,7 @@ import * as React from "react";
 import { Printer, X } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr } from "@/lib/money";
 
 interface PrintableReceiptProps {
@@ -273,15 +274,17 @@ export function PrintableBookingFormDialog({
               </span>
               <p>
                 <span className="text-ink-muted">Unit Code:</span>{" "}
-                <span className="font-mono font-bold">{booking.unitCode}</span>
+                <span className="font-mono font-bold">
+                  {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
+                </span>
               </p>
               <p>
-                <span className="text-ink-muted">Floor & Category:</span>{" "}
+                <span className="text-ink-muted">Floor &amp; Category:</span>{" "}
                 {booking.floorName} · {booking.categoryName}
               </p>
               <p>
-                <span className="text-ink-muted">Net Area:</span> {booking.netAreaSqft} sq
-                ft
+                <span className="text-ink-muted">Gross Area:</span>{" "}
+                {effectivePricingArea(booking.grossAreaSqft, booking.netAreaSqft)} sq ft
               </p>
               <p>
                 <span className="text-ink-muted">Net Price:</span>{" "}

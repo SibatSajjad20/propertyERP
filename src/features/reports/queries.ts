@@ -32,6 +32,8 @@ import {
   sales,
 } from "@/db/schema/sales";
 import { units } from "@/db/schema/units";
+import { calculateInstallmentSurcharge } from "@/features/installments/surcharge";
+import { formatUnitDisplayCode } from "@/lib/area";
 import { logger } from "@/lib/logger";
 import { formatDecimal, parseDecimal } from "@/lib/money";
 import {
@@ -154,7 +156,7 @@ export async function getSummaryReport(
     unitConditions.push(eq(units.categoryId, categoryId));
   }
 
-  const computedPriceSql = sql`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
+  const computedPriceSql = sql`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
 
   const [statusStatsQuery, salesRows, paymentsRows, refundsRows, buybacksRows] =
     await Promise.all([
@@ -455,6 +457,7 @@ export async function getSoldUnitsReport(
       floorName: floors.name,
       categoryName: categories.name,
       netAreaSqft: units.netAreaSqft,
+      grossAreaSqft: units.grossAreaSqft,
       clientName: clients.fullName,
       clientCnic: clients.cnic,
       salePrice: sales.salePrice,
@@ -463,7 +466,7 @@ export async function getSoldUnitsReport(
       bookingId: sales.bookingId,
       bookingListPrice: bookings.listPrice,
       bookingDiscount: bookings.discountValue,
-      unitAskingPrice: sql<string>`coalesce(round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2), '0.00')`,
+      unitAskingPrice: sql<string>`coalesce(round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2), '0.00')`,
     })
     .from(sales)
     .innerJoin(units, eq(sales.unitId, units.id))
@@ -1086,6 +1089,7 @@ export async function getClientLedgerReport(
     clientSales,
     clientReservations,
     clientPayments,
+    clientInstallments,
     clientRefunds,
     clientBuybacks,
   ] = await Promise.all([
@@ -1093,16 +1097,20 @@ export async function getClientLedgerReport(
     db
       .select({
         id: bookings.id,
+        bookingNo: bookings.bookingNo,
         unitId: units.id,
         unitCode: units.unitCode,
+        categoryName: categories.name,
         floorName: floors.name,
         netPrice: bookings.netPrice,
+        surchargeExempt: bookings.surchargeExempt,
         status: bookings.status,
         createdAt: bookings.createdAt,
       })
       .from(bookings)
       .innerJoin(units, eq(bookings.unitId, units.id))
       .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
       .where(eq(bookings.clientId, client.id)),
     db
       .select({
@@ -1110,6 +1118,7 @@ export async function getClientLedgerReport(
         bookingId: sales.bookingId,
         unitId: units.id,
         unitCode: units.unitCode,
+        categoryName: categories.name,
         floorName: floors.name,
         salePrice: sales.salePrice,
         status: sales.status,
@@ -1118,36 +1127,67 @@ export async function getClientLedgerReport(
       .from(sales)
       .innerJoin(units, eq(sales.unitId, units.id))
       .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
       .where(eq(sales.clientId, client.id)),
     db
       .select({
         id: reservations.id,
         unitId: units.id,
         unitCode: units.unitCode,
+        categoryName: categories.name,
         floorName: floors.name,
+        status: reservations.status,
         startAt: reservations.startAt,
+        tokenAmount: reservations.tokenAmount,
+        tokenReceiptNo: reservations.tokenReceiptNo,
+        tokenPaidAt: reservations.tokenPaidAt,
       })
       .from(reservations)
       .innerJoin(units, eq(reservations.unitId, units.id))
       .innerJoin(floors, eq(units.floorId, floors.id))
-      .where(
-        and(eq(reservations.clientId, client.id), eq(reservations.status, "ACTIVE")),
-      ),
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .where(eq(reservations.clientId, client.id)),
     db
       .select({
         id: payments.id,
         receiptNo: payments.receiptNo,
+        category: payments.category,
         amount: payments.amount,
+        surchargeAmount: payments.surchargeAmount,
         paidAt: payments.paidAt,
         notes: payments.notes,
         isVoided: payments.isVoided,
         bookingNo: bookings.bookingNo,
         unitCode: units.unitCode,
+        categoryName: categories.name,
       })
       .from(payments)
       .innerJoin(bookings, eq(payments.bookingId, bookings.id))
       .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
       .where(and(eq(bookings.clientId, client.id), eq(payments.isVoided, false))),
+    db
+      .select({
+        id: installments.id,
+        seq: installments.seq,
+        label: installments.label,
+        dueDate: installments.dueDate,
+        amount: installments.amount,
+        paidAmount: installments.paidAmount,
+        status: installments.status,
+        surchargeWaived: installments.surchargeWaived,
+        surchargeWaivedAmount: installments.surchargeWaivedAmount,
+        surchargePaidAmount: installments.surchargePaidAmount,
+        bookingNo: bookings.bookingNo,
+        bookingSurchargeExempt: bookings.surchargeExempt,
+        unitCode: units.unitCode,
+        categoryName: categories.name,
+      })
+      .from(installments)
+      .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .where(eq(bookings.clientId, client.id)),
     db
       .select({
         id: refunds.id,
@@ -1175,7 +1215,7 @@ export async function getClientLedgerReport(
   for (const b of clientBookings) {
     associatedUnits.push({
       unitId: b.unitId,
-      unitCode: b.unitCode,
+      unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
       floorName: b.floorName,
       relationType: b.status === "RETURNED" ? "RETURNED" : "BOOKED",
       date: b.createdAt,
@@ -1186,7 +1226,7 @@ export async function getClientLedgerReport(
   for (const s of clientSales) {
     associatedUnits.push({
       unitId: s.unitId,
-      unitCode: s.unitCode,
+      unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
       floorName: s.floorName,
       relationType: s.status === "BOUGHT_BACK" ? "BOUGHT_BACK" : "SOLD",
       date: s.soldAt,
@@ -1195,28 +1235,71 @@ export async function getClientLedgerReport(
   }
 
   for (const r of clientReservations) {
-    associatedUnits.push({
-      unitId: r.unitId,
-      unitCode: r.unitCode,
-      floorName: r.floorName,
-      relationType: "RESERVED",
-      date: r.startAt,
-      amountPkr: "0.00",
-    });
+    if (r.status === "ACTIVE") {
+      associatedUnits.push({
+        unitId: r.unitId,
+        unitCode: formatUnitDisplayCode(r.unitCode, r.categoryName),
+        floorName: r.floorName,
+        relationType: "RESERVED",
+        date: r.startAt,
+        amountPkr: r.tokenAmount || "0.00",
+      });
+    }
   }
 
   // 2. Build Raw Ledger Entries for all time
   const rawEntries: LedgerRawEntry[] = [];
 
+  // Credits: Reservation Token Payments
+  for (const r of clientReservations) {
+    if (parseDecimal(r.tokenAmount || "0") > 0n) {
+      rawEntries.push({
+        date: r.tokenPaidAt ?? r.startAt,
+        description: `Reservation Token (${formatUnitDisplayCode(r.unitCode, r.categoryName)})`,
+        receiptNo: r.tokenReceiptNo,
+        debitPkr: "0.00",
+        creditPkr: r.tokenAmount,
+      });
+    }
+  }
+
   // Debits: Bookings (contract price owed)
   for (const b of clientBookings) {
     rawEntries.push({
       date: b.createdAt,
-      description: `Booking Contract #${b.id.slice(0, 8).toUpperCase()} (Unit ${b.unitCode})`,
+      description: `Booking Contract ${b.bookingNo} (${formatUnitDisplayCode(b.unitCode, b.categoryName)})`,
       receiptNo: null,
       debitPkr: b.netPrice,
       creditPkr: "0.00",
     });
+  }
+
+  // Debits: Automatic Overdue Surcharges (> 30 days overdue @ 0.1%/day)
+  const nowDate = new Date();
+  for (const inst of clientInstallments) {
+    const sc = calculateInstallmentSurcharge(
+      {
+        amount: inst.amount,
+        paidAmount: inst.paidAmount,
+        dueDate: inst.dueDate,
+        status: inst.status,
+        surchargeWaived: inst.surchargeWaived,
+        surchargeWaivedAmount: inst.surchargeWaivedAmount,
+        surchargePaidAmount: inst.surchargePaidAmount,
+        bookingSurchargeExempt: inst.bookingSurchargeExempt,
+      },
+      nowDate,
+    );
+    const totalEffectiveSurcharge = parseDecimal(sc.netDuePkr) + parseDecimal(sc.paidPkr);
+    if (totalEffectiveSurcharge > 0n) {
+      rawEntries.push({
+        date: new Date(new Date(inst.dueDate).getTime() + 31 * 86_400_000),
+        description: `Late Payment Surcharge — ${inst.label || `Installment #${inst.seq}`} (${sc.chargeableDays}d beyond 30d grace @ 0.1%/day · ${formatUnitDisplayCode(inst.unitCode, inst.categoryName)})`,
+        receiptNo: null,
+        debitPkr: formatDecimal(totalEffectiveSurcharge),
+        creditPkr: "0.00",
+      });
+    }
   }
 
   // Direct Sales (if any without booking)
@@ -1224,7 +1307,7 @@ export async function getClientLedgerReport(
     if (!s.bookingId) {
       rawEntries.push({
         date: s.soldAt,
-        description: `Direct Sale (Unit ${s.unitCode})`,
+        description: `Direct Sale (${formatUnitDisplayCode(s.unitCode, s.categoryName)})`,
         receiptNo: null,
         debitPkr: s.salePrice,
         creditPkr: "0.00",
@@ -1234,9 +1317,10 @@ export async function getClientLedgerReport(
 
   // Credits: Payments made by this client
   for (const p of clientPayments) {
+    const catLabel = p.category.replace(/_/g, " ");
     rawEntries.push({
       date: p.paidAt,
-      description: `Payment Receipt (Booking ${p.bookingNo}, Unit ${p.unitCode})`,
+      description: `${catLabel} Receipt (${p.bookingNo}, ${formatUnitDisplayCode(p.unitCode, p.categoryName)})`,
       receiptNo: p.receiptNo,
       debitPkr: "0.00",
       creditPkr: p.amount,
@@ -1300,5 +1384,367 @@ export async function getClientLedgerReport(
       totalCreditsPkr: statement.totalCreditsPkr,
       entries: statement.entries,
     },
+  };
+}
+
+export interface DetailedCollectionTxRow {
+  id: string;
+  date: Date;
+  receiptNo: string | null;
+  clientName: string;
+  clientCnic: string;
+  clientPhone: string;
+  unitCode: string;
+  floorName: string;
+  categoryName: string;
+  bookingNo: string | null;
+  method: string | null;
+  amountPkr: string;
+  notes: string | null;
+  adjustedToBooking?: boolean;
+}
+
+export interface SurchargeCollectionRow {
+  installmentId: string;
+  bookingId: string;
+  bookingNo: string;
+  clientName: string;
+  clientCnic: string;
+  unitCode: string;
+  floorName: string;
+  installmentLabel: string;
+  dueDate: Date;
+  chargeableDays: number;
+  rawAccruedPkr: string;
+  waivedPkr: string;
+  paidPkr: string;
+  netDuePkr: string;
+  isExemptOrWaived: boolean;
+}
+
+export interface DetailedCollectionsReportData {
+  summary: {
+    tokenTotalPkr: string;
+    tokenCount: number;
+    downPaymentTotalPkr: string;
+    downPaymentCount: number;
+    installmentsTotalPkr: string;
+    installmentsCount: number;
+    possessionTotalPkr: string;
+    possessionCount: number;
+    balloonTotalPkr: string;
+    balloonCount: number;
+    surchargeCollectedPkr: string;
+    surchargeWaivedPkr: string;
+    surchargeOutstandingPkr: string;
+    grandTotalCollectedPkr: string;
+  };
+  tokens: DetailedCollectionTxRow[];
+  downPayments: DetailedCollectionTxRow[];
+  installments: DetailedCollectionTxRow[];
+  possessions: DetailedCollectionTxRow[];
+  balloons: DetailedCollectionTxRow[];
+  surcharges: SurchargeCollectionRow[];
+}
+
+export async function getDetailedCollectionsReport(
+  params: ReportFilters,
+): Promise<DetailedCollectionsReportData> {
+  const { startDate, endDate } = resolvePresetDates(
+    params.preset,
+    params.startDate,
+    params.endDate,
+  );
+  const startIso = startDate.toISOString();
+  const endIso = endDate.toISOString();
+
+  const floorFilter =
+    params.floorId && params.floorId !== "ALL"
+      ? eq(units.floorId, params.floorId)
+      : undefined;
+  const catFilter =
+    params.categoryId && params.categoryId !== "ALL"
+      ? eq(units.categoryId, params.categoryId)
+      : undefined;
+  const searchTerm = params.q?.trim() ? `%${params.q.trim()}%` : null;
+
+  const paymentConditions = [
+    eq(payments.isVoided, false),
+    sql`${payments.paidAt} >= ${startIso}::timestamptz`,
+    sql`${payments.paidAt} <= ${endIso}::timestamptz`,
+  ];
+  if (floorFilter) paymentConditions.push(floorFilter);
+  if (catFilter) paymentConditions.push(catFilter);
+  if (searchTerm) {
+    paymentConditions.push(
+      or(
+        ilike(clients.fullName, searchTerm),
+        ilike(clients.cnic, searchTerm),
+        ilike(units.unitCode, searchTerm),
+        ilike(payments.receiptNo, searchTerm),
+      )!,
+    );
+  }
+
+  const tokenConditions = [
+    sql`${reservations.tokenAmount} > 0`,
+    sql`coalesce(${reservations.tokenPaidAt}, ${reservations.startAt}) >= ${startIso}::timestamptz`,
+    sql`coalesce(${reservations.tokenPaidAt}, ${reservations.startAt}) <= ${endIso}::timestamptz`,
+  ];
+  if (floorFilter) tokenConditions.push(floorFilter);
+  if (catFilter) tokenConditions.push(catFilter);
+  if (searchTerm) {
+    tokenConditions.push(
+      or(
+        ilike(clients.fullName, searchTerm),
+        ilike(clients.cnic, searchTerm),
+        ilike(units.unitCode, searchTerm),
+      )!,
+    );
+  }
+
+  const instConditions = [eq(bookings.status, "ACTIVE")];
+  if (floorFilter) instConditions.push(floorFilter);
+  if (catFilter) instConditions.push(catFilter);
+  if (searchTerm) {
+    instConditions.push(
+      or(
+        ilike(clients.fullName, searchTerm),
+        ilike(clients.cnic, searchTerm),
+        ilike(units.unitCode, searchTerm),
+      )!,
+    );
+  }
+
+  const [tokenRows, paymentRows, overdueInstRows] = await Promise.all([
+    db
+      .select({
+        id: reservations.id,
+        date: sql<Date>`coalesce(${reservations.tokenPaidAt}, ${reservations.startAt})`,
+        receiptNo: reservations.tokenReceiptNo,
+        clientName: clients.fullName,
+        clientCnic: clients.cnic,
+        clientPhone: clients.phone,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        categoryName: categories.name,
+        method: reservations.tokenPaymentMethod,
+        amountPkr: reservations.tokenAmount,
+        notes: reservations.notes,
+        tokenAdjustedToBookingId: reservations.tokenAdjustedToBookingId,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(reservations.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(reservations.clientId, clients.id))
+      .where(and(...tokenConditions))
+      .orderBy(desc(reservations.startAt)),
+    db
+      .select({
+        id: payments.id,
+        date: payments.paidAt,
+        receiptNo: payments.receiptNo,
+        category: payments.category,
+        amount: payments.amount,
+        surchargeAmount: payments.surchargeAmount,
+        method: payments.method,
+        notes: payments.notes,
+        bookingNo: bookings.bookingNo,
+        clientName: clients.fullName,
+        clientCnic: clients.cnic,
+        clientPhone: clients.phone,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        categoryName: categories.name,
+      })
+      .from(payments)
+      .innerJoin(bookings, eq(payments.bookingId, bookings.id))
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(bookings.clientId, clients.id))
+      .where(and(...paymentConditions))
+      .orderBy(desc(payments.paidAt)),
+    db
+      .select({
+        installmentId: installments.id,
+        bookingId: bookings.id,
+        bookingNo: bookings.bookingNo,
+        bookingSurchargeExempt: bookings.surchargeExempt,
+        clientName: clients.fullName,
+        clientCnic: clients.cnic,
+        unitCode: units.unitCode,
+        floorName: floors.name,
+        categoryName: categories.name,
+        seq: installments.seq,
+        label: installments.label,
+        dueDate: installments.dueDate,
+        amount: installments.amount,
+        paidAmount: installments.paidAmount,
+        status: installments.status,
+        surchargeWaived: installments.surchargeWaived,
+        surchargeWaivedAmount: installments.surchargeWaivedAmount,
+        surchargePaidAmount: installments.surchargePaidAmount,
+      })
+      .from(installments)
+      .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(bookings.clientId, clients.id))
+      .where(and(...instConditions))
+      .orderBy(asc(installments.dueDate)),
+  ]);
+
+  const tokens: DetailedCollectionTxRow[] = [];
+  let tokenTotal = 0n;
+  for (const t of tokenRows) {
+    tokenTotal += parseDecimal(t.amountPkr);
+    tokens.push({
+      id: t.id,
+      date: new Date(t.date),
+      receiptNo: t.receiptNo,
+      clientName: t.clientName,
+      clientCnic: t.clientCnic,
+      clientPhone: t.clientPhone,
+      unitCode: formatUnitDisplayCode(t.unitCode, t.categoryName),
+      floorName: t.floorName,
+      categoryName: t.categoryName,
+      bookingNo: null,
+      method: t.method,
+      amountPkr: t.amountPkr,
+      notes: t.notes,
+      adjustedToBooking: Boolean(t.tokenAdjustedToBookingId),
+    });
+  }
+
+  const downPayments: DetailedCollectionTxRow[] = [];
+  const installmentCols: DetailedCollectionTxRow[] = [];
+  const possessions: DetailedCollectionTxRow[] = [];
+  const balloons: DetailedCollectionTxRow[] = [];
+
+  let downTotal = 0n;
+  let instTotal = 0n;
+  let possTotal = 0n;
+  let balloonTotal = 0n;
+  let surchargeCollected = 0n;
+
+  for (const p of paymentRows) {
+    const amt = parseDecimal(p.amount);
+    const sur = parseDecimal(p.surchargeAmount || "0");
+    surchargeCollected += p.category === "SURCHARGE" ? amt : sur;
+
+    const principalPart = p.category === "SURCHARGE" ? 0n : amt > sur ? amt - sur : 0n;
+    const row: DetailedCollectionTxRow = {
+      id: p.id,
+      date: new Date(p.date),
+      receiptNo: p.receiptNo,
+      clientName: p.clientName,
+      clientCnic: p.clientCnic,
+      clientPhone: p.clientPhone,
+      unitCode: formatUnitDisplayCode(p.unitCode, p.categoryName),
+      floorName: p.floorName,
+      categoryName: p.categoryName,
+      bookingNo: p.bookingNo,
+      method: p.method,
+      amountPkr: formatDecimal(principalPart > 0n ? principalPart : amt),
+      notes: p.notes,
+    };
+
+    switch (p.category) {
+      case "DOWN_PAYMENT":
+        downTotal += principalPart;
+        downPayments.push(row);
+        break;
+      case "POSSESSION":
+        possTotal += principalPart;
+        possessions.push(row);
+        break;
+      case "BALLOON":
+        balloonTotal += principalPart;
+        balloons.push(row);
+        break;
+      case "SURCHARGE":
+        break;
+      default:
+        instTotal += principalPart;
+        installmentCols.push(row);
+        break;
+    }
+  }
+
+  const surcharges: SurchargeCollectionRow[] = [];
+  let surchargeWaived = 0n;
+  let surchargeOutstanding = 0n;
+  const now = new Date();
+
+  for (const inst of overdueInstRows) {
+    const sc = calculateInstallmentSurcharge(
+      {
+        amount: inst.amount,
+        paidAmount: inst.paidAmount,
+        dueDate: inst.dueDate,
+        status: inst.status,
+        surchargeWaived: inst.surchargeWaived,
+        surchargeWaivedAmount: inst.surchargeWaivedAmount,
+        surchargePaidAmount: inst.surchargePaidAmount,
+        bookingSurchargeExempt: inst.bookingSurchargeExempt,
+      },
+      now,
+    );
+    if (
+      parseDecimal(sc.rawAccruedPkr) > 0n ||
+      parseDecimal(sc.paidPkr) > 0n ||
+      parseDecimal(sc.waivedPkr) > 0n
+    ) {
+      surchargeWaived += parseDecimal(sc.waivedPkr);
+      surchargeOutstanding += parseDecimal(sc.netDuePkr);
+      surcharges.push({
+        installmentId: inst.installmentId,
+        bookingId: inst.bookingId,
+        bookingNo: inst.bookingNo,
+        clientName: inst.clientName,
+        clientCnic: inst.clientCnic,
+        unitCode: formatUnitDisplayCode(inst.unitCode, inst.categoryName),
+        floorName: inst.floorName,
+        installmentLabel: inst.label || `Installment #${inst.seq}`,
+        dueDate: new Date(inst.dueDate),
+        chargeableDays: sc.chargeableDays,
+        rawAccruedPkr: sc.rawAccruedPkr,
+        waivedPkr: sc.waivedPkr,
+        paidPkr: sc.paidPkr,
+        netDuePkr: sc.netDuePkr,
+        isExemptOrWaived: sc.isExemptOrWaived,
+      });
+    }
+  }
+
+  const grandTotal =
+    tokenTotal + downTotal + instTotal + possTotal + balloonTotal + surchargeCollected;
+
+  return {
+    summary: {
+      tokenTotalPkr: formatDecimal(tokenTotal),
+      tokenCount: tokens.length,
+      downPaymentTotalPkr: formatDecimal(downTotal),
+      downPaymentCount: downPayments.length,
+      installmentsTotalPkr: formatDecimal(instTotal),
+      installmentsCount: installmentCols.length,
+      possessionTotalPkr: formatDecimal(possTotal),
+      possessionCount: possessions.length,
+      balloonTotalPkr: formatDecimal(balloonTotal),
+      balloonCount: balloons.length,
+      surchargeCollectedPkr: formatDecimal(surchargeCollected),
+      surchargeWaivedPkr: formatDecimal(surchargeWaived),
+      surchargeOutstandingPkr: formatDecimal(surchargeOutstanding),
+      grandTotalCollectedPkr: formatDecimal(grandTotal),
+    },
+    tokens,
+    downPayments,
+    installments: installmentCols,
+    possessions,
+    balloons,
+    surcharges,
   };
 }

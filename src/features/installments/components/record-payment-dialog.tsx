@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { PaymentCategory } from "@/db/schema/enums";
 import { allocatePayment } from "@/features/sales/calculator";
 import { recordInstallmentPayment } from "../actions";
 import type { BookingScheduleDetail } from "../queries";
@@ -40,6 +41,8 @@ export function RecordPaymentDialog({
   onPaymentSuccess,
 }: RecordPaymentDialogProps) {
   const [amountPkr, setAmountPkr] = React.useState("");
+  const [category, setCategory] = React.useState<PaymentCategory>("INSTALLMENT");
+  const [surchargeAmountPkr, setSurchargeAmountPkr] = React.useState("");
   const [method, setMethod] = React.useState<
     "CASH" | "CHEQUE" | "BANK_TRANSFER" | "PAY_ORDER"
   >("CASH");
@@ -94,6 +97,8 @@ export function RecordPaymentDialog({
       const res = await recordInstallmentPayment({
         bookingId: booking.id,
         amountPkr: trimmed,
+        category,
+        surchargeAmountPkr: surchargeAmountPkr.trim() || undefined,
         method,
         chequeNo: chequeNo.trim() || undefined,
         bank: bank.trim() || undefined,
@@ -173,6 +178,43 @@ export function RecordPaymentDialog({
                 onChange={(e) => setPaidAt(e.target.value)}
                 className="mt-1 h-9 w-full rounded-[6px] border border-line bg-surface px-3 text-[13px] text-ink focus:outline-primary"
                 required
+              />
+            </div>
+          </div>
+
+          {/* Category & Optional Surcharge Collected */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-medium text-ink-muted uppercase">
+                Payment Category *
+              </label>
+              <div className="mt-1">
+                <Select
+                  value={category}
+                  onValueChange={(val) => setCategory(val as PaymentCategory)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INSTALLMENT">Installment</SelectItem>
+                    <SelectItem value="BALLOON">Balloon Payment</SelectItem>
+                    <SelectItem value="POSSESSION">Possession Payment</SelectItem>
+                    <SelectItem value="SURCHARGE">Surcharge Only</SelectItem>
+                    <SelectItem value="DOWN_PAYMENT">Down Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-ink-muted uppercase">
+                Incl. Surcharge (PKR)
+              </label>
+              <MoneyInput
+                value={surchargeAmountPkr}
+                onValueChange={setSurchargeAmountPkr}
+                placeholder="0 (if applicable)"
+                className="mt-1"
               />
             </div>
           </div>

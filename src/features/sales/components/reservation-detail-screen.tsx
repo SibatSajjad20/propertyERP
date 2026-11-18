@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatPkr } from "@/lib/money";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
+import { formatPkr, parseDecimal } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole } from "@/db/schema/enums";
@@ -194,20 +195,21 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
               href={`/units/${reservation.unitId}`}
               className="unit-code font-mono text-[14px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
-              {reservation.unitCode}
+              {formatUnitDisplayCode(reservation.unitCode, reservation.categoryName)}
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-2 text-[12px]">
             <div>
-              <span className="text-ink-muted">Floor & Category:</span>
+              <span className="text-ink-muted">Floor &amp; Category:</span>
               <p className="font-medium text-ink">
                 {reservation.floorName} · {reservation.categoryName}
               </p>
             </div>
             <div>
-              <span className="text-ink-muted">Net Area:</span>
+              <span className="text-ink-muted">Gross Area:</span>
               <p className="font-medium text-ink tabular-nums">
-                {reservation.netAreaSqft} sq ft
+                {effectivePricingArea(reservation.grossAreaSqft, reservation.netAreaSqft)}{" "}
+                sq ft
               </p>
             </div>
             <div>
@@ -257,6 +259,24 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
               <p className="font-medium text-ink">
                 {reservation.createdByName || "Sales Officer"}
               </p>
+            </div>
+            <div>
+              <span className="text-ink-muted">Token Payment:</span>
+              <p className="font-semibold text-ink tabular-nums">
+                {parseDecimal(reservation.tokenAmount || "0") > 0n
+                  ? `${formatPkr(reservation.tokenAmount)}${
+                      reservation.tokenReceiptNo ? ` (${reservation.tokenReceiptNo})` : ""
+                    }`
+                  : "None (Hold without token)"}
+              </p>
+              {parseDecimal(reservation.tokenAmount || "0") > 0n && (
+                <p className="text-[11px] text-ink-muted">
+                  {reservation.tokenPaymentMethod?.replace("_", " ") ?? "Cash"}
+                  {reservation.tokenAdjustedToBookingId
+                    ? " · Adjusted against booking down payment"
+                    : " · Will deduct on booking conversion"}
+                </p>
+              )}
             </div>
           </div>
         </div>

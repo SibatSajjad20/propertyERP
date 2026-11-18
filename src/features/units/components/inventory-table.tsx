@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/cn";
 import { formatKarachiDate } from "@/lib/datetime";
 import { formatPkrLedger } from "@/lib/money";
+import { formatUnitNumberLabel } from "@/lib/area";
 import type { InventoryQuery, InventorySortField } from "../schema";
 import type { InventoryRow, InventoryTotals } from "../types";
 
@@ -73,15 +74,30 @@ export function InventoryTable({
     const cols = [
       helper.accessor("unitCode", {
         header: "Unit code",
-        cell: (info) => (
-          <span className="unit-code font-mono font-medium text-ink">
-            {info.getValue()}
-          </span>
-        ),
+        cell: (info) => {
+          const row = info.row.original;
+          return (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="unit-code font-mono font-medium text-ink">
+                {info.getValue()}
+              </span>
+              {row.isMergedUnit ? (
+                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  Merged
+                </span>
+              ) : null}
+            </span>
+          );
+        },
       }),
       helper.accessor("unitNumber", {
         header: "Unit no.",
-        cell: (info) => info.getValue(),
+        cell: (info) =>
+          formatUnitNumberLabel(
+            info.row.original.unitCode,
+            info.getValue(),
+            info.row.original.categoryName,
+          ),
       }),
       helper.accessor("floorName", {
         header: "Floor",

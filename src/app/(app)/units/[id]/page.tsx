@@ -10,11 +10,13 @@ import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import { UnitOwnershipTimeline } from "@/features/sales/components/unit-ownership-timeline";
 import { getUnitOwnershipTimeline } from "@/features/sales/queries";
 import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
+import { MergedUnitDetailsCard } from "@/features/units/components/merged-unit-details-card";
+import { getMergeDetailsForUnit } from "@/features/units/merge-queries";
 import { getUnitById, listUnitStatusHistory } from "@/features/units/queries";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
 import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
-import { formatSqft } from "@/lib/area";
+import { formatSqft, formatUnitDisplayCode, formatUnitNumberLabel } from "@/lib/area";
 
 export async function generateMetadata({
   params,
@@ -37,10 +39,11 @@ export default async function UnitDetailPage({
   assertCan(session.user.role, "units.read");
 
   const { id } = await params;
-  const [row, history, timeline] = await Promise.all([
+  const [row, history, timeline, mergeInfo] = await Promise.all([
     getUnitById(id),
     listUnitStatusHistory(id),
     getUnitOwnershipTimeline(id),
+    getMergeDetailsForUnit(id),
   ]);
   if (!row) {
     notFound();
@@ -97,13 +100,22 @@ export default async function UnitDetailPage({
         <div>
           <div className="flex items-center gap-3">
             <span className="unit-code font-mono text-[22px] font-semibold text-primary">
-              {row.unit.unitCode}
+              {formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
             </span>
             <UnitStatusBadge status={unit.status} />
+            {row.unit.isMergedUnit && (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                Merged Unit
+              </span>
+            )}
           </div>
           <h1 className="mt-1 text-[15px] font-medium text-ink-muted">
-            Unit {row.unit.unitNumber} · {row.floorName} (Level {row.floorLevel}) ·{" "}
-            {row.categoryName}
+            {formatUnitNumberLabel(
+              row.unit.unitCode,
+              row.unit.unitNumber,
+              row.categoryName,
+            )}{" "}
+            · {row.floorName} (Level {row.floorLevel}) · {row.categoryName}
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -213,6 +225,9 @@ export default async function UnitDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Merged Unit Source Details Card */}
+      {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
 
       {/* Main card with status actions, unit details dl, and history timeline */}
       <div className="card overflow-hidden">

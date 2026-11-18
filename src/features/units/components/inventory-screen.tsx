@@ -9,6 +9,7 @@ import {
   Plus,
   ArrowClockwise,
   DownloadSimple,
+  GitMerge,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -29,6 +30,11 @@ import {
   type InventoryQuery,
   type InventorySortField,
 } from "../schema";
+import {
+  categoryMatchesSection,
+  INVENTORY_SECTIONS,
+  type InventorySectionKey,
+} from "../sections";
 import type {
   InventoryFilterOptions,
   InventoryRow,
@@ -36,6 +42,7 @@ import type {
   StatusHistoryEntry,
 } from "../types";
 import { InventoryTable } from "./inventory-table";
+import { MergeUnitsDialog } from "./merge-units-dialog";
 import {
   useInventoryOptionsQuery,
   useInventoryQuery,
@@ -52,6 +59,7 @@ type InventoryScreenProps = {
   canManage: boolean;
   canSell: boolean;
   canReverse: boolean;
+  pendingMergeCount?: number;
   role: UserRole;
 };
 
@@ -70,6 +78,8 @@ export function InventoryScreen({
   canManage,
   canSell,
   canReverse,
+  pendingMergeCount = 0,
+  role,
 }: InventoryScreenProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -77,10 +87,12 @@ export function InventoryScreen({
   const [query, setQuery] = useState<InventoryQuery>(initialQuery);
   const [search, setSearch] = useState(initialQuery.q ?? "");
   const [showSoldOn, setShowSoldOn] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const queryMatchesServer =
     query.q === initialQuery.q &&
+    query.section === initialQuery.section &&
     query.floorId === initialQuery.floorId &&
     query.categoryId === initialQuery.categoryId &&
     query.status === initialQuery.status &&
@@ -139,6 +151,7 @@ export function InventoryScreen({
     setSearch("");
     updateQuery({
       q: undefined,
+      section: undefined,
       floorId: undefined,
       categoryId: undefined,
       status: undefined,
@@ -146,6 +159,27 @@ export function InventoryScreen({
       missingGross: undefined,
     });
   }
+
+  function handleSelectSection(section?: InventorySectionKey) {
+    // Switching inventory section resets category & floor sub-filters so cascading options stay valid
+    updateQuery({
+      section,
+      categoryId: undefined,
+      floorId: undefined,
+    });
+  }
+
+  // Scope sub-category & floor options based on the active inventory section
+  const scopedCategories = query.section
+    ? options.categories.filter((cat) => categoryMatchesSection(cat.name, query.section!))
+    : options.categories;
+
+  const scopedFloors =
+    query.section === "mall-shops"
+      ? options.floors.filter((f) => (f.level ?? 0) >= 1)
+      : query.section === "commercial-shops"
+        ? options.floors.filter((f) => (f.level ?? 0) <= 0)
+        : options.floors;
 
   useEffect(() => {
     const host = window as Window & {
@@ -162,6 +196,7 @@ export function InventoryScreen({
 
   const emptyMessage =
     query.q ||
+    query.section ||
     query.floorId ||
     query.categoryId ||
     query.status ||
@@ -176,6 +211,7 @@ export function InventoryScreen({
 
   const hasActiveFilters = Boolean(
     query.q ||
+    query.section ||
     query.floorId ||
     query.categoryId ||
     query.status ||
@@ -187,9 +223,28 @@ export function InventoryScreen({
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <PageHeader
         title="Inventory"
-        description="Browse, filter, and manage commercial units, square footage, and absorption rates."
+        description="Browse, filter, merge, and manage inventory across retail, offices, food court, kiosks, and residential apartments."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {canManage && (
+              <>
+                <Button variant="secondary" size="md" asChild>
+                  <Link href={"/inventory/merges" as Route}>
+                    <GitMerge weight="light" className="mr-1.5 size-4" />
+                    Merge Requests
+                    {pendingMergeCount > 0 && (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-white">
+                        {pendingMergeCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
+                <Button variant="secondary" size="md" onClick={() => setMergeOpen(true)}>
+                  <GitMerge weight="light" className="mr-1.5 size-4" />
+                  Merge Units
+                </Button>
+              </>
+            )}
             <Button variant="secondary" size="md" asChild>
               <a
                 href={`/api/export/inventory${inventoryQueryString(query) ? `?${inventoryQueryString(query)}` : ""}`}
@@ -209,6 +264,46 @@ export function InventoryScreen({
           </div>
         }
       />
+
+      {/* Separate Inventory Section Filter Tabs (scopes further filter options below) */}
+      <div
+        role="tablist"
+        aria-label="Inventory sections"
+        className="flex flex-wrap items-center gap-1.5 border-b border-line pb-3"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!query.section}
+          onClick={() => handleSelectSection(undefined)}
+          className={`h-8 cursor-pointer rounded-[8px] border px-3 text-[12px] font-medium transition-colors ${
+            !query.section
+              ? "border-primary bg-primary text-white shadow-xs"
+              : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
+          }`}
+        >
+          All Inventory
+        </button>
+        {INVENTORY_SECTIONS.map((sec) => {
+          const active = query.section === sec.key;
+          return (
+            <button
+              key={sec.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => handleSelectSection(sec.key)}
+              className={`h-8 cursor-pointer rounded-[8px] border px-3 text-[12px] font-medium transition-colors ${
+                active
+                  ? "border-primary bg-primary text-white shadow-xs"
+                  : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
+              }`}
+            >
+              {sec.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* 4 Overview cards above the table (same StatCard as Dashboard) */}
       <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-4">
@@ -276,7 +371,7 @@ export function InventoryScreen({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All floors</SelectItem>
-              {options.floors.map((fl) => (
+              {scopedFloors.map((fl) => (
                 <SelectItem key={fl.id} value={fl.id}>
                   {fl.name}
                 </SelectItem>
@@ -284,19 +379,23 @@ export function InventoryScreen({
             </SelectContent>
           </Select>
 
-          {/* Category Select */}
+          {/* Category / Sub-category Select (scoped by active section) */}
           <Select
             value={query.categoryId || "all"}
             onValueChange={(val) =>
               updateQuery({ categoryId: val === "all" ? undefined : val })
             }
           >
-            <SelectTrigger className="w-[140px]" aria-label="Category filter">
-              <SelectValue placeholder="All categories" />
+            <SelectTrigger className="w-[160px]" aria-label="Category filter">
+              <SelectValue
+                placeholder={query.section ? "All sub-types" : "All categories"}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {options.categories.map((cat) => (
+              <SelectItem value="all">
+                {query.section ? "All sub-types" : "All categories"}
+              </SelectItem>
+              {scopedCategories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </SelectItem>
@@ -491,6 +590,20 @@ export function InventoryScreen({
           }
         }}
       />
+
+      {canManage && (
+        <MergeUnitsDialog
+          open={mergeOpen}
+          onOpenChange={setMergeOpen}
+          availableUnits={rows.filter((r) => r.status === "AVAILABLE")}
+          options={options}
+          role={role}
+          onSuccess={() => {
+            void inventoryQuery.refetch();
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

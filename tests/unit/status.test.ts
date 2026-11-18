@@ -75,7 +75,7 @@ function currentUnit(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const FROZEN_PRICE = computeTotalPrice("25000.00", "312.50", "0");
+const FROZEN_PRICE = computeTotalPrice("25000.00", "340.00", "0");
 
 type Store = {
   unit: ReturnType<typeof currentUnit>;

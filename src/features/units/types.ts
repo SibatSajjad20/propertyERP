@@ -24,6 +24,7 @@ export type InventoryRow = {
   subOwner: string | null;
   bookingRef: string | null;
   notes: string | null;
+  isMergedUnit?: boolean;
   version: number;
   soldAt: string | null;
   soldBy: string | null;

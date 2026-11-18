@@ -7,7 +7,18 @@ import { ArrowLeft, ArrowRight, Check, ClockCountdown } from "@phosphor-icons/re
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { PaymentMethod } from "@/db/schema/enums";
+import { formatUnitDisplayCode } from "@/lib/area";
 import { cn } from "@/lib/cn";
 import { formatPkr } from "@/lib/money";
 import { toast } from "sonner";
@@ -62,6 +73,13 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
   const [durationDays, setDurationDays] = React.useState(7);
   const [isCustomDate, setIsCustomDate] = React.useState(false);
   const [customExpiryDate, setCustomExpiryDate] = React.useState("");
+  const [includeToken, setIncludeToken] = React.useState(false);
+  const [tokenAmount, setTokenAmount] = React.useState("");
+  const [tokenPaymentMethod, setTokenPaymentMethod] =
+    React.useState<PaymentMethod>("CASH");
+  const [tokenChequeNo, setTokenChequeNo] = React.useState("");
+  const [tokenBank, setTokenBank] = React.useState("");
+  const [tokenReference, setTokenReference] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -113,6 +131,16 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
       return;
     }
 
+    if (
+      includeToken &&
+      (!tokenAmount.trim() || Number(tokenAmount.replace(/,/g, "")) <= 0)
+    ) {
+      toast.error(
+        "Please enter a valid token amount greater than 0, or uncheck Token Payment.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await createReservation({
@@ -121,6 +149,11 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
         nextOfKin: nextOfKin.name ? nextOfKin : undefined,
         durationDays,
         customExpiryDate: isCustomDate ? customExpiryDate : undefined,
+        tokenAmount: includeToken ? tokenAmount : "0",
+        tokenPaymentMethod: includeToken ? tokenPaymentMethod : undefined,
+        tokenChequeNo: includeToken && tokenChequeNo ? tokenChequeNo : undefined,
+        tokenBank: includeToken && tokenBank ? tokenBank : undefined,
+        tokenReference: includeToken && tokenReference ? tokenReference : undefined,
         notes: notes || undefined,
       });
 
@@ -324,6 +357,94 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
               )}
             </div>
 
+            {/* Optional Token Payment */}
+            <div className="space-y-3 border-t border-line/60 pt-4">
+              <label className="flex cursor-pointer items-center gap-2.5 text-[13px] font-semibold text-ink">
+                <Checkbox
+                  checked={includeToken}
+                  onCheckedChange={(v) => setIncludeToken(Boolean(v))}
+                />
+                <span>Record Token Amount (Optional)</span>
+              </label>
+              <p className="text-[11px] text-ink-muted">
+                Reservations can be created with or without a token. If recorded, the
+                token is tracked in customer records/reports and can be deducted from down
+                payment when converted to a booking.
+              </p>
+
+              {includeToken && (
+                <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/30 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <Label htmlFor="token-amount" className="mb-1 block text-[12px]">
+                      Token Amount (PKR) <span className="text-sold">*</span>
+                    </Label>
+                    <MoneyInput
+                      id="token-amount"
+                      value={tokenAmount}
+                      onValueChange={setTokenAmount}
+                      placeholder="e.g. 5,00,000"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="token-method" className="mb-1 block text-[12px]">
+                      Payment Method <span className="text-sold">*</span>
+                    </Label>
+                    <Select
+                      value={tokenPaymentMethod}
+                      onValueChange={(v) => setTokenPaymentMethod(v as PaymentMethod)}
+                    >
+                      <SelectTrigger id="token-method">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CASH">Cash</SelectItem>
+                        <SelectItem value="CHEQUE">Cheque</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                        <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {tokenPaymentMethod !== "CASH" && (
+                    <>
+                      <div>
+                        <Label htmlFor="token-cheque" className="mb-1 block text-[12px]">
+                          Cheque / Instrument No
+                        </Label>
+                        <Input
+                          id="token-cheque"
+                          value={tokenChequeNo}
+                          onChange={(e) => setTokenChequeNo(e.target.value)}
+                          placeholder="e.g. CHQ-123456"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="token-bank" className="mb-1 block text-[12px]">
+                          Bank Name
+                        </Label>
+                        <Input
+                          id="token-bank"
+                          value={tokenBank}
+                          onChange={(e) => setTokenBank(e.target.value)}
+                          placeholder="e.g. UBL Satellite Town"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="sm:col-span-2 lg:col-span-4">
+                    <Label htmlFor="token-ref" className="mb-1 block text-[12px]">
+                      Token Reference (Optional)
+                    </Label>
+                    <Input
+                      id="token-ref"
+                      value={tokenReference}
+                      onChange={(e) => setTokenReference(e.target.value)}
+                      placeholder="Slip / receipt reference"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="res-notes" className="mb-1 block text-[12px]">
                 Notes / Special Conditions (Optional)
@@ -342,17 +463,29 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
             <h4 className="mb-3 border-b border-line pb-2 text-[14px] font-semibold text-ink">
               Reservation Summary
             </h4>
-            <div className="grid grid-cols-1 gap-4 text-[12px] sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 text-[12px] sm:grid-cols-4">
               <div>
                 <span className="text-ink-muted">Unit:</span>
                 <p className="font-mono text-[14px] font-bold text-primary">
-                  {selectedUnit.unitCode} ({selectedUnit.floorName})
+                  {formatUnitDisplayCode(
+                    selectedUnit.unitCode,
+                    selectedUnit.categoryName,
+                  )}{" "}
+                  ({selectedUnit.floorName})
                 </p>
               </div>
               <div>
                 <span className="text-ink-muted">Reserved For:</span>
                 <p className="font-medium text-ink">
                   {client.fullName} ({client.phone})
+                </p>
+              </div>
+              <div>
+                <span className="text-ink-muted">Token Payment:</span>
+                <p className="font-semibold text-ink tabular-nums">
+                  {includeToken && tokenAmount
+                    ? `${formatPkr(tokenAmount)} (${tokenPaymentMethod.replace("_", " ")})`
+                    : "No token (hold only)"}
                 </p>
               </div>
               <div>

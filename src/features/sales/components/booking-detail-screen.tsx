@@ -9,9 +9,11 @@ import {
   ArrowUUpLeft,
   CheckCircle,
   CurrencyDollar,
+  FileText,
   Plus,
   Printer,
   Receipt,
+  ShieldCheck,
   Warning,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -34,12 +36,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatPkr } from "@/lib/money";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
+import { formatPkr, parseDecimal } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole, PaymentMethod } from "@/db/schema/enums";
 import { recordPayment, returnBooking } from "../actions";
 import { allocatePayment, calculateRefund } from "../calculator";
+import {
+  calculateInstallmentSurcharge,
+  summarizeBookingSurcharges,
+} from "@/features/installments/surcharge";
+import {
+  toggleBookingSurchargeExemption,
+  waiveInstallmentSurcharge,
+} from "@/features/installments/actions";
 import { DocumentsSection } from "@/features/documents/components/documents-section";
 import { PdfDownloadBar } from "@/features/documents/components/pdf-download-bar";
 import { DownPaymentReceiptButton } from "@/features/documents/components/down-payment-receipt-button";
@@ -67,6 +78,83 @@ export function BookingDetailScreen({
   const [returnBookingOpen, setReturnBookingOpen] = React.useState(false);
   const [bookingFormOpen, setBookingFormOpen] = React.useState(false);
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null);
+
+  // Surcharge Waive / Remove Policy state (ADMIN)
+  const [waiveTarget, setWaiveTarget] = React.useState<any>(null);
+  const [waiveReason, setWaiveReason] = React.useState("");
+  const [waiving, setWaiving] = React.useState(false);
+  const [exemptDialogOpen, setExemptDialogOpen] = React.useState(false);
+  const [exemptReason, setExemptReason] = React.useState("");
+  const [togglingExempt, setTogglingExempt] = React.useState(false);
+
+  const surchargeSummary = React.useMemo(
+    () =>
+      summarizeBookingSurcharges(
+        installments.map((i: any) => ({
+          amount: i.amount,
+          paidAmount: i.paidAmount,
+          dueDate: i.dueDate,
+          status: i.status,
+          surchargeWaived: i.surchargeWaived,
+          surchargeWaivedAmount: i.surchargeWaivedAmount,
+          surchargePaidAmount: i.surchargePaidAmount,
+        })),
+        Boolean(booking.surchargeExempt),
+      ),
+    [installments, booking.surchargeExempt],
+  );
+
+  async function handleConfirmWaiveSurcharge() {
+    if (!waiveTarget) return;
+    if (waiveReason.trim().length < 5) {
+      toast.error("Please enter a waiver reason (at least 5 characters)");
+      return;
+    }
+    setWaiving(true);
+    try {
+      await waiveInstallmentSurcharge({
+        installmentId: waiveTarget.id,
+        waiveFull: true,
+        reason: waiveReason.trim(),
+      });
+      toast.success(`Surcharge waived for Installment #${waiveTarget.seq}`);
+      setWaiveTarget(null);
+      setWaiveReason("");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to waive surcharge");
+    } finally {
+      setWaiving(false);
+    }
+  }
+
+  async function handleToggleSurchargePolicy() {
+    if (exemptReason.trim().length < 5) {
+      toast.error("Please enter a policy reason (at least 5 characters)");
+      return;
+    }
+    setTogglingExempt(true);
+    try {
+      const nextExempt = !booking.surchargeExempt;
+      await toggleBookingSurchargeExemption({
+        bookingId: booking.id,
+        exempt: nextExempt,
+        reason: exemptReason.trim(),
+      });
+      toast.success(
+        nextExempt
+          ? "Surcharge Remove Policy enabled for this booking."
+          : "Standard 0.1%/day surcharge policy restored.",
+      );
+      setExemptDialogOpen(false);
+      setExemptReason("");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update surcharge policy");
+    } finally {
+      setTogglingExempt(false);
+    }
+  }
 
   // Record payment form state
   const [paymentAmount, setPaymentAmount] = React.useState("");
@@ -212,6 +300,12 @@ export function BookingDetailScreen({
             signatories={signatories}
             hasPayments={payments.some((p: { isVoided?: boolean }) => !p.isVoided)}
           />
+          <Button variant="secondary" size="md" asChild className="gap-1.5">
+            <Link href={`/agreements?bookingId=${booking.id}` as never}>
+              <FileText weight="light" className="size-4" />
+              Agreement
+            </Link>
+          </Button>
 
           {isActive && (
             <Button
@@ -249,12 +343,12 @@ export function BookingDetailScreen({
               href={`/units/${booking.unitId}`}
               className="unit-code font-mono text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
-              {booking.unitCode}
+              {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
             </Link>
           </div>
           <div className="space-y-1.5 text-[12px]">
             <div className="flex justify-between">
-              <span className="text-ink-muted">Floor & Block:</span>
+              <span className="text-ink-muted">Floor &amp; Block:</span>
               <span className="font-medium text-ink">
                 {booking.floorName} · {booking.blockName}
               </span>
@@ -264,9 +358,9 @@ export function BookingDetailScreen({
               <span className="font-medium text-ink">{booking.categoryName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-ink-muted">Net Area:</span>
+              <span className="text-ink-muted">Gross Area:</span>
               <span className="font-medium text-ink tabular-nums">
-                {booking.netAreaSqft} sq ft
+                {effectivePricingArea(booking.grossAreaSqft, booking.netAreaSqft)} sq ft
               </span>
             </div>
             <div className="flex justify-between">
@@ -334,6 +428,32 @@ export function BookingDetailScreen({
                 {formatPkr(booking.downPayment)}
               </span>
             </div>
+            {booking.tokenAdjustedAmount &&
+              parseDecimal(booking.tokenAdjustedAmount) > 0n && (
+                <div className="flex justify-between text-available">
+                  <span>Token Adjusted:</span>
+                  <span className="font-medium tabular-nums">
+                    {formatPkr(booking.tokenAdjustedAmount)}
+                  </span>
+                </div>
+              )}
+            {booking.balloonTotalAmount &&
+              parseDecimal(booking.balloonTotalAmount) > 0n && (
+                <div className="flex justify-between">
+                  <span className="text-ink-muted">Annual Balloons:</span>
+                  <span className="font-medium text-ink tabular-nums">
+                    {formatPkr(booking.balloonTotalAmount)}
+                  </span>
+                </div>
+              )}
+            {booking.possessionAmount && parseDecimal(booking.possessionAmount) > 0n && (
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Possession Amount:</span>
+                <span className="font-medium text-ink tabular-nums">
+                  {formatPkr(booking.possessionAmount)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-ink-muted">Paid So Far:</span>
               <span className="font-semibold text-available tabular-nums">
@@ -344,6 +464,21 @@ export function BookingDetailScreen({
               <span className="text-ink-muted">Remaining Balance:</span>
               <span className="font-semibold text-ink tabular-nums">
                 {formatPkr(booking.remainingBalancePkr)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Overdue Surcharge Due:</span>
+              <span
+                className={cn(
+                  "font-semibold tabular-nums",
+                  parseDecimal(surchargeSummary.totalNetDuePkr) > 0n
+                    ? "text-sold"
+                    : "text-ink-muted",
+                )}
+              >
+                {booking.surchargeExempt
+                  ? "Exempt (Removed)"
+                  : formatPkr(surchargeSummary.totalNetDuePkr)}
               </span>
             </div>
             {/* Progress bar */}
@@ -371,29 +506,51 @@ export function BookingDetailScreen({
 
       {/* Installment Schedule Table */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-line bg-subtle/40 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-subtle/40 px-5 py-3">
           <div>
             <h3 className="text-[14px] font-semibold text-ink">
-              Booking Plan & Payment Schedule
+              Booking Plan &amp; Payment Schedule
             </h3>
             <p className="text-[12px] text-ink-muted">
-              Scheduled installments and real-time status.
+              Surcharge policy: 0.1%/day applies after 30 days past due date
+              {booking.surchargeExempt
+                ? ` · Surcharge Removed (${booking.surchargeExemptReason || "Admin policy"})`
+                : "."}
             </p>
           </div>
-          <span className="font-mono text-[12px] text-ink-muted">
-            {installments.length} installments ({booking.plan.toLowerCase()})
-          </span>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setExemptDialogOpen(true)}
+                className="gap-1.5"
+              >
+                <ShieldCheck weight="light" className="size-3.5" />
+                {booking.surchargeExempt
+                  ? "Restore Surcharge Policy"
+                  : "Surcharge Remove Policy"}
+              </Button>
+            )}
+            <span className="font-mono text-[12px] text-ink-muted">
+              {installments.length} entries ({booking.plan.toLowerCase()})
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-[13px]">
             <thead className="border-b border-line bg-surface text-ink-muted select-none">
               <tr>
-                <th className="px-5 py-2.5 font-medium">Installment</th>
+                <th className="px-5 py-2.5 font-medium">Payment Item</th>
                 <th className="px-5 py-2.5 font-medium">Due Date</th>
                 <th className="px-5 py-2.5 text-right font-medium">Amount</th>
-                <th className="px-5 py-2.5 text-right font-medium">Paid Amount</th>
+                <th className="px-5 py-2.5 text-right font-medium">Paid</th>
+                <th className="px-5 py-2.5 text-right font-medium">Surcharge</th>
                 <th className="px-5 py-2.5 font-medium">Status</th>
+                {isAdmin && (
+                  <th className="px-5 py-2.5 text-right font-medium">Policy</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
@@ -401,6 +558,17 @@ export function BookingDetailScreen({
                 const isOverdue = inst.status === "OVERDUE";
                 const isPaid = inst.status === "PAID";
                 const isPartial = inst.status === "PARTIAL";
+                const sc = calculateInstallmentSurcharge({
+                  amount: inst.amount,
+                  paidAmount: inst.paidAmount,
+                  dueDate: inst.dueDate,
+                  status: inst.status,
+                  surchargeWaived: inst.surchargeWaived,
+                  surchargeWaivedAmount: inst.surchargeWaivedAmount,
+                  surchargePaidAmount: inst.surchargePaidAmount,
+                  bookingSurchargeExempt: Boolean(booking.surchargeExempt),
+                });
+                const hasSurchargeDue = parseDecimal(sc.netDuePkr) > 0n;
 
                 return (
                   <tr
@@ -411,7 +579,15 @@ export function BookingDetailScreen({
                       !isOverdue && "hover:bg-subtle/30",
                     )}
                   >
-                    <td className="px-5 py-2.5 font-medium">Installment {inst.seq}</td>
+                    <td className="px-5 py-2.5 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{inst.label || `Installment ${inst.seq}`}</span>
+                        {inst.type === "BALLOON" && <Badge tone="accent">Balloon</Badge>}
+                        {inst.type === "POSSESSION" && (
+                          <Badge tone="primary">Possession</Badge>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-2.5 font-sans tabular-nums">
                       {new Date(inst.dueDate).toLocaleDateString("en-GB", {
                         day: "2-digit",
@@ -424,6 +600,24 @@ export function BookingDetailScreen({
                     </td>
                     <td className="px-5 py-2.5 text-right font-medium text-available tabular-nums">
                       {formatPkr(inst.paidAmount)}
+                    </td>
+                    <td className="px-5 py-2.5 text-right tabular-nums">
+                      {hasSurchargeDue ? (
+                        <div>
+                          <span className="font-semibold text-sold">
+                            {formatPkr(sc.netDuePkr)}
+                          </span>
+                          <p className="text-[10px] text-ink-muted">
+                            {sc.chargeableDays}d beyond 30d grace
+                          </p>
+                        </div>
+                      ) : sc.isExemptOrWaived && parseDecimal(sc.rawAccruedPkr) > 0n ? (
+                        <span className="text-[11px] text-ink-muted line-through">
+                          {formatPkr(sc.rawAccruedPkr)} (Waived)
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-ink-muted">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-2.5">
                       {isPaid && <Badge tone="available">Paid</Badge>}
@@ -438,6 +632,24 @@ export function BookingDetailScreen({
                         <Badge tone="muted">Cancelled</Badge>
                       )}
                     </td>
+                    {isAdmin && (
+                      <td className="px-5 py-2.5 text-right">
+                        {hasSurchargeDue ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setWaiveTarget(inst);
+                              setWaiveReason("");
+                            }}
+                          >
+                            Waive
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-ink-faint">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -869,6 +1081,95 @@ export function BookingDetailScreen({
         onOpenChange={(open) => !open && setActiveReceipt(null)}
         receipt={activeReceipt}
       />
+
+      {/* Waive Installment Surcharge Dialog (ADMIN) */}
+      <Dialog
+        open={Boolean(waiveTarget)}
+        onOpenChange={(open) => !open && setWaiveTarget(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Waive Overdue Surcharge</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-[13px]">
+            <p className="text-ink-muted">
+              Remove accrued late-payment surcharge for{" "}
+              <strong className="text-ink">
+                {waiveTarget?.label || `Installment #${waiveTarget?.seq}`}
+              </strong>
+              . This action is logged in the audit trail.
+            </p>
+            <div>
+              <Label className="mb-1 block text-[12px]">Waiver Reason *</Label>
+              <Input
+                value={waiveReason}
+                onChange={(e) => setWaiveReason(e.target.value)}
+                placeholder="e.g. Management waiver approved for lump-sum settlement"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setWaiveTarget(null)}
+              disabled={waiving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmWaiveSurcharge}
+              disabled={waiving || waiveReason.trim().length < 5}
+            >
+              {waiving ? "Waiving…" : "Confirm Waiver"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Surcharge Remove Policy Dialog (ADMIN) */}
+      <Dialog open={exemptDialogOpen} onOpenChange={setExemptDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {booking.surchargeExempt
+                ? "Restore Surcharge Policy"
+                : "Apply Surcharge Remove Policy"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-[13px]">
+            <p className="text-ink-muted">
+              {booking.surchargeExempt
+                ? "Re-enable the standard 0.1%/day late-payment surcharge after 30 days overdue on this booking."
+                : "Remove/exempt late-payment surcharges across all installments of this booking. Logged in audit trail."}
+            </p>
+            <div>
+              <Label className="mb-1 block text-[12px]">Policy Reason *</Label>
+              <Input
+                value={exemptReason}
+                onChange={(e) => setExemptReason(e.target.value)}
+                placeholder="e.g. Director-approved surcharge waiver policy"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setExemptDialogOpen(false)}
+              disabled={togglingExempt}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleToggleSurchargePolicy}
+              disabled={togglingExempt || exemptReason.trim().length < 5}
+            >
+              {togglingExempt ? "Saving…" : "Confirm Policy Change"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

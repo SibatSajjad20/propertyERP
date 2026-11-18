@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/errors";
+import { effectivePricingArea } from "@/lib/area";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { changeUnitStatus } from "../actions";
 import { REVERSE_REASON_MIN } from "../status";
@@ -239,7 +240,7 @@ function SellConfirm({
   const [note, setNote] = useState("");
   const total = computeTotalPrice(
     unit.ratePerSqftPkr,
-    unit.netAreaSqft,
+    effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft),
     unit.priceAdjustmentPkr,
   );
 

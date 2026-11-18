@@ -5,7 +5,10 @@ import { clientSchema, requiredNextOfKinSchema } from "@/features/sales/schema";
 import {
   ALLOWED_DOCUMENT_MIMES,
   ALLOWED_IMAGE_MIMES,
+  isImageOnlyDocType,
+  isLivePhotoType,
   isPassportPhotoType,
+  isThumbImpressionType,
 } from "./constants";
 
 export const documentOwnerTypeSchema = z.enum(documentOwnerTypes);
@@ -85,27 +88,42 @@ export const documentIdsSchema = z.object({
 });
 
 export function assertAllowedMime(docType: DocumentType, mime: string) {
-  if (isPassportPhotoType(docType)) {
+  if (isImageOnlyDocType(docType)) {
     return (ALLOWED_IMAGE_MIMES as readonly string[]).includes(mime);
   }
   return (ALLOWED_DOCUMENT_MIMES as readonly string[]).includes(mime);
 }
 
 export function photoMimeError(docType: DocumentType) {
-  return isPassportPhotoType(docType)
-    ? "Passport photo must be a JPEG, PNG, or WebP image"
-    : "CNIC must be a JPEG, PNG, WebP, or PDF";
+  if (isPassportPhotoType(docType)) {
+    return "Passport photo must be a JPEG, PNG, or WebP image";
+  }
+  if (isLivePhotoType(docType)) {
+    return "Live camera photo must be a JPEG, PNG, or WebP image";
+  }
+  if (isThumbImpressionType(docType)) {
+    return "Thumb impression must be a JPEG, PNG, or WebP image";
+  }
+  return "CNIC must be a JPEG, PNG, WebP, or PDF";
 }
 
 export function photoOwnerError(
   docType: DocumentType,
   ownerType: "CLIENT" | "KIN",
 ): string | null {
-  if (docType === "PHOTO" && ownerType !== "CLIENT") {
-    return "Passport photo is only stored on the client";
+  if (
+    (docType === "PHOTO" || docType === "LIVE_PHOTO" || docType === "THUMB_IMPRESSION") &&
+    ownerType !== "CLIENT"
+  ) {
+    return "Client proof document is only stored on the client";
   }
-  if (docType === "KIN_PHOTO" && ownerType !== "KIN") {
-    return "Next of kin photo is only stored on the nominee";
+  if (
+    (docType === "KIN_PHOTO" ||
+      docType === "KIN_LIVE_PHOTO" ||
+      docType === "KIN_THUMB_IMPRESSION") &&
+    ownerType !== "KIN"
+  ) {
+    return "Next of kin proof document is only stored on the nominee";
   }
   return null;
 }

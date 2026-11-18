@@ -11,6 +11,8 @@ export const actions = [
   "units.update_rate",
   "units.import",
   "units.export",
+  "units.merge_request",
+  "units.merge_approve",
   "data.export",
   "structure.read",
   "structure.manage",
@@ -34,6 +36,9 @@ export const actions = [
   "payments.void",
   "installments.read",
   "installments.reschedule",
+  "surcharges.waive",
+  "agreements.read",
+  "agreements.manage",
   "reports.read",
   "sales.read",
   "sales.create",
@@ -55,6 +60,8 @@ const matrix: Record<Action, readonly UserRole[]> = {
   "units.update_rate": ["ADMIN", "INVENTORY_MANAGER"],
   "units.import": ["ADMIN", "INVENTORY_MANAGER"],
   "units.export": ["ADMIN", "INVENTORY_MANAGER"],
+  "units.merge_request": ["ADMIN", "INVENTORY_MANAGER"],
+  "units.merge_approve": ["ADMIN"],
   "data.export": ["ADMIN"],
   "structure.read": allRoles,
   "structure.manage": ["ADMIN", "INVENTORY_MANAGER"],
@@ -85,6 +92,9 @@ const matrix: Record<Action, readonly UserRole[]> = {
 
   "installments.read": allRoles,
   "installments.reschedule": ["ADMIN"],
+  "surcharges.waive": ["ADMIN"],
+  "agreements.read": allRoles,
+  "agreements.manage": allRoles,
 
   "reports.read": allRoles,
 

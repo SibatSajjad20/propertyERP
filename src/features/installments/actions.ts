@@ -14,12 +14,15 @@ import { formatDecimal, parseDecimal } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
 import { recalculateInstallmentAllocations, validateReschedule } from "./calculator";
+import { calculateInstallmentSurcharge } from "./surcharge";
 import { getClientProfileWithBookings, searchInstallmentsClients } from "./queries";
 import {
   editPaymentSchema,
   recordInstallmentPaymentSchema,
   rescheduleInstallmentsSchema,
+  toggleBookingSurchargeExemptSchema,
   voidPaymentSchema,
+  waiveInstallmentSurchargeSchema,
 } from "./schema";
 
 export async function searchClientsAction(q?: string) {
@@ -58,6 +61,7 @@ function revalidateInstallmentPaths(unitId?: string, bookingId?: string) {
   revalidatePath("/reports");
   revalidatePath("/reports/summary");
   revalidatePath("/reports/installments");
+  revalidatePath("/reports/collections");
   revalidatePath("/reports/client-ledger");
   revalidatePath("/");
   if (unitId) revalidatePath(`/units/${unitId}`);
@@ -116,13 +120,47 @@ export async function recordInstallmentPayment(input: unknown) {
     const receiptNo = await nextReceiptNumber(tx);
     const paidAt = parsed.paidAt ? new Date(parsed.paidAt) : new Date();
 
+    const allInstRows = await tx
+      .select()
+      .from(installments)
+      .where(eq(installments.bookingId, booking.id))
+      .orderBy(asc(installments.seq))
+      .for("update");
+
+    // Auto-detect category from first unpaid installment if caller didn't pick one explicitly
+    let paymentCategory = parsed.category;
+    if (!paymentCategory) {
+      const oldestUnpaid = allInstRows.find(
+        (i) =>
+          i.status !== "CANCELLED" && parseDecimal(i.paidAmount) < parseDecimal(i.amount),
+      );
+      if (oldestUnpaid?.type === "BALLOON") {
+        paymentCategory = "BALLOON";
+      } else if (oldestUnpaid?.type === "POSSESSION") {
+        paymentCategory = "POSSESSION";
+      } else {
+        paymentCategory = "INSTALLMENT";
+      }
+    }
+
+    const surchargePaisa = parseDecimal(parsed.surchargeAmountPkr || "0");
+    const totalAmountPaisa = parseDecimal(parsed.amountPkr);
+    const effectiveSurchargePaisa =
+      paymentCategory === "SURCHARGE"
+        ? totalAmountPaisa
+        : surchargePaisa > totalAmountPaisa
+          ? totalAmountPaisa
+          : surchargePaisa;
+
     // Insert payment record
     const [newPayment] = await tx
       .insert(payments)
       .values({
         bookingId: booking.id,
         receiptNo,
+        category: paymentCategory,
         amount: parsed.amountPkr,
+        surchargeAmount: formatDecimal(effectiveSurchargePaisa),
         method: parsed.method,
         chequeNo: parsed.chequeNo?.trim() || null,
         bank: parsed.bank?.trim() || null,
@@ -138,17 +176,45 @@ export async function recordInstallmentPayment(input: unknown) {
       throw new Error("Failed to record payment");
     }
 
-    // Fetch all non-voided payments for booking to recalculate allocations
+    // Allocate paid surcharge (if any) across oldest installments with surcharge due
+    if (effectiveSurchargePaisa > 0n) {
+      let remainingSurcharge = effectiveSurchargePaisa;
+      for (const inst of allInstRows) {
+        if (remainingSurcharge <= 0n) break;
+        const sc = calculateInstallmentSurcharge(
+          {
+            amount: inst.amount,
+            paidAmount: inst.paidAmount,
+            dueDate: inst.dueDate,
+            status: inst.status,
+            surchargeWaived: inst.surchargeWaived,
+            surchargeWaivedAmount: inst.surchargeWaivedAmount,
+            surchargePaidAmount: inst.surchargePaidAmount,
+            bookingSurchargeExempt: booking.surchargeExempt,
+          },
+          paidAt,
+        );
+        const duePaisa = parseDecimal(sc.netDuePkr);
+        if (duePaisa <= 0n) continue;
+        const applyPaisa = remainingSurcharge < duePaisa ? remainingSurcharge : duePaisa;
+        remainingSurcharge -= applyPaisa;
+        const newSurchargePaid =
+          parseDecimal(inst.surchargePaidAmount || "0") + applyPaisa;
+        await tx
+          .update(installments)
+          .set({
+            surchargePaidAmount: formatDecimal(newSurchargePaid),
+            updatedAt: new Date(),
+          })
+          .where(eq(installments.id, inst.id));
+      }
+    }
+
+    // Fetch all non-voided payments for booking to recalculate principal allocations
     const allPayments = await tx
       .select()
       .from(payments)
       .where(eq(payments.bookingId, booking.id))
-      .for("update");
-
-    const allInstRows = await tx
-      .select()
-      .from(installments)
-      .where(eq(installments.bookingId, booking.id))
       .for("update");
 
     const allocationResult = recalculateInstallmentAllocations({
@@ -156,6 +222,7 @@ export async function recordInstallmentPayment(input: unknown) {
         id: booking.id,
         netPrice: booking.netPrice,
         downPayment: booking.downPayment,
+        tokenAdjustedAmount: booking.tokenAdjustedAmount,
       },
       installments: allInstRows,
       payments: allPayments,
@@ -329,6 +396,7 @@ export async function voidPayment(input: unknown) {
         id: booking.id,
         netPrice: booking.netPrice,
         downPayment: booking.downPayment,
+        tokenAdjustedAmount: booking.tokenAdjustedAmount,
       },
       installments: allInstRows,
       payments: allPayments,
@@ -471,6 +539,7 @@ export async function editPayment(input: unknown) {
         id: booking.id,
         netPrice: booking.netPrice,
         downPayment: booking.downPayment,
+        tokenAdjustedAmount: booking.tokenAdjustedAmount,
       },
       installments: allInstRows,
       payments: allPayments,
@@ -666,6 +735,152 @@ export async function rescheduleInstallments(input: unknown) {
     },
     "installments rescheduled",
   );
+
+  revalidateInstallmentPaths(result.unitId, result.bookingId);
+  return result;
+}
+
+/**
+ * Waives/removes overdue surcharge on a specific installment (ADMIN only, Surcharge Remove Policy).
+ */
+export async function waiveInstallmentSurcharge(input: unknown) {
+  const parsed = parseInput(waiveInstallmentSurchargeSchema, input);
+  const session = await requireSession();
+  assertCan(session.user.role, "surcharges.waive");
+
+  const result = await db.transaction(async (tx) => {
+    const [inst] = await tx
+      .select()
+      .from(installments)
+      .where(eq(installments.id, parsed.installmentId))
+      .for("update");
+
+    if (!inst) {
+      throw new NotFoundError("Installment not found");
+    }
+
+    const [booking] = await tx
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, inst.bookingId))
+      .limit(1);
+
+    if (!booking) {
+      throw new NotFoundError("Booking not found");
+    }
+
+    const now = new Date();
+    const currentCalc = calculateInstallmentSurcharge(
+      {
+        amount: inst.amount,
+        paidAmount: inst.paidAmount,
+        dueDate: inst.dueDate,
+        status: inst.status,
+        surchargeWaived: inst.surchargeWaived,
+        surchargeWaivedAmount: inst.surchargeWaivedAmount,
+        surchargePaidAmount: inst.surchargePaidAmount,
+        bookingSurchargeExempt: booking.surchargeExempt,
+      },
+      now,
+    );
+
+    const waiveFull = parsed.waiveFull;
+    const explicitAmount = parsed.waiveAmountPkr
+      ? formatDecimal(parseDecimal(parsed.waiveAmountPkr))
+      : currentCalc.netDuePkr;
+
+    const newWaivedAmount = waiveFull
+      ? currentCalc.rawAccruedPkr
+      : formatDecimal(
+          parseDecimal(inst.surchargeWaivedAmount || "0") + parseDecimal(explicitAmount),
+        );
+
+    await tx
+      .update(installments)
+      .set({
+        surchargeWaived: waiveFull,
+        surchargeWaivedAmount: newWaivedAmount,
+        surchargeWaivedReason: parsed.reason.trim(),
+        surchargeWaivedBy: session.user.id,
+        surchargeWaivedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(installments.id, inst.id));
+
+    await tx.insert(auditLog).values({
+      actorId: session.user.id,
+      entity: "installment",
+      entityId: inst.id,
+      action: "SURCHARGE_WAIVE",
+      before: {
+        surchargeWaived: inst.surchargeWaived,
+        surchargeWaivedAmount: inst.surchargeWaivedAmount,
+        netDueBefore: currentCalc.netDuePkr,
+      },
+      after: {
+        surchargeWaived: waiveFull,
+        surchargeWaivedAmount: newWaivedAmount,
+        reason: parsed.reason.trim(),
+      },
+    });
+
+    return {
+      installmentId: inst.id,
+      bookingId: booking.id,
+      unitId: booking.unitId,
+    };
+  });
+
+  revalidateInstallmentPaths(result.unitId, result.bookingId);
+  return result;
+}
+
+/**
+ * Enables or disables booking-wide Surcharge Remove Policy (ADMIN only).
+ */
+export async function toggleBookingSurchargeExemption(input: unknown) {
+  const parsed = parseInput(toggleBookingSurchargeExemptSchema, input);
+  const session = await requireSession();
+  assertCan(session.user.role, "surcharges.waive");
+
+  const result = await db.transaction(async (tx) => {
+    const [booking] = await tx
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, parsed.bookingId))
+      .for("update");
+
+    if (!booking) {
+      throw new NotFoundError("Booking not found");
+    }
+
+    const now = new Date();
+    await tx
+      .update(bookings)
+      .set({
+        surchargeExempt: parsed.exempt,
+        surchargeExemptReason: parsed.reason.trim(),
+        surchargeExemptBy: session.user.id,
+        surchargeExemptAt: now,
+        updatedAt: now,
+      })
+      .where(eq(bookings.id, booking.id));
+
+    await tx.insert(auditLog).values({
+      actorId: session.user.id,
+      entity: "booking",
+      entityId: booking.id,
+      action: "SURCHARGE_EXEMPT",
+      before: { surchargeExempt: booking.surchargeExempt },
+      after: { surchargeExempt: parsed.exempt, reason: parsed.reason.trim() },
+    });
+
+    return {
+      bookingId: booking.id,
+      unitId: booking.unitId,
+      surchargeExempt: parsed.exempt,
+    };
+  });
 
   revalidateInstallmentPaths(result.unitId, result.bookingId);
   return result;

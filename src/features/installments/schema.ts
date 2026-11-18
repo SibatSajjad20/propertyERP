@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paymentMethods } from "@/db/schema/enums";
+import { paymentCategories, paymentMethods } from "@/db/schema/enums";
 
 const moneyPattern = z
   .string()
@@ -7,9 +7,18 @@ const moneyPattern = z
   .transform((v) => v.replace(/,/g, ""))
   .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), "Invalid PKR amount format");
 
+const optionalMoneyPattern = z
+  .string()
+  .transform((v) => v.replace(/,/g, ""))
+  .refine((v) => v === "" || /^\d+(\.\d{1,2})?$/.test(v), "Invalid PKR amount format")
+  .optional()
+  .nullable();
+
 export const recordInstallmentPaymentSchema = z.object({
   bookingId: z.string().uuid("Valid booking ID is required"),
   amountPkr: moneyPattern,
+  surchargeAmountPkr: optionalMoneyPattern,
+  category: z.enum(paymentCategories).optional(),
   method: z.enum(paymentMethods, {
     message: "Valid payment method is required",
   }),
@@ -17,6 +26,19 @@ export const recordInstallmentPaymentSchema = z.object({
   bank: z.string().optional().nullable(),
   paidAt: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+});
+
+export const waiveInstallmentSurchargeSchema = z.object({
+  installmentId: z.string().uuid("Valid installment ID is required"),
+  waiveFull: z.boolean().default(true),
+  waiveAmountPkr: optionalMoneyPattern,
+  reason: z.string().trim().min(5, "Waiver reason must be at least 5 characters"),
+});
+
+export const toggleBookingSurchargeExemptSchema = z.object({
+  bookingId: z.string().uuid("Valid booking ID is required"),
+  exempt: z.boolean(),
+  reason: z.string().trim().min(5, "Reason must be at least 5 characters"),
 });
 
 export type RecordInstallmentPaymentInput = z.infer<

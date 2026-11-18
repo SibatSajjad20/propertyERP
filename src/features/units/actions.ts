@@ -11,6 +11,7 @@ import { rateHistory, units, unitStatusHistory } from "@/db/schema/units";
 import { requireSession } from "@/lib/auth";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { effectivePricingArea } from "@/lib/area";
 import { computeTotalPrice, moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import {
@@ -415,7 +416,7 @@ export async function changeUnitStatusInTx(
       ? (parsed.soldPricePkr ??
         computeTotalPrice(
           current.ratePerSqftPkr,
-          current.netAreaSqft,
+          effectivePricingArea(current.grossAreaSqft, current.netAreaSqft),
           current.priceAdjustmentPkr,
         ))
       : null;

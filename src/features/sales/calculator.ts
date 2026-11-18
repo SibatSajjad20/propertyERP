@@ -1,9 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { formatDecimal, parseDecimal } from "@/lib/money";
-import type { PaymentPlan } from "@/db/schema/enums";
+import type { DiscountType, InstallmentType, PaymentPlan } from "@/db/schema/enums";
 
 export const MAX_SALES_DISCOUNT_PERCENT = 10;
-const PAISA_SCALE = 100n;
+export const DEFAULT_DOWN_PAYMENT_PERCENT = "25";
+export const DEFAULT_POSSESSION_PERCENT = "15";
+export const DEFAULT_BALLOON_PERCENT = "10";
+
 const HUNDRED_RUPEES_PAISA = 10_000n; // Rs 100 in paisa
 
 export interface CalculatedDiscount {
@@ -11,6 +13,37 @@ export interface CalculatedDiscount {
   effectivePercent: number;
   netPricePkr: string;
   requiresAdmin: boolean;
+}
+
+export function resolveChargeAmount(
+  basePricePkr: string,
+  type: DiscountType | null | undefined,
+  value: string | null | undefined,
+): { amountPkr: string; effectivePercent: number } {
+  const basePaisa = parseDecimal(basePricePkr || "0");
+  if (basePaisa <= 0n || !value || value.trim() === "") {
+    return { amountPkr: "0.00", effectivePercent: 0 };
+  }
+
+  const valPaisa = parseDecimal(value);
+  if (valPaisa <= 0n) {
+    return { amountPkr: "0.00", effectivePercent: 0 };
+  }
+
+  if (type === "PERCENT") {
+    const amountPaisa = (basePaisa * valPaisa + 5000n) / 10_000n;
+    return {
+      amountPkr: formatDecimal(amountPaisa),
+      effectivePercent: Math.round((Number(valPaisa) / 100) * 100) / 100,
+    };
+  }
+
+  const effectivePercent =
+    basePaisa > 0n ? Number((valPaisa * 10_000n) / basePaisa) / 100 : 0;
+  return {
+    amountPkr: formatDecimal(valPaisa),
+    effectivePercent: Math.round(effectivePercent * 100) / 100,
+  };
 }
 
 export function calculateDiscount(
@@ -33,16 +66,12 @@ export function calculateDiscount(
   let effectivePercent = 0;
 
   if (discountType === "PERCENT") {
-    // discountValue is percent with up to 2 decimal places (e.g. 5.00)
-    // valPaisa = 500n for 5%
-    // discountPaisa = round(listPaisa * valPaisa / 10000n)
     discountPaisa = (listPaisa * valPaisa + 5000n) / 10_000n;
     if (discountPaisa > listPaisa) {
       discountPaisa = listPaisa;
     }
     effectivePercent = Number(valPaisa) / 100;
   } else {
-    // discountType === "AMOUNT"
     discountPaisa = valPaisa > listPaisa ? listPaisa : valPaisa;
     effectivePercent =
       listPaisa > 0n ? Number((discountPaisa * 10_000n) / listPaisa) / 100 : 0;
@@ -61,6 +90,8 @@ export function calculateDiscount(
 
 export interface InstallmentDraft {
   seq: number;
+  type: InstallmentType;
+  label: string;
   dueDate: Date;
   amountPkr: string;
 }
@@ -70,11 +101,21 @@ export interface PaymentSchedule {
   discountAmountPkr: string;
   netPricePkr: string;
   downPaymentPkr: string;
+  downPaymentPercent: number;
+  tokenAdjustedPkr: string;
+  payableDownPaymentNowPkr: string;
   possessionAmountPkr: string;
+  possessionPercent: number;
+  balloonAmountPerYearPkr: string;
+  balloonPercentPerYear: number;
+  balloonCount: number;
+  balloonTotalAmountPkr: string;
   totalInstallmentsPkr: string;
   installmentCount: number;
   paidPercent: number;
   remainingBalancePkr: string;
+  isValid: boolean;
+  validationError: string | null;
   installments: InstallmentDraft[];
 }
 
@@ -99,16 +140,28 @@ export function planIntervalMonths(plan: PaymentPlan): number {
 }
 
 /**
- * Generates an installment payment schedule.
- * Rounding: rounds each installment to nearest Rs 100, and puts any remainder on the last installment.
- * Guarantees downPayment + sum(installments) + possessionAmount = netPrice.
+ * Generates an installment payment schedule with:
+ * - Down Payment (% or fixed PKR) with optional Token adjustment
+ * - Annual Balloon Payments (% or fixed PKR per year, applied annually for each full year in plan)
+ * - Possession Payment (% or fixed PKR, added as final possession milestone)
+ * - Regular Installments (rounded to nearest Rs 100 with exact paisa remainder on last regular installment)
+ *
+ * Guarantees exact paisa invariant:
+ *   downPayment + sum(REGULAR) + sum(BALLOON) + POSSESSION === netPrice
  */
 export function generateSchedule(params: {
   listPricePkr: string;
   discountType?: "AMOUNT" | "PERCENT" | null;
   discountValue?: string | null;
-  downPaymentPkr: string;
+  downPaymentType?: DiscountType | null;
+  downPaymentValue?: string | null;
+  downPaymentPkr?: string;
+  possessionType?: DiscountType | null;
+  possessionValue?: string | null;
   possessionAmountPkr?: string | null;
+  balloonType?: DiscountType | null;
+  balloonValue?: string | null;
+  tokenAdjustedPkr?: string | null;
   plan: PaymentPlan;
   installmentCount: number;
   startDate: Date;
@@ -120,56 +173,142 @@ export function generateSchedule(params: {
   );
 
   const netPaisa = parseDecimal(netPricePkr);
-  const downPaisa = parseDecimal(params.downPaymentPkr || "0");
-  const possessionPaisa = parseDecimal(params.possessionAmountPkr || "0");
+
+  // Down payment (% or fixed PKR)
+  const downResolved =
+    params.downPaymentType && params.downPaymentValue !== undefined
+      ? resolveChargeAmount(netPricePkr, params.downPaymentType, params.downPaymentValue)
+      : resolveChargeAmount(netPricePkr, "AMOUNT", params.downPaymentPkr || "0");
+  const downPaisa = parseDecimal(downResolved.amountPkr);
+
+  // Token adjustment deducted from down payment payable now
+  const rawTokenPaisa = parseDecimal(params.tokenAdjustedPkr || "0");
+  const tokenAdjustedPaisa =
+    rawTokenPaisa > 0n ? (rawTokenPaisa > downPaisa ? downPaisa : rawTokenPaisa) : 0n;
+  const payableDownPaymentNowPaisa = downPaisa - tokenAdjustedPaisa;
+
+  // Possession payment (% or fixed PKR)
+  const possessionResolved =
+    params.possessionType && params.possessionValue !== undefined
+      ? resolveChargeAmount(netPricePkr, params.possessionType, params.possessionValue)
+      : resolveChargeAmount(netPricePkr, "AMOUNT", params.possessionAmountPkr || "0");
+  const possessionPaisa = parseDecimal(possessionResolved.amountPkr);
+
   const count = Math.max(1, params.installmentCount);
-
-  const balancePaisa = netPaisa - downPaisa - possessionPaisa;
-  const installments: InstallmentDraft[] = [];
-
   const intervalMonths = planIntervalMonths(params.plan);
+  const totalPlanMonths = count * intervalMonths;
 
-  if (balancePaisa <= 0n) {
-    // Fully paid by down payment / possession
-    installments.push({
-      seq: 1,
-      dueDate: new Date(params.startDate.getTime()),
-      amountPkr: "0.00",
-    });
-  } else {
-    // Unrounded installment amount
-    const rawInst = balancePaisa / BigInt(count);
-    // Round to nearest Rs 100 (10,000 paisa)
+  // Annual balloon payments: each full 12-month year in the plan gets 1 annual balloon payment
+  const balloonResolved =
+    params.balloonType && params.balloonValue !== undefined
+      ? resolveChargeAmount(netPricePkr, params.balloonType, params.balloonValue)
+      : { amountPkr: "0.00", effectivePercent: 0 };
+  const balloonPerYearPaisa = parseDecimal(balloonResolved.amountPkr);
+  const balloonCount = balloonPerYearPaisa > 0n ? Math.floor(totalPlanMonths / 12) : 0;
+  const balloonTotalPaisa = balloonPerYearPaisa * BigInt(balloonCount);
+
+  const fixedComponentsPaisa = downPaisa + possessionPaisa + balloonTotalPaisa;
+  let isValid = true;
+  let validationError: string | null = null;
+
+  if (fixedComponentsPaisa > netPaisa) {
+    isValid = false;
+    validationError =
+      "Down payment, annual balloon payments, and possession amount exceed the net price.";
+  }
+
+  const regularBalancePaisa = netPaisa - fixedComponentsPaisa;
+  const rawEntries: Array<{
+    type: InstallmentType;
+    label: string;
+    dueDate: Date;
+    amountPaisa: bigint;
+    sortOrder: number;
+  }> = [];
+
+  if (regularBalancePaisa > 0n) {
+    const rawInst = regularBalancePaisa / BigInt(count);
     let roundedInst = ((rawInst + 5000n) / HUNDRED_RUPEES_PAISA) * HUNDRED_RUPEES_PAISA;
-    if (roundedInst === 0n && balancePaisa > 0n) {
+    if (roundedInst === 0n && regularBalancePaisa > 0n) {
       roundedInst =
-        balancePaisa < HUNDRED_RUPEES_PAISA ? balancePaisa : HUNDRED_RUPEES_PAISA;
+        regularBalancePaisa < HUNDRED_RUPEES_PAISA
+          ? regularBalancePaisa
+          : HUNDRED_RUPEES_PAISA;
     }
 
     let allocatedTotal = 0n;
-
     for (let i = 1; i <= count; i++) {
       const dueDate = addMonths(params.startDate, (i - 1) * intervalMonths);
       let instAmount = roundedInst;
 
       if (i === count) {
-        // Last installment gets the remainder
-        instAmount = balancePaisa - allocatedTotal;
+        instAmount = regularBalancePaisa - allocatedTotal;
       } else {
-        // Guard against overshoot if count * roundedInst > balance
-        if (allocatedTotal + instAmount > balancePaisa) {
-          instAmount = balancePaisa - allocatedTotal;
+        if (allocatedTotal + instAmount > regularBalancePaisa) {
+          instAmount = regularBalancePaisa - allocatedTotal;
         }
         allocatedTotal += instAmount;
       }
 
-      installments.push({
-        seq: i,
+      rawEntries.push({
+        type: "REGULAR",
+        label: `Installment #${i}`,
         dueDate,
-        amountPkr: formatDecimal(instAmount),
+        amountPaisa: instAmount,
+        sortOrder: 0,
       });
     }
+  } else if (balloonCount === 0 && possessionPaisa === 0n) {
+    // Fully paid by down payment — preserve single 0.00 entry for backwards compatibility
+    rawEntries.push({
+      type: "REGULAR",
+      label: "Installment #1",
+      dueDate: new Date(params.startDate.getTime()),
+      amountPaisa: 0n,
+      sortOrder: 0,
+    });
   }
+
+  // Annual balloon schedule rows (Year 1 at month 12, Year 2 at month 24, ...)
+  for (let year = 1; year <= balloonCount; year++) {
+    const dueDate = addMonths(params.startDate, year * 12 - 1);
+    rawEntries.push({
+      type: "BALLOON",
+      label: `Year ${year} Balloon Payment`,
+      dueDate,
+      amountPaisa: balloonPerYearPaisa,
+      sortOrder: 1,
+    });
+  }
+
+  // Possession milestone row (if > 0 and caller is using full schedule mode)
+  if (possessionPaisa > 0n && params.possessionType !== undefined) {
+    const possessionDueDate = addMonths(params.startDate, totalPlanMonths);
+    rawEntries.push({
+      type: "POSSESSION",
+      label: "Possession Payment",
+      dueDate: possessionDueDate,
+      amountPaisa: possessionPaisa,
+      sortOrder: 2,
+    });
+  }
+
+  // Chronological sort (regular before balloon on same date, possession last)
+  rawEntries.sort((a, b) => {
+    if (a.type === "POSSESSION" && b.type !== "POSSESSION") return 1;
+    if (b.type === "POSSESSION" && a.type !== "POSSESSION") return -1;
+    const dt = a.dueDate.getTime() - b.dueDate.getTime();
+    if (dt !== 0) return dt;
+    return a.sortOrder - b.sortOrder;
+  });
+
+  const installments: InstallmentDraft[] = rawEntries.map((entry, idx) => ({
+    seq: idx + 1,
+    type: entry.type,
+    label: entry.label,
+    dueDate: entry.dueDate,
+    amountPkr: formatDecimal(entry.amountPaisa),
+  }));
 
   const paidPercent =
     netPaisa > 0n
@@ -183,13 +322,25 @@ export function generateSchedule(params: {
     discountAmountPkr,
     netPricePkr,
     downPaymentPkr: formatDecimal(downPaisa),
+    downPaymentPercent: downResolved.effectivePercent,
+    tokenAdjustedPkr: formatDecimal(tokenAdjustedPaisa),
+    payableDownPaymentNowPkr: formatDecimal(payableDownPaymentNowPaisa),
     possessionAmountPkr: formatDecimal(possessionPaisa),
-    totalInstallmentsPkr: formatDecimal(balancePaisa > 0n ? balancePaisa : 0n),
+    possessionPercent: possessionResolved.effectivePercent,
+    balloonAmountPerYearPkr: formatDecimal(balloonPerYearPaisa),
+    balloonPercentPerYear: balloonResolved.effectivePercent,
+    balloonCount,
+    balloonTotalAmountPkr: formatDecimal(balloonTotalPaisa),
+    totalInstallmentsPkr: formatDecimal(
+      regularBalancePaisa > 0n ? regularBalancePaisa : 0n,
+    ),
     installmentCount: count,
     paidPercent,
     remainingBalancePkr: formatDecimal(
       remainingBalancePaisa > 0n ? remainingBalancePaisa : 0n,
     ),
+    isValid,
+    validationError,
     installments,
   };
 }
@@ -197,6 +348,7 @@ export function generateSchedule(params: {
 export interface InstallmentAllocation {
   installmentId: string;
   seq: number;
+  type?: InstallmentType;
   dueDate: Date;
   amountPkr: string;
   previousPaidPkr: string;
@@ -222,6 +374,7 @@ export function allocatePayment(params: {
   installments: Array<{
     id: string;
     seq: number;
+    type?: InstallmentType;
     dueDate: Date;
     amount: string;
     paidAmount: string;
@@ -231,7 +384,6 @@ export function allocatePayment(params: {
   let remainingPaisa = parseDecimal(params.paymentAmountPkr);
   const now = new Date();
 
-  // Sort installments by sequence ascending
   const sorted = [...params.installments]
     .filter((inst) => inst.status !== "CANCELLED")
     .sort((a, b) => a.seq - b.seq);
@@ -267,6 +419,7 @@ export function allocatePayment(params: {
     allocations.push({
       installmentId: inst.id,
       seq: inst.seq,
+      type: inst.type,
       dueDate: inst.dueDate,
       amountPkr: inst.amount,
       previousPaidPkr: inst.paidAmount,

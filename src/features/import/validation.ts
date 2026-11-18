@@ -369,13 +369,11 @@ export function validateRow(
 
   if (cleaned.status === "SOLD") {
     if (!cleaned.soldPricePkr || Number(cleaned.soldPricePkr) <= 0) {
-      if (cleaned.ratePerSqftPkr && cleaned.netAreaSqft) {
-        cleaned.soldPricePkr = computeTotalPrice(
-          cleaned.ratePerSqftPkr,
-          cleaned.netAreaSqft,
-        );
+      const areaForPricing = cleaned.grossAreaSqft || cleaned.netAreaSqft;
+      if (cleaned.ratePerSqftPkr && areaForPricing) {
+        cleaned.soldPricePkr = computeTotalPrice(cleaned.ratePerSqftPkr, areaForPricing);
         warnings.push(
-          `SOLD row has no sold price; using rate × net area (${cleaned.soldPricePkr}).`,
+          `SOLD row has no sold price; using rate × ${cleaned.grossAreaSqft ? "gross" : "net"} area (${cleaned.soldPricePkr}).`,
         );
       } else {
         warnings.push("SOLD units should specify a sold price; none could be computed.");

@@ -19,6 +19,7 @@ export const salesNav: AppNavItem[] = [
   { href: "/bookings" as Route, label: "Bookings", action: "bookings.read" },
   { href: "/reservations" as Route, label: "Reservations", action: "reservations.read" },
   { href: "/installments" as Route, label: "Installments", action: "installments.read" },
+  { href: "/agreements" as Route, label: "Agreements", action: "agreements.read" },
   { href: "/sold" as Route, label: "Sold", action: "sales.read" },
 ];
 

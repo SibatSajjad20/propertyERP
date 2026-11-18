@@ -93,6 +93,7 @@ function formatActionError(err: unknown): string {
   }
   return errorMessage(err);
 }
+import { effectivePricingArea } from "@/lib/area";
 import { computeTotalPrice, formatDecimal, parseDecimal } from "@/lib/money";
 import { assertCan, can } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
@@ -216,6 +217,19 @@ async function nextReceiptNumber(tx: Tx): Promise<string> {
   return candidate;
 }
 
+async function nextTokenReceiptNumber(tx: Tx): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `SM-TOK-${year}-`;
+  const [maxRow] = await tx
+    .select({
+      maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${reservations.tokenReceiptNo} FROM ${prefix.length + 1})::int), 0)::int`,
+    })
+    .from(reservations)
+    .where(sql`${reservations.tokenReceiptNo} LIKE ${prefix + "%"}`);
+  const seq = Number(maxRow?.maxSeq ?? 0) + 1;
+  return `${prefix}${seq.toString().padStart(4, "0")}`;
+}
+
 export async function createReservation(input: unknown) {
   const parsed = parseInput(createReservationSchema, input);
   const session = await requireSession();
@@ -264,6 +278,16 @@ export async function createReservation(input: unknown) {
       session.user,
     );
 
+    const tokenPaisa =
+      parsed.tokenAmount && parsed.tokenAmount.trim() !== ""
+        ? parseDecimal(parsed.tokenAmount)
+        : 0n;
+    const hasToken = tokenPaisa > 0n;
+    if (hasToken && !parsed.tokenPaymentMethod) {
+      throw new ValidationError("Select a payment method for the token amount.");
+    }
+    const tokenReceiptNo = hasToken ? await nextTokenReceiptNumber(tx) : null;
+
     const [reservation] = await tx
       .insert(reservations)
       .values({
@@ -273,6 +297,13 @@ export async function createReservation(input: unknown) {
         expiresAt,
         durationDays: parsed.durationDays,
         status: "ACTIVE",
+        tokenAmount: formatDecimal(tokenPaisa),
+        tokenPaymentMethod: hasToken ? (parsed.tokenPaymentMethod ?? "CASH") : null,
+        tokenChequeNo: hasToken ? parsed.tokenChequeNo?.trim() || null : null,
+        tokenBank: hasToken ? parsed.tokenBank?.trim() || null : null,
+        tokenReference: hasToken ? parsed.tokenReference?.trim() || null : null,
+        tokenReceiptNo,
+        tokenPaidAt: hasToken ? startAt : null,
         notes: parsed.notes?.trim() || null,
         createdBy: session.user.id,
       })
@@ -424,22 +455,23 @@ export async function createBooking(input: unknown) {
         throw new ValidationError("This unit is not sellable.");
       }
 
+      // Find matching active reservation for this unit & client (if any)
+      const [activeReservation] = await tx
+        .select()
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.unitId, unit.id),
+            eq(reservations.clientId, client.id),
+            eq(reservations.status, "ACTIVE"),
+          ),
+        )
+        .limit(1);
+
       // Unit must be AVAILABLE or RESERVED by this client
       if (unit.status !== "AVAILABLE") {
         if (unit.status === "RESERVED") {
-          const [activeRes] = await tx
-            .select()
-            .from(reservations)
-            .where(
-              and(
-                eq(reservations.unitId, unit.id),
-                eq(reservations.clientId, client.id),
-                eq(reservations.status, "ACTIVE"),
-              ),
-            )
-            .limit(1);
-
-          if (!activeRes) {
+          if (!activeReservation) {
             throw new ValidationError(
               `Unit is currently reserved by another client or reservation expired.`,
             );
@@ -451,7 +483,7 @@ export async function createBooking(input: unknown) {
 
       const listPricePkr = computeTotalPrice(
         unit.ratePerSqftPkr,
-        unit.netAreaSqft,
+        effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft),
         unit.priceAdjustmentPkr,
       );
 
@@ -470,11 +502,62 @@ export async function createBooking(input: unknown) {
       }
 
       const netPricePkr = discountCalc.netPricePkr;
-      const downPaymentPaisa = parseDecimal(parsed.downPaymentPkr);
       const netPricePaisa = parseDecimal(netPricePkr);
 
-      if (downPaymentPaisa > netPricePaisa) {
-        throw new ValidationError("Down payment cannot exceed net price.");
+      const useDownValue =
+        parsed.downPaymentValue && parsed.downPaymentValue.trim() !== "";
+      const effectiveDownType = useDownValue ? parsed.downPaymentType : "AMOUNT";
+      const effectiveDownValue = useDownValue
+        ? parsed.downPaymentValue!
+        : (parsed.downPaymentPkr ?? "0");
+
+      const usePossValue = parsed.possessionValue && parsed.possessionValue.trim() !== "";
+      const effectivePossType = usePossValue ? parsed.possessionType : "AMOUNT";
+      const effectivePossValue = usePossValue
+        ? parsed.possessionValue!
+        : (parsed.possessionAmountPkr ?? "0");
+
+      const effectiveBalloonType = parsed.balloonType ?? "PERCENT";
+      const effectiveBalloonValue = parsed.balloonValue ?? "10";
+
+      // Check token adjustment from reservation
+      const availableTokenPaisa =
+        activeReservation && parsed.adjustTokenAmount !== false
+          ? parseDecimal(activeReservation.tokenAmount || "0")
+          : 0n;
+
+      const schedule = generateSchedule({
+        listPricePkr,
+        discountType: parsed.discountType,
+        discountValue: parsed.discountValue,
+        downPaymentType: effectiveDownType,
+        downPaymentValue: effectiveDownValue,
+        possessionType: effectivePossType,
+        possessionValue: effectivePossValue,
+        balloonType: effectiveBalloonType,
+        balloonValue: effectiveBalloonValue,
+        tokenAdjustedPkr: formatDecimal(availableTokenPaisa),
+        plan: parsed.plan,
+        installmentCount: parsed.installmentCount,
+        startDate: new Date(parsed.startDate),
+      });
+
+      const downPaymentPaisa = parseDecimal(schedule.downPaymentPkr);
+      const possessionPaisa = parseDecimal(schedule.possessionAmountPkr);
+
+      if (downPaymentPaisa <= 0n) {
+        throw new ValidationError("Down payment must be greater than 0.");
+      }
+      if (possessionPaisa <= 0n) {
+        throw new ValidationError(
+          "Possession payment is required and must be greater than 0.",
+        );
+      }
+      if (!schedule.isValid) {
+        throw new ValidationError(
+          schedule.validationError ||
+            "Down payment, balloon payments, and possession amount exceed net price.",
+        );
       }
 
       const bookingNo = await nextBookingNumber(tx);
@@ -482,33 +565,7 @@ export async function createBooking(input: unknown) {
       const bookedAt = new Date();
       const numbers = await allocateDocumentNumbers(tx, unit.unitCode, bookedAt);
 
-      const schedule = generateSchedule({
-        listPricePkr,
-        discountType: parsed.discountType,
-        discountValue: parsed.discountValue,
-        downPaymentPkr: parsed.downPaymentPkr,
-        possessionAmountPkr: parsed.possessionAmountPkr,
-        plan: parsed.plan,
-        installmentCount: parsed.installmentCount,
-        startDate: new Date(parsed.startDate),
-      });
-
       const isFullyPaid = downPaymentPaisa >= netPricePaisa;
-
-      // Convert any existing active reservation for this unit/client
-      await tx
-        .update(reservations)
-        .set({
-          status: "CONVERTED",
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(reservations.unitId, unit.id),
-            eq(reservations.clientId, client.id),
-            eq(reservations.status, "ACTIVE"),
-          ),
-        );
 
       // Insert booking
       const [booking] = await tx
@@ -525,13 +582,23 @@ export async function createBooking(input: unknown) {
           discountValue: parsed.discountValue || "0.00",
           discountReason: parsed.discountReason?.trim() || null,
           netPrice: netPricePkr,
-          downPayment: parsed.downPaymentPkr,
-          possessionAmount: parsed.possessionAmountPkr || "0.00",
+          downPaymentType: effectiveDownType,
+          downPaymentInputValue: effectiveDownValue,
+          downPayment: schedule.downPaymentPkr,
+          possessionType: effectivePossType,
+          possessionInputValue: effectivePossValue,
+          possessionAmount: schedule.possessionAmountPkr,
+          balloonType: effectiveBalloonType,
+          balloonInputValue: effectiveBalloonValue || "0",
+          balloonAmountPerYear: schedule.balloonAmountPerYearPkr,
+          balloonTotalAmount: schedule.balloonTotalAmountPkr,
+          tokenAdjustedAmount: schedule.tokenAdjustedPkr,
+          reservationId: activeReservation?.id ?? null,
           plan: parsed.plan,
           installmentCount: parsed.installmentCount,
           startDate: new Date(parsed.startDate),
           status: isFullyPaid ? "COMPLETED" : "ACTIVE",
-          paidTotal: parsed.downPaymentPkr,
+          paidTotal: schedule.downPaymentPkr,
           salesAgent: session.user.name,
           bookingOffice: "SARDAR'S MALL",
           createdBy: session.user.id,
@@ -540,12 +607,27 @@ export async function createBooking(input: unknown) {
 
       if (!booking) throw new Error("Failed to create booking");
 
-      // Insert installments
+      // Convert existing active reservation and link token adjustment
+      if (activeReservation) {
+        await tx
+          .update(reservations)
+          .set({
+            status: "CONVERTED",
+            tokenAdjustedToBookingId:
+              parseDecimal(schedule.tokenAdjustedPkr) > 0n ? booking.id : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(reservations.id, activeReservation.id));
+      }
+
+      // Insert installments (REGULAR + BALLOON + POSSESSION)
       if (schedule.installments.length > 0) {
         await tx.insert(installments).values(
           schedule.installments.map((inst) => ({
             bookingId: booking.id,
             seq: inst.seq,
+            type: inst.type,
+            label: inst.label,
             dueDate: inst.dueDate,
             amount: inst.amountPkr,
             paidAmount: "0.00",
@@ -554,19 +636,29 @@ export async function createBooking(input: unknown) {
         );
       }
 
-      // Insert first payment (down payment receipt)
-      await tx.insert(payments).values({
-        bookingId: booking.id,
-        receiptNo,
-        amount: parsed.downPaymentPkr,
-        method: parsed.paymentMethod,
-        chequeNo: parsed.chequeNo?.trim() || null,
-        bank: parsed.bank?.trim() || null,
-        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Down payment",
-        paidAt: new Date(),
-        notes: parsed.notes?.trim() || "Down payment on booking",
-        receivedBy: session.user.id,
-      });
+      // Insert down payment transaction for the net amount collected now
+      // (Token amount is already recorded on the reservation and adjusted above so reports never double-count)
+      const netDownPaymentPayablePaisa = parseDecimal(schedule.payableDownPaymentNowPkr);
+      if (netDownPaymentPayablePaisa > 0n) {
+        const tokenNote =
+          parseDecimal(schedule.tokenAdjustedPkr) > 0n
+            ? ` (after Rs ${schedule.tokenAdjustedPkr} token adjustment)`
+            : "";
+        await tx.insert(payments).values({
+          bookingId: booking.id,
+          receiptNo,
+          category: "DOWN_PAYMENT",
+          amount: schedule.payableDownPaymentNowPkr,
+          surchargeAmount: "0.00",
+          method: parsed.paymentMethod,
+          chequeNo: parsed.chequeNo?.trim() || null,
+          bank: parsed.bank?.trim() || null,
+          reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Down payment",
+          paidAt: new Date(),
+          notes: `${parsed.notes?.trim() || "Down payment on booking"}${tokenNote}`,
+          receivedBy: session.user.id,
+        });
+      }
 
       // Unit status transition
       if (isFullyPaid) {
@@ -889,7 +981,7 @@ export async function createDirectSale(input: unknown) {
 
       const computedPrice = computeTotalPrice(
         unit.ratePerSqftPkr,
-        unit.netAreaSqft,
+        effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft),
         unit.priceAdjustmentPkr,
       );
 

@@ -44,7 +44,13 @@ export interface ReportShellProps {
   title: string;
   description: string;
   exportType:
-    "summary" | "sold" | "booked" | "reserved" | "installments" | "client-ledger";
+    | "summary"
+    | "sold"
+    | "booked"
+    | "reserved"
+    | "installments"
+    | "collections"
+    | "client-ledger";
   stats?: ReportStatCard[];
   filterConfig?: ReportFilterConfig;
   filterOptions?: {
@@ -73,7 +79,8 @@ function ReportTabs({ pathname }: { pathname: string }) {
           { href: "/reports/sold" as Route, label: "Sold" },
           { href: "/reports/booked" as Route, label: "Booked" },
           { href: "/reports/reserved" as Route, label: "Reserved" },
-          { href: "/reports/installments" as Route, label: "Collections" },
+          { href: "/reports/collections" as Route, label: "Collections" },
+          { href: "/reports/installments" as Route, label: "Installments" },
           { href: "/reports/client-ledger" as Route, label: "Client ledger" },
         ] as const
       ).map((tab) => {

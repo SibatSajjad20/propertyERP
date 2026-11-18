@@ -5,6 +5,7 @@ import { and, eq, isNull, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
+import type { DocumentType } from "@/db/schema/enums";
 import { auditLog } from "@/db/schema/audit";
 import { clientDocuments, clients, nextOfKin } from "@/db/schema/sales";
 import { requireSession } from "@/lib/auth";
@@ -122,7 +123,7 @@ async function assertStorageObjectsExist(paths: string[]) {
 function currentDocFilters(opts: {
   clientId: string;
   ownerType: "CLIENT" | "KIN";
-  docType: "PHOTO" | "CNIC_FRONT" | "CNIC_BACK" | "KIN_PHOTO";
+  docType: DocumentType;
   kinId?: string;
 }): SQL {
   const parts = [

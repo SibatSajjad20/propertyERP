@@ -15,13 +15,15 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { formatPkr } from "@/lib/money";
+import { formatPkr, parseDecimal } from "@/lib/money";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type {
   UserRole,
   PaymentPlan,
   DiscountType,
+  DocumentType,
   PaymentMethod,
 } from "@/db/schema/enums";
 import {
@@ -40,7 +42,12 @@ import { CNIC_REGEX, formatCnic, type ClientInput, type NextOfKinInput } from ".
 import { ClientForm } from "./client-form";
 import { PaymentPlanPanel } from "./payment-plan-panel";
 import { UnitSelector, type SelectableUnit } from "./unit-selector";
-import { calculateDiscount, generateSchedule } from "../calculator";
+import {
+  DEFAULT_BALLOON_PERCENT,
+  DEFAULT_DOWN_PAYMENT_PERCENT,
+  DEFAULT_POSSESSION_PERCENT,
+  generateSchedule,
+} from "../calculator";
 
 interface BookingWizardProps {
   units: SelectableUnit[];
@@ -50,6 +57,8 @@ interface BookingWizardProps {
   preselectedUnitId?: string;
   preselectedClientId?: string;
   reservationId?: string;
+  reservationTokenAmount?: string;
+  reservationTokenReceiptNo?: string;
   initialClient?: ClientInput;
   initialNextOfKin?: NextOfKinInput;
 }
@@ -70,6 +79,8 @@ export function BookingWizard({
   preselectedUnitId,
   preselectedClientId,
   reservationId,
+  reservationTokenAmount = "0",
+  reservationTokenReceiptNo,
   initialClient,
   initialNextOfKin,
 }: BookingWizardProps) {
@@ -89,10 +100,15 @@ export function BookingWizard({
     discountType: "" as DiscountType | "",
     discountValue: "",
     discountReason: "",
-    downPaymentPkr: "",
-    possessionAmountPkr: "",
+    downPaymentType: "PERCENT" as DiscountType,
+    downPaymentValue: DEFAULT_DOWN_PAYMENT_PERCENT,
+    possessionType: "PERCENT" as DiscountType,
+    possessionValue: DEFAULT_POSSESSION_PERCENT,
+    balloonType: "PERCENT" as DiscountType,
+    balloonValue: DEFAULT_BALLOON_PERCENT,
+    adjustTokenAmount: true,
     plan: "MONTHLY" as PaymentPlan,
-    installmentCount: 12,
+    installmentCount: 36,
     startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     paymentMethod: "CASH" as PaymentMethod,
     chequeNo: "",
@@ -133,27 +149,32 @@ export function BookingWizard({
   const [kinDocs, setKinDocs] = React.useState<DocSlotMap>({});
   const [docErrors, setDocErrors] = React.useState<Partial<Record<string, string>>>({});
 
-  // Automatically set default down payment when unit is selected
-  React.useEffect(() => {
-    if (selectedUnit && !paymentState.downPaymentPkr) {
-      const price = selectedUnit.computedPricePkr || "0";
-      // Default down payment e.g. 20%
-      const rawPrice = Number(price);
-      if (!isNaN(rawPrice) && rawPrice > 0) {
-        const twentyPercent = Math.round((rawPrice * 0.2) / 100) * 100;
-        setPaymentState((prev) => ({
-          ...prev,
-          downPaymentPkr: twentyPercent.toString(),
-        }));
-      }
-    }
-  }, [selectedUnit]);
+  const liveSchedule = React.useMemo(() => {
+    if (!selectedUnit) return null;
+    return generateSchedule({
+      listPricePkr: selectedUnit.computedPricePkr || "0",
+      discountType: paymentState.discountType || null,
+      discountValue: paymentState.discountValue || null,
+      downPaymentType: paymentState.downPaymentType,
+      downPaymentValue: paymentState.downPaymentValue || "0",
+      possessionType: paymentState.possessionType,
+      possessionValue: paymentState.possessionValue || "0",
+      balloonType: paymentState.balloonType,
+      balloonValue: paymentState.balloonValue || "0",
+      tokenAdjustedPkr: paymentState.adjustTokenAmount ? reservationTokenAmount : "0",
+      plan: paymentState.plan,
+      installmentCount: paymentState.installmentCount,
+      startDate: paymentState.startDate ? new Date(paymentState.startDate) : new Date(),
+    });
+  }, [selectedUnit, paymentState, reservationTokenAmount]);
 
   // Validation per step
   const canProceedStep1 = Boolean(selectedUnit);
   const canProceedStep2 = Boolean(
-    paymentState.downPaymentPkr &&
-    Number(paymentState.downPaymentPkr) > 0 &&
+    liveSchedule &&
+    liveSchedule.isValid &&
+    parseDecimal(liveSchedule.downPaymentPkr) > 0n &&
+    parseDecimal(liveSchedule.possessionAmountPkr) > 0n &&
     paymentState.installmentCount > 0,
   );
 
@@ -184,7 +205,7 @@ export function BookingWizard({
     documents: {
       id: string;
       ownerType: "CLIENT" | "KIN";
-      docType: "PHOTO" | "CNIC_FRONT" | "CNIC_BACK" | "KIN_PHOTO";
+      docType: DocumentType;
       mimeType: string;
     }[];
   }) {
@@ -254,7 +275,13 @@ export function BookingWizard({
         return;
       }
       if (step === 2 && !canProceedStep2) {
-        toast.error("Please enter a valid down payment amount");
+        if (liveSchedule && !liveSchedule.isValid && liveSchedule.validationError) {
+          toast.error(liveSchedule.validationError);
+        } else if (liveSchedule && parseDecimal(liveSchedule.possessionAmountPkr) <= 0n) {
+          toast.error("Possession payment is required and must be greater than 0");
+        } else {
+          toast.error("Please enter valid down payment and possession amounts");
+        }
         return;
       }
       if (step === 3) {
@@ -349,8 +376,13 @@ export function BookingWizard({
         discountType: paymentState.discountType || undefined,
         discountValue: paymentState.discountValue || undefined,
         discountReason: paymentState.discountReason || undefined,
-        downPaymentPkr: paymentState.downPaymentPkr,
-        possessionAmountPkr: paymentState.possessionAmountPkr || undefined,
+        downPaymentType: paymentState.downPaymentType,
+        downPaymentValue: paymentState.downPaymentValue,
+        possessionType: paymentState.possessionType,
+        possessionValue: paymentState.possessionValue,
+        balloonType: paymentState.balloonType,
+        balloonValue: paymentState.balloonValue,
+        adjustTokenAmount: paymentState.adjustTokenAmount,
         plan: paymentState.plan,
         installmentCount: paymentState.installmentCount,
         startDate: paymentState.startDate,
@@ -555,8 +587,15 @@ export function BookingWizard({
             discountType={paymentState.discountType}
             discountValue={paymentState.discountValue}
             discountReason={paymentState.discountReason}
-            downPaymentPkr={paymentState.downPaymentPkr}
-            possessionAmountPkr={paymentState.possessionAmountPkr}
+            downPaymentType={paymentState.downPaymentType}
+            downPaymentValue={paymentState.downPaymentValue}
+            possessionType={paymentState.possessionType}
+            possessionValue={paymentState.possessionValue}
+            balloonType={paymentState.balloonType}
+            balloonValue={paymentState.balloonValue}
+            reservationTokenAmount={reservationTokenAmount}
+            reservationTokenReceiptNo={reservationTokenReceiptNo}
+            adjustTokenAmount={paymentState.adjustTokenAmount}
             plan={paymentState.plan}
             installmentCount={paymentState.installmentCount}
             startDate={paymentState.startDate}
@@ -643,12 +682,15 @@ export function BookingWizard({
         {currentStep === 5 && selectedUnit && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Unit Card */}
+              {/* Unit Card (Gross Area ONLY — never Net Sq Ft on booking form) */}
               <div className="card space-y-3 p-5">
                 <div className="flex items-center justify-between border-b border-line pb-2">
                   <h4 className="text-[14px] font-semibold text-ink">Unit Summary</h4>
                   <span className="unit-code font-mono text-[14px] font-bold text-primary">
-                    {selectedUnit.unitCode}
+                    {formatUnitDisplayCode(
+                      selectedUnit.unitCode,
+                      selectedUnit.categoryName,
+                    )}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
@@ -663,9 +705,13 @@ export function BookingWizard({
                     <p className="font-medium text-ink">{selectedUnit.categoryName}</p>
                   </div>
                   <div>
-                    <span className="text-ink-muted">Net Area:</span>
+                    <span className="text-ink-muted">Gross Area:</span>
                     <p className="font-medium text-ink tabular-nums">
-                      {selectedUnit.netAreaSqft} sq ft
+                      {effectivePricingArea(
+                        selectedUnit.grossAreaSqft,
+                        selectedUnit.netAreaSqft,
+                      )}{" "}
+                      sq ft
                     </p>
                   </div>
                   <div>
@@ -715,11 +761,13 @@ export function BookingWizard({
               <h4 className="mb-3 border-b border-line pb-2 text-[14px] font-semibold text-ink">
                 Financial Schedule & Deposit
               </h4>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">List Price</span>
+                  <span className="text-[11px] text-ink-muted uppercase">Net Price</span>
                   <p className="text-[14px] font-bold text-ink tabular-nums">
-                    {formatPkr(selectedUnit.computedPricePkr || "0")}
+                    {formatPkr(
+                      liveSchedule?.netPricePkr || selectedUnit.computedPricePkr || "0",
+                    )}
                   </p>
                 </div>
                 <div className="rounded-[8px] bg-subtle/50 p-3">
@@ -727,7 +775,30 @@ export function BookingWizard({
                     Down Payment
                   </span>
                   <p className="text-[14px] font-bold text-primary tabular-nums">
-                    {formatPkr(paymentState.downPaymentPkr)}
+                    {formatPkr(liveSchedule?.downPaymentPkr || "0")}
+                  </p>
+                  {liveSchedule && liveSchedule.tokenAdjustedPkr !== "0.00" && (
+                    <p className="text-[11px] text-available tabular-nums">
+                      Payable now: {formatPkr(liveSchedule.payableDownPaymentNowPkr)}
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-[8px] bg-subtle/50 p-3">
+                  <span className="text-[11px] text-ink-muted uppercase">
+                    Annual Balloon
+                  </span>
+                  <p className="text-[14px] font-semibold text-ink tabular-nums">
+                    {formatPkr(liveSchedule?.balloonTotalAmountPkr || "0")}
+                  </p>
+                  <p className="text-[11px] text-ink-muted tabular-nums">
+                    {liveSchedule?.balloonCount ?? 0} ×{" "}
+                    {formatPkr(liveSchedule?.balloonAmountPerYearPkr || "0")}
+                  </p>
+                </div>
+                <div className="rounded-[8px] bg-subtle/50 p-3">
+                  <span className="text-[11px] text-ink-muted uppercase">Possession</span>
+                  <p className="text-[14px] font-semibold text-ink tabular-nums">
+                    {formatPkr(liveSchedule?.possessionAmountPkr || "0")}
                   </p>
                 </div>
                 <div className="rounded-[8px] bg-subtle/50 p-3">

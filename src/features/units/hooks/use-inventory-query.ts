@@ -24,6 +24,7 @@ function inventoryKey(query: InventoryQuery) {
   return [
     "inventory",
     query.q ?? "",
+    query.section ?? "",
     query.floorId ?? "",
     query.categoryId ?? "",
     query.status ?? "",

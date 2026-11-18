@@ -1,4 +1,5 @@
 import { InventoryScreen } from "@/features/units/components/inventory-screen";
+import { getPendingMergeRequestCount } from "@/features/units/merge-queries";
 import {
   getInventoryFilterOptions,
   listInventory,
@@ -23,11 +24,14 @@ export default async function InventoryRoute({
   assertCan(session.user.role, "units.read");
 
   const query = parseInventorySearchParams(await searchParams);
-  const [{ rows, totals, nextCursor, pageSize }, options, history] = await Promise.all([
-    listInventory(query),
-    getInventoryFilterOptions(),
-    query.unitId ? listUnitStatusHistory(query.unitId) : Promise.resolve([]),
-  ]);
+  const canMerge = can(session.user.role, "units.merge_request");
+  const [{ rows, totals, nextCursor, pageSize }, options, history, pendingMergeCount] =
+    await Promise.all([
+      listInventory(query),
+      getInventoryFilterOptions(),
+      query.unitId ? listUnitStatusHistory(query.unitId) : Promise.resolve([]),
+      canMerge ? getPendingMergeRequestCount() : Promise.resolve(0),
+    ]);
 
   return (
     <InventoryScreen
@@ -41,6 +45,7 @@ export default async function InventoryRoute({
       canManage={can(session.user.role, "units.manage")}
       canSell={can(session.user.role, "units.sell")}
       canReverse={can(session.user.role, "units.reverse_sale")}
+      pendingMergeCount={pendingMergeCount}
       role={session.user.role}
     />
   );

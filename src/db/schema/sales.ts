@@ -12,11 +12,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import {
+  agreementStatusEnum,
   bookingStatusEnum,
   discountTypeEnum,
   documentOwnerTypeEnum,
   documentTypeEnum,
   installmentStatusEnum,
+  installmentTypeEnum,
+  paymentCategoryEnum,
   paymentMethodEnum,
   paymentPlanEnum,
   reservationStatusEnum,
@@ -105,6 +108,16 @@ export const reservations = pgTable(
     expiresAt: timestamp("expires_at").notNull(),
     durationDays: integer("duration_days").notNull(),
     status: reservationStatusEnum("status").default("ACTIVE").notNull(),
+    tokenAmount: numeric("token_amount", { precision: 14, scale: 2 })
+      .default("0")
+      .notNull(),
+    tokenPaymentMethod: paymentMethodEnum("token_payment_method"),
+    tokenChequeNo: text("token_cheque_no"),
+    tokenBank: text("token_bank"),
+    tokenReference: text("token_reference"),
+    tokenReceiptNo: text("token_receipt_no"),
+    tokenPaidAt: timestamp("token_paid_at"),
+    tokenAdjustedToBookingId: uuid("token_adjusted_to_booking_id"),
     notes: text("notes"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     cancelledAt: timestamp("cancelled_at"),
@@ -117,6 +130,7 @@ export const reservations = pgTable(
     index("reservations_client_id_idx").on(table.clientId),
     index("reservations_status_idx").on(table.status),
     index("reservations_expires_at_idx").on(table.expiresAt),
+    uniqueIndex("reservations_token_receipt_no_idx").on(table.tokenReceiptNo),
   ],
 );
 
@@ -141,15 +155,59 @@ export const bookings = pgTable(
       .notNull(),
     discountReason: text("discount_reason"),
     netPrice: numeric("net_price", { precision: 14, scale: 2 }).notNull(),
+    downPaymentType: discountTypeEnum("down_payment_type").default("AMOUNT").notNull(),
+    downPaymentInputValue: numeric("down_payment_input_value", {
+      precision: 14,
+      scale: 2,
+    }),
     downPayment: numeric("down_payment", { precision: 14, scale: 2 }).notNull(),
+    possessionType: discountTypeEnum("possession_type").default("PERCENT").notNull(),
+    possessionInputValue: numeric("possession_input_value", {
+      precision: 14,
+      scale: 2,
+    }),
     possessionAmount: numeric("possession_amount", { precision: 14, scale: 2 })
       .default("0")
       .notNull(),
+    balloonType: discountTypeEnum("balloon_type").default("PERCENT").notNull(),
+    balloonInputValue: numeric("balloon_input_value", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("10")
+      .notNull(),
+    balloonAmountPerYear: numeric("balloon_amount_per_year", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    balloonTotalAmount: numeric("balloon_total_amount", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    tokenAdjustedAmount: numeric("token_adjusted_amount", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    reservationId: uuid("reservation_id").references(() => reservations.id, {
+      onDelete: "set null",
+    }),
     plan: paymentPlanEnum("plan").notNull(),
     installmentCount: integer("installment_count").notNull(),
     startDate: timestamp("start_date").notNull(),
     status: bookingStatusEnum("status").default("ACTIVE").notNull(),
     paidTotal: numeric("paid_total", { precision: 14, scale: 2 }).default("0").notNull(),
+    surchargeExempt: boolean("surcharge_exempt").default(false).notNull(),
+    surchargeExemptReason: text("surcharge_exempt_reason"),
+    surchargeExemptBy: text("surcharge_exempt_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    surchargeExemptAt: timestamp("surcharge_exempt_at"),
     salesAgent: text("sales_agent"),
     bookingOffice: text("booking_office").default("SARDAR'S MALL").notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
@@ -176,6 +234,8 @@ export const installments = pgTable(
       .notNull()
       .references(() => bookings.id, { onDelete: "cascade" }),
     seq: integer("seq").notNull(),
+    type: installmentTypeEnum("type").default("REGULAR").notNull(),
+    label: text("label"),
     dueDate: timestamp("due_date").notNull(),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     paidAmount: numeric("paid_amount", { precision: 14, scale: 2 })
@@ -184,6 +244,24 @@ export const installments = pgTable(
     status: installmentStatusEnum("status").default("PENDING").notNull(),
     paidAt: timestamp("paid_at"),
     receiptNos: text("receipt_nos"),
+    surchargeWaived: boolean("surcharge_waived").default(false).notNull(),
+    surchargeWaivedAmount: numeric("surcharge_waived_amount", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
+    surchargeWaivedReason: text("surcharge_waived_reason"),
+    surchargeWaivedBy: text("surcharge_waived_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    surchargeWaivedAt: timestamp("surcharge_waived_at"),
+    surchargePaidAmount: numeric("surcharge_paid_amount", {
+      precision: 14,
+      scale: 2,
+    })
+      .default("0")
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -208,7 +286,11 @@ export const payments = pgTable(
       .notNull()
       .references(() => bookings.id, { onDelete: "restrict" }),
     receiptNo: text("receipt_no").notNull(),
+    category: paymentCategoryEnum("category").default("INSTALLMENT").notNull(),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    surchargeAmount: numeric("surcharge_amount", { precision: 14, scale: 2 })
+      .default("0")
+      .notNull(),
     method: paymentMethodEnum("method").notNull(),
     chequeNo: text("cheque_no"),
     bank: text("bank"),
@@ -389,5 +471,50 @@ export const refunds = pgTable(
     index("refunds_booking_id_idx").on(table.bookingId),
     index("refunds_paid_at_idx").on(table.paidAt),
     index("refunds_client_id_idx").on(table.clientId),
+  ],
+);
+
+export const agreements = pgTable(
+  "agreements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    agreementNo: text("agreement_no").notNull(),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    saleId: uuid("sale_id").references(() => sales.id, { onDelete: "set null" }),
+    unitId: uuid("unit_id")
+      .notNull()
+      .references(() => units.id, { onDelete: "restrict" }),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "restrict" }),
+    sellerName: text("seller_name").default("Mr. Afnan Khan").notNull(),
+    agreementDate: timestamp("agreement_date").defaultNow().notNull(),
+    anticipatedCompletionDate: text("anticipated_completion_date")
+      .default("Feb-2029")
+      .notNull(),
+    buyerNationality: text("buyer_nationality").default("Pakistani").notNull(),
+    nomineeNationality: text("nominee_nationality").default("Pakistani").notNull(),
+    witness1Name: text("witness_1_name"),
+    witness2Name: text("witness_2_name"),
+    status: agreementStatusEnum("status").default("DRAFT").notNull(),
+    signedStoragePath: text("signed_storage_path"),
+    signedMimeType: text("signed_mime_type"),
+    signedFileName: text("signed_file_name"),
+    signedUploadedAt: timestamp("signed_uploaded_at"),
+    signedUploadedBy: text("signed_uploaded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("agreements_agreement_no_idx").on(table.agreementNo),
+    index("agreements_booking_id_idx").on(table.bookingId),
+    index("agreements_sale_id_idx").on(table.saleId),
+    index("agreements_unit_id_idx").on(table.unitId),
+    index("agreements_client_id_idx").on(table.clientId),
+    index("agreements_status_idx").on(table.status),
   ],
 );

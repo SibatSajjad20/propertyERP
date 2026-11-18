@@ -1,4 +1,4 @@
-import { formatSqft } from "@/lib/area";
+import { effectivePricingArea, formatSqft, formatUnitNumberLabel } from "@/lib/area";
 import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import type { InventoryRow, StatusHistoryEntry } from "../types";
@@ -10,13 +10,14 @@ interface UnitReadProps {
 }
 
 export function UnitRead({ unit, history = [] }: UnitReadProps) {
+  const pricingArea = effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft);
   const live = computeTotalPrice(
     unit.ratePerSqftPkr,
-    unit.netAreaSqft,
+    pricingArea,
     unit.priceAdjustmentPkr,
   );
   const book = unit.soldPricePkr ?? live;
-  const base = computeTotalPrice(unit.ratePerSqftPkr, unit.netAreaSqft, "0");
+  const base = computeTotalPrice(unit.ratePerSqftPkr, pricingArea, "0");
 
   return (
     <div className="flex flex-1 flex-col space-y-6 overflow-y-auto px-5 py-4">
@@ -47,7 +48,14 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
         </p>
         <dl className="divide-y divide-line/60">
           <Row label="Unit code" value={unit.unitCode} mono />
-          <Row label="Unit number" value={unit.unitNumber} />
+          <Row
+            label="Unit number"
+            value={formatUnitNumberLabel(
+              unit.unitCode,
+              unit.unitNumber,
+              unit.categoryName,
+            )}
+          />
           <Row label="Floor" value={unit.floorName} />
           <Row label="Category" value={unit.categoryName} />
           <Row label="Sellable inventory" value={unit.isSellable ? "Yes" : "No"} />
@@ -64,7 +72,7 @@ export function UnitRead({ unit, history = [] }: UnitReadProps) {
           <Row label="Gross area" value={formatSqft(unit.grossAreaSqft)} />
           <Row label="Rate per sq ft" value={formatPkrLedger(unit.ratePerSqftPkr)} />
           <Row
-            label={`Base valuation (${unit.ratePerSqftPkr} × ${unit.netAreaSqft})`}
+            label={`Base valuation (${unit.ratePerSqftPkr} × ${pricingArea} gross sq ft)`}
             value={formatPkrLedger(base)}
           />
           <Row

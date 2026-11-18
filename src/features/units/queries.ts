@@ -7,6 +7,7 @@ import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
 import { unitStatusHistory, units } from "@/db/schema/units";
 import { logger } from "@/lib/logger";
+import type { InventorySectionKey } from "./sections";
 import {
   INVENTORY_MAX_PAGE_SIZE,
   INVENTORY_PAGE_SIZE,
@@ -33,11 +34,29 @@ export type {
 } from "./types";
 
 function computedPriceExpr() {
-  return sql<string>`round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
+  return sql<string>`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`;
 }
 
 function bookPriceExpr() {
-  return sql<string>`coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2), '0')`;
+  return sql<string>`coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2), '0')`;
+}
+
+function sectionSqlCondition(section: InventorySectionKey): SQL {
+  const catLower = sql`lower(trim(${categories.name}))`;
+  switch (section) {
+    case "mall-shops":
+      return sql`(${catLower} in ('mall shops', 'mall shop') OR (${catLower} in ('shop', 'shops') AND ${floors.level} >= 1))`;
+    case "commercial-shops":
+      return sql`(${catLower} in ('commercial shops', 'commercial shop') OR (${catLower} in ('shop', 'shops') AND ${floors.level} <= 0))`;
+    case "food-court":
+      return sql`${catLower} in ('food court', 'food outlets', 'food outlet', 'cafetria', 'cafeteria')`;
+    case "kiosks":
+      return sql`${catLower} in ('kiosks', 'kiosk')`;
+    case "corporate-offices":
+      return sql`${catLower} in ('corporate offices', 'corporate office', 'office', 'offices')`;
+    case "residential-apartments":
+      return sql`(${catLower} in ('residential apartments', 'residential apartment', 'apartment', 'apartments', '1-bed', '2-bed', '3-bed') OR ${catLower} like '%apartment%')`;
+  }
 }
 
 function inventoryWhere(query: Partial<InventoryQuery> = {}): SQL | undefined {
@@ -55,6 +74,9 @@ function inventoryWhere(query: Partial<InventoryQuery> = {}): SQL | undefined {
     if (search) {
       parts.push(search);
     }
+  }
+  if (q.section) {
+    parts.push(sectionSqlCondition(q.section));
   }
   if (q.floorId) {
     parts.push(eq(units.floorId, q.floorId));
@@ -130,6 +152,7 @@ const inventorySelect = {
   subOwner: units.subOwner,
   bookingRef: units.bookingRef,
   notes: units.notes,
+  isMergedUnit: units.isMergedUnit,
   version: units.version,
   soldAt: units.soldAt,
   soldBy: units.soldBy,

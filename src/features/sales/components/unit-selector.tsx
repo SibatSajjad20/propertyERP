@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr, formatPkrCompact } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
@@ -170,7 +171,7 @@ export function UnitSelector({
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="unit-code font-mono text-[15px] font-bold tracking-tight text-ink">
-                      {unit.unitCode}
+                      {formatUnitDisplayCode(unit.unitCode, unit.categoryName)}
                     </span>
                     <p className="text-[12px] text-ink-muted">
                       {unit.floorName} · {unit.categoryName}
@@ -184,12 +185,12 @@ export function UnitSelector({
                   </div>
                 </div>
 
-                {/* Specs row */}
+                {/* Specs row (Gross Area ONLY — never Net Sq Ft on booking/sale forms) */}
                 <div className="mt-3.5 grid grid-cols-2 gap-2 border-t border-line/60 pt-2.5 text-[12px]">
                   <div>
-                    <span className="text-ink-muted">Net Area:</span>
+                    <span className="text-ink-muted">Gross Area:</span>
                     <p className="font-medium text-ink tabular-nums">
-                      {unit.netAreaSqft} sq ft
+                      {effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft)} sq ft
                     </p>
                   </div>
                   <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { DocumentType } from "@/db/schema/enums";
+import { CLIENT_ALL_DOC_TYPES, KIN_ALL_DOC_TYPES } from "../constants";
 import { DocumentUpload, type ExistingDocument } from "./document-upload";
 
 export type DocSlotMap = Partial<Record<DocumentType, ExistingDocument | null>>;
@@ -18,8 +19,8 @@ export function ClientDocumentFields({
   ensureOwner?: () => Promise<{ clientId: string; kinId: string | null }>;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {(["PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const).map((docType) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {CLIENT_ALL_DOC_TYPES.map((docType) => (
         <DocumentUpload
           key={docType}
           ownerType="CLIENT"
@@ -50,8 +51,8 @@ export function KinDocumentFields({
   ensureOwner?: () => Promise<{ clientId: string; kinId: string | null }>;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {(["KIN_PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const).map((docType) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {KIN_ALL_DOC_TYPES.map((docType) => (
         <DocumentUpload
           key={docType}
           ownerType="KIN"

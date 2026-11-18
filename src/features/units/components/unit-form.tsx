@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { isGrossLessThanNet } from "@/lib/area";
+import { effectivePricingArea, isGrossLessThanNet } from "@/lib/area";
 import {
   computeTotalPrice,
   formatPkrCompact,
@@ -113,8 +113,9 @@ export function UnitForm({
 
   let computedTotal = "0.00";
   try {
-    if (net && rate && net.trim() !== "" && rate.trim() !== "") {
-      computedTotal = computeTotalPrice(rate, net, adjustment || "0");
+    const pricingArea = effectivePricingArea(gross, net);
+    if (pricingArea && rate && pricingArea.trim() !== "" && rate.trim() !== "") {
+      computedTotal = computeTotalPrice(rate, pricingArea, adjustment || "0");
     }
   } catch {
     computedTotal = "0.00";

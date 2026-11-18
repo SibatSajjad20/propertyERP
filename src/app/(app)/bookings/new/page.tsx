@@ -69,9 +69,11 @@ export default async function NewBookingPage({
       floors={options.floors}
       categories={options.categories}
       role={session.user.role}
-      preselectedUnitId={unitId}
-      preselectedClientId={clientId}
+      preselectedUnitId={unitId ?? resData?.reservation?.unitId}
+      preselectedClientId={clientId ?? resData?.reservation?.clientId}
       reservationId={reservationId}
+      reservationTokenAmount={resData?.reservation?.tokenAmount}
+      reservationTokenReceiptNo={resData?.reservation?.tokenReceiptNo ?? undefined}
       initialClient={initialClient}
       initialNextOfKin={initialNextOfKin}
     />

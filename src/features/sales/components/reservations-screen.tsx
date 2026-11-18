@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { formatUnitDisplayCode } from "@/lib/area";
+import { formatPkr, parseDecimal } from "@/lib/money";
 import { cn } from "@/lib/cn";
 
 export function formatCountdown(expiresAt: Date | string): {
@@ -57,8 +59,12 @@ interface ReservationsScreenProps {
       startAt: Date;
       expiresAt: Date;
       durationDays: number;
+      tokenAmount?: string;
+      tokenReceiptNo?: string | null;
+      tokenAdjustedToBookingId?: string | null;
       unitId: string;
       unitCode: string;
+      categoryName?: string;
       floorName: string;
       blockName: string;
       clientId: string;
@@ -182,6 +188,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
               <tr>
                 <th className="px-4 py-2.5 font-medium">Unit</th>
                 <th className="px-4 py-2.5 font-medium">Prospective Buyer</th>
+                <th className="px-4 py-2.5 text-right font-medium">Token</th>
                 <th className="px-4 py-2.5 font-medium">Start Date</th>
                 <th className="px-4 py-2.5 font-medium">Expires At</th>
                 <th className="px-4 py-2.5 font-medium">Time Remaining</th>
@@ -191,15 +198,14 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
             <tbody className="divide-y divide-line/60">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-ink-muted">
+                  <td colSpan={7} className="p-8 text-center text-ink-muted">
                     No reservations found.
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((row) => {
                   const countdown = formatCountdown(row.expiresAt);
-                  const isEffectiveActive =
-                    row.status === "ACTIVE" && !countdown.isExpired;
+                  const hasToken = parseDecimal(row.tokenAmount || "0") > 0n;
 
                   return (
                     <tr
@@ -209,7 +215,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                     >
                       <td className="px-4 py-3">
                         <span className="unit-code font-mono text-[13px] font-bold text-primary">
-                          {row.unitCode}
+                          {formatUnitDisplayCode(row.unitCode, row.categoryName)}
                         </span>
                         <p className="text-[11px] text-ink-muted">
                           {row.floorName} · {row.blockName}
@@ -220,6 +226,22 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                         <p className="text-[11px] text-ink-muted tabular-nums">
                           {row.clientPhone}
                         </p>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {hasToken ? (
+                          <div>
+                            <span className="font-semibold text-ink">
+                              {formatPkr(row.tokenAmount ?? "0")}
+                            </span>
+                            {row.tokenReceiptNo && (
+                              <p className="font-mono text-[10px] text-ink-muted">
+                                {row.tokenReceiptNo}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-ink-muted">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-sans text-ink tabular-nums">
                         {new Date(row.startAt).toLocaleDateString("en-GB", {

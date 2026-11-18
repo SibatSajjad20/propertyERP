@@ -136,25 +136,6 @@ export const requiredNextOfKinSchema = z.object({
     .optional(),
 });
 
-export const createReservationSchema = z.object({
-  unitId: z.string().uuid(),
-  client: clientSchema,
-  nextOfKin: nextOfKinSchema.optional(),
-  durationDays: z.number().int().min(1).max(365),
-  customExpiryDate: z.string().optional(),
-  notes: z.string().trim().max(1000).optional(),
-});
-
-export const cancelReservationSchema = z.object({
-  reservationId: z.string().uuid(),
-  reason: z.string().trim().min(5, "A reason of at least 5 characters is required"),
-});
-
-export const extendReservationSchema = z.object({
-  reservationId: z.string().uuid(),
-  additionalDays: z.number().int().min(1).max(180),
-});
-
 const moneyField = (msg: string) =>
   z
     .string()
@@ -170,6 +151,30 @@ const optionalMoneyField = (msg: string) =>
     .refine((v) => v === "" || POSITIVE_DECIMAL_PATTERN.test(v), msg)
     .optional();
 
+export const createReservationSchema = z.object({
+  unitId: z.string().uuid(),
+  client: clientSchema,
+  nextOfKin: nextOfKinSchema.optional(),
+  durationDays: z.number().int().min(1).max(365),
+  customExpiryDate: z.string().optional(),
+  tokenAmount: optionalMoneyField("Token amount must be a valid non-negative amount"),
+  tokenPaymentMethod: z.enum(paymentMethods).optional(),
+  tokenChequeNo: z.string().trim().max(50).optional(),
+  tokenBank: z.string().trim().max(100).optional(),
+  tokenReference: z.string().trim().max(120).optional(),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+export const cancelReservationSchema = z.object({
+  reservationId: z.string().uuid(),
+  reason: z.string().trim().min(5, "A reason of at least 5 characters is required"),
+});
+
+export const extendReservationSchema = z.object({
+  reservationId: z.string().uuid(),
+  additionalDays: z.number().int().min(1).max(180),
+});
+
 export const createBookingSchema = z.object({
   unitId: z.string().uuid(),
   reservationId: z.string().uuid().optional(),
@@ -178,8 +183,17 @@ export const createBookingSchema = z.object({
   discountType: z.enum(discountTypes).optional(),
   discountValue: optionalMoneyField("Invalid discount value"),
   discountReason: z.string().trim().max(300).optional(),
-  downPaymentPkr: moneyField("Down payment must be a valid amount"),
+  downPaymentType: z.enum(discountTypes).default("PERCENT"),
+  downPaymentValue: optionalMoneyField("Down payment must be a valid amount"),
+  downPaymentPkr: optionalMoneyField("Down payment must be a valid amount"),
+  possessionType: z.enum(discountTypes).default("PERCENT"),
+  possessionValue: optionalMoneyField("Possession amount must be a valid amount"),
   possessionAmountPkr: optionalMoneyField("Possession amount must be a valid amount"),
+  balloonType: z.enum(discountTypes).default("PERCENT"),
+  balloonValue: optionalMoneyField("Balloon payment must be a valid amount").default(
+    "10",
+  ),
+  adjustTokenAmount: z.boolean().optional().default(true),
   plan: z.enum(paymentPlans),
   installmentCount: z.number().int().min(1).max(120),
   startDate: z.string().min(1, "Start date is required"),

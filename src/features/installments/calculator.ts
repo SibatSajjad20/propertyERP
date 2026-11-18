@@ -5,6 +5,7 @@ export interface RecalculateAllocationsParams {
     id: string;
     netPrice: string;
     downPayment: string;
+    tokenAdjustedAmount?: string | null;
   };
   installments: Array<{
     id: string;
@@ -19,6 +20,8 @@ export interface RecalculateAllocationsParams {
     id: string;
     receiptNo: string;
     amount: string;
+    category?: string | null;
+    surchargeAmount?: string | null;
     isVoided: boolean;
     paidAt: Date;
     notes?: string | null;
@@ -57,10 +60,24 @@ export function recalculateInstallmentAllocations({
     .filter((p) => !p.isVoided)
     .sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime());
 
-  // Total paid across all non-voided payments
-  let totalPaidPaisa = 0n;
-  for (const p of activePayments) {
-    totalPaidPaisa += parseDecimal(p.amount);
+  // Token adjusted from reservation counts toward down payment & total paid principal
+  const tokenAdjustedPaisa = parseDecimal(booking.tokenAdjustedAmount || "0");
+  let totalPaidPaisa = tokenAdjustedPaisa;
+
+  const principalPayments = activePayments
+    .map((p) => {
+      if (p.category === "SURCHARGE") {
+        return { receiptNo: p.receiptNo, principalPaisa: 0n };
+      }
+      const amt = parseDecimal(p.amount);
+      const sur = parseDecimal(p.surchargeAmount || "0");
+      const principal = amt > sur ? amt - sur : 0n;
+      return { receiptNo: p.receiptNo, principalPaisa: principal };
+    })
+    .filter((p) => p.principalPaisa > 0n);
+
+  for (const p of principalPayments) {
+    totalPaidPaisa += p.principalPaisa;
   }
 
   const netPricePaisa = parseDecimal(booking.netPrice);
@@ -70,13 +87,13 @@ export function recalculateInstallmentAllocations({
   const sortedInst = [...installments].sort((a, b) => a.seq - b.seq);
   const resultInstallments: RecalculatedInstallment[] = [];
 
-  // Group receipts by the non-downpayment payments that provide funds
-  // To assign receipt numbers precisely, we waterfall payment by payment through the installments
   const activeNonDownPayments: Array<{ receiptNo: string; remainingPaisa: bigint }> = [];
 
-  let downCoverageLeft = downPaymentPaisa;
-  for (const p of activePayments) {
-    const pPaisa = parseDecimal(p.amount);
+  // Token adjustment covers down payment first
+  let downCoverageLeft =
+    downPaymentPaisa > tokenAdjustedPaisa ? downPaymentPaisa - tokenAdjustedPaisa : 0n;
+  for (const p of principalPayments) {
+    const pPaisa = p.principalPaisa;
     if (downCoverageLeft > 0n) {
       if (pPaisa <= downCoverageLeft) {
         downCoverageLeft -= pPaisa;

@@ -8,7 +8,7 @@ import type { DocumentType } from "@/db/schema/enums";
 import type { UserRole } from "@/db/schema/enums";
 import { can, type Action } from "@/lib/permissions";
 import { getDocumentSignedUrls } from "../actions";
-import { DOC_TYPE_LABELS } from "../constants";
+import { CLIENT_ALL_DOC_TYPES, DOC_TYPE_LABELS, KIN_ALL_DOC_TYPES } from "../constants";
 import { flushPendingUploads } from "../upload-client";
 import { DocumentUpload, type ExistingDocument } from "./document-upload";
 import type { SignedDocumentUrls } from "../types";
@@ -159,12 +159,12 @@ export function DocumentsSection({
     else setKinOverrides((prev) => ({ ...prev, [docType]: slot }));
   }
 
-  const clientItems = (["PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const)
-    .map((type) => documents.find((d) => d.ownerType === "CLIENT" && d.docType === type))
-    .filter((d): d is DocumentListItem => Boolean(d));
-  const kinItems = (["KIN_PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const)
-    .map((type) => documents.find((d) => d.ownerType === "KIN" && d.docType === type))
-    .filter((d): d is DocumentListItem => Boolean(d));
+  const clientItems = CLIENT_ALL_DOC_TYPES.map((type) =>
+    documents.find((d) => d.ownerType === "CLIENT" && d.docType === type),
+  ).filter((d): d is DocumentListItem => Boolean(d));
+  const kinItems = KIN_ALL_DOC_TYPES.map((type) =>
+    documents.find((d) => d.ownerType === "KIN" && d.docType === type),
+  ).filter((d): d is DocumentListItem => Boolean(d));
 
   return (
     <div className="card space-y-4 p-5">
@@ -214,8 +214,8 @@ export function DocumentsSection({
       {canReplace ? (
         <div className="space-y-4 border-t border-line pt-4">
           <p className="text-[12px] font-medium text-ink">Replace</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {(["PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const).map((docType) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CLIENT_ALL_DOC_TYPES.map((docType) => (
               <DocumentUpload
                 key={`c-${docType}`}
                 ownerType="CLIENT"
@@ -233,8 +233,8 @@ export function DocumentsSection({
             ))}
           </div>
           {kinId ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {(["KIN_PHOTO", "CNIC_FRONT", "CNIC_BACK"] as const).map((docType) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {KIN_ALL_DOC_TYPES.map((docType) => (
                 <DocumentUpload
                   key={`k-${docType}`}
                   ownerType="KIN"

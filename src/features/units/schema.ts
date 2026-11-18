@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { unitStatuses } from "@/db/schema/enums";
 import { parseDecimal } from "@/lib/money";
+import { inventorySectionKeys, type InventorySectionKey } from "./sections";
 
 export const STALE_UNIT_MESSAGE =
   "This unit was changed by someone else. Reload to see the latest.";
@@ -181,6 +182,7 @@ export type InventorySortField = (typeof inventorySortFields)[number];
 
 export const inventoryQuerySchema = z.object({
   q: z.string().trim().max(80).optional(),
+  section: z.enum(inventorySectionKeys).optional().or(z.literal("")),
   floor: z.string().uuid().optional().or(z.literal("")),
   category: z.string().uuid().optional().or(z.literal("")),
   status: z.enum(unitStatuses).optional().or(z.literal("")),
@@ -205,6 +207,7 @@ export const INVENTORY_MAX_PAGE_SIZE = 500;
 
 export type InventoryQuery = {
   q?: string;
+  section?: InventorySectionKey;
   floorId?: string;
   categoryId?: string;
   status?: (typeof unitStatuses)[number];
@@ -238,6 +241,7 @@ export function parseInventorySearchParams(
 ): InventoryQuery {
   const parsed = inventoryQuerySchema.safeParse({
     q: firstParam(raw.q),
+    section: firstParam(raw.section),
     floor: firstParam(raw.floor),
     category: firstParam(raw.category),
     status: firstParam(raw.status),
@@ -255,6 +259,7 @@ export function parseInventorySearchParams(
 
   return {
     q: value.q || undefined,
+    section: value.section || undefined,
     floorId: value.floor || undefined,
     categoryId: value.category || undefined,
     status: value.status || undefined,
@@ -278,6 +283,9 @@ export function inventoryQueryString(
   const params = new URLSearchParams();
   if (next.q) {
     params.set("q", next.q);
+  }
+  if (next.section) {
+    params.set("section", next.section);
   }
   if (next.floorId) {
     params.set("floor", next.floorId);

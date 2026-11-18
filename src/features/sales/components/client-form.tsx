@@ -11,12 +11,14 @@ import { findClientByCnic } from "../actions";
 import type { ClientInput, NextOfKinInput } from "../schema";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 
+import type { DocumentType } from "@/db/schema/enums";
+
 export type MatchedClientDocs = {
   id: string;
   ownerType: "CLIENT" | "KIN";
   clientId: string;
   kinId: string | null;
-  docType: "PHOTO" | "CNIC_FRONT" | "CNIC_BACK" | "KIN_PHOTO";
+  docType: DocumentType;
   mimeType: string;
   replacedAt: Date | string | null;
 };

@@ -155,10 +155,10 @@ export async function getDashboardStats(filter?: {
       reserved: sql<number>`count(${units.id}) filter (where ${units.status} = 'RESERVED')`,
       booked: sql<number>`count(${units.id}) filter (where ${units.status} = 'BOOKED')`,
       sold: sql<number>`count(${units.id}) filter (where ${units.status} = 'SOLD')`,
-      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
+      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
     })
     .from(units)
     .innerJoin(floors, and(eq(units.floorId, floors.id), isNull(floors.archivedAt)))
@@ -238,11 +238,11 @@ export async function getFloorsLedger(filter?: {
       reserved: sql<number>`count(${units.id}) filter (where ${units.status} = 'RESERVED')`,
       booked: sql<number>`count(${units.id}) filter (where ${units.status} = 'BOOKED')`,
       sold: sql<number>`count(${units.id}) filter (where ${units.status} = 'SOLD')`,
-      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
-      totalValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end), 0)::text`,
+      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
+      totalValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end), 0)::text`,
     })
     .from(floors)
     .innerJoin(blocks, eq(floors.blockId, blocks.id))
@@ -303,11 +303,11 @@ export async function getBlocksBreakdown(filter?: {
       reserved: sql<number>`count(${units.id}) filter (where ${units.status} = 'RESERVED')`,
       booked: sql<number>`count(${units.id}) filter (where ${units.status} = 'BOOKED')`,
       sold: sql<number>`count(${units.id}) filter (where ${units.status} = 'SOLD')`,
-      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
-      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
-      totalValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end), 0)::text`,
+      availableValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'AVAILABLE' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      reservedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'RESERVED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      bookedValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'BOOKED' then round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) else 0 end), 0)::text`,
+      soldValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else 0 end), 0)::text`,
+      totalValuePkr: sql<string>`coalesce(sum(case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end), 0)::text`,
     })
     .from(blocks)
     .leftJoin(
@@ -389,7 +389,7 @@ export async function getSalesOverTime(filter?: {
     .select({
       month: sql<string>`to_char(date_trunc('month', ${unitStatusHistory.createdAt}), 'YYYY-MM')`,
       count: sql<number>`count(${unitStatusHistory.id})::int`,
-      volumePkr: sql<string>`coalesce(sum(coalesce(${unitStatusHistory.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0))), 0)::text`,
+      volumePkr: sql<string>`coalesce(sum(coalesce(${unitStatusHistory.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0))), 0)::text`,
     })
     .from(unitStatusHistory)
     .innerJoin(units, eq(unitStatusHistory.unitId, units.id))
@@ -775,7 +775,7 @@ export async function getExportInventoryData(filter?: {
       grossAreaSqft: units.grossAreaSqft,
       ratePerSqftPkr: units.ratePerSqftPkr,
       priceAdjustmentPkr: units.priceAdjustmentPkr,
-      totalPricePkr: sql<string>`case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end::text`,
+      totalPricePkr: sql<string>`case when ${units.status} = 'SOLD' then coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)) else round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0) end::text`,
       isSellable: units.isSellable,
       ownershipGroup: units.ownershipGroup,
       bookingRef: units.bookingRef,
@@ -811,7 +811,7 @@ export async function getExportSoldUnitsData(filter?: {
       categoryName: categories.name,
       netAreaSqft: units.netAreaSqft,
       ratePerSqftPkr: units.ratePerSqftPkr,
-      soldPricePkr: sql<string>`coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * ${units.netAreaSqft}) + coalesce(${units.priceAdjustmentPkr}, 0), 0))::text`,
+      soldPricePkr: sql<string>`coalesce(${units.soldPricePkr}, round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0))::text`,
       soldAt: units.soldAt,
       soldByName: user.name,
       bookingRef: units.bookingRef,

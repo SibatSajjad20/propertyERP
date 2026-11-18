@@ -9,6 +9,7 @@ import {
   ArrowUUpLeft,
   CheckCircle,
   CurrencyDollar,
+  FileText,
   HandCoins,
   Printer,
   Tag,
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
@@ -178,6 +180,18 @@ export function SoldDetailScreen({
                   )
             }
           />
+          <Button variant="secondary" size="md" asChild className="gap-1.5">
+            <Link
+              href={
+                (isDirect
+                  ? `/agreements?saleId=${data.data.id}`
+                  : `/agreements?bookingId=${data.data.booking.id}`) as never
+              }
+            >
+              <FileText weight="light" className="size-4" />
+              Agreement
+            </Link>
+          </Button>
           {!isBoughtBack && isAdmin && (
             <Button
               variant="secondary"
@@ -224,12 +238,12 @@ export function SoldDetailScreen({
               href={`/units/${item.unitId}`}
               className="unit-code font-mono text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
-              {item.unitCode}
+              {formatUnitDisplayCode(item.unitCode, item.categoryName)}
             </Link>
           </div>
           <div className="space-y-1.5 text-[12px]">
             <div className="flex justify-between">
-              <span className="text-ink-muted">Floor & Block:</span>
+              <span className="text-ink-muted">Floor &amp; Block:</span>
               <span className="font-medium text-ink">
                 {item.floorName} · {item.blockName}
               </span>
@@ -239,9 +253,9 @@ export function SoldDetailScreen({
               <span className="font-medium text-ink">{item.categoryName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-ink-muted">Net Area:</span>
+              <span className="text-ink-muted">Gross Area:</span>
               <span className="font-medium text-ink tabular-nums">
-                {item.netAreaSqft} sq ft
+                {effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft
               </span>
             </div>
           </div>

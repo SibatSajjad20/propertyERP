@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { authorizedSignatories, companySettings, receipts } from "@/db/schema/sales";
 import { allocateReceiptNumber } from "@/features/sales/document-numbers";
 import { getBookingDetail, getSoldDetail } from "@/features/sales/queries";
+import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { requireSession } from "@/lib/auth";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { assertCan } from "@/lib/permissions";
@@ -207,10 +208,12 @@ export async function buildBookingReceiptPdf(
     serialNo: data.booking.serialNo,
     applicationFormNo: data.booking.applicationFormNo,
     registrationNo: data.booking.registrationNo,
-    unitCode: data.booking.unitCode,
+    unitCode: formatUnitDisplayCode(data.booking.unitCode, data.booking.categoryName),
     floorName: data.booking.floorName,
     unitType: data.booking.categoryName,
-    netAreaSqft: String(data.booking.netAreaSqft),
+    netAreaSqft: String(
+      effectivePricingArea(data.booking.grossAreaSqft, data.booking.netAreaSqft),
+    ),
     ratePerSqftPkr: String(data.booking.ratePerSqftPkr),
     totalPrice: data.booking.netPrice,
     installmentType:
@@ -296,10 +299,10 @@ export async function buildSaleReceiptPdf(saleId: string, signatoryId?: string |
     serialNo: sale.serialNo,
     applicationFormNo: sale.applicationFormNo,
     registrationNo: sale.registrationNo,
-    unitCode: sale.unitCode,
+    unitCode: formatUnitDisplayCode(sale.unitCode, sale.categoryName),
     floorName: sale.floorName,
     unitType: sale.categoryName,
-    netAreaSqft: String(sale.netAreaSqft),
+    netAreaSqft: String(effectivePricingArea(sale.grossAreaSqft, sale.netAreaSqft)),
     ratePerSqftPkr: String(sale.ratePerSqftPkr),
     totalPrice: sale.salePrice,
     installmentType: "Full",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   generateBookedUnitsExcel,
   generateClientLedgerExcel,
+  generateDetailedCollectionsExcel,
   generateInstallmentsExcel,
   generateReservedUnitsExcel,
   generateSoldUnitsExcel,
@@ -10,6 +11,7 @@ import {
 import {
   getBookedUnitsReport,
   getClientLedgerReport,
+  getDetailedCollectionsReport,
   getInstallmentsReport,
   getReservedUnitsReport,
   getSoldUnitsReport,
@@ -71,6 +73,12 @@ export async function GET(
         const data = await getInstallmentsReport(parsedFilters);
         buffer = await generateInstallmentsExcel(data, filterDesc);
         filename = `sardars-mall-installments-${stamp}.xlsx`;
+        break;
+      }
+      case "collections": {
+        const data = await getDetailedCollectionsReport(parsedFilters);
+        buffer = await generateDetailedCollectionsExcel(data, filterDesc);
+        filename = `sardars-mall-collections-${stamp}.xlsx`;
         break;
       }
       case "client-ledger": {

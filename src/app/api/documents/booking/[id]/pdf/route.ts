@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getBookingDetail } from "@/features/sales/queries";
 import { enclosureFromDownPayment } from "@/features/documents/pdf/enclosure";
 import { renderFormPdf } from "@/features/documents/pdf/render";
+import { effectivePricingArea } from "@/lib/area";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
@@ -46,7 +47,9 @@ export async function GET(
       unitCode: data.booking.unitCode,
       floorName: data.booking.floorName,
       categoryName: data.booking.categoryName,
-      netAreaSqft: String(data.booking.netAreaSqft),
+      grossAreaSqft: String(
+        effectivePricingArea(data.booking.grossAreaSqft, data.booking.netAreaSqft),
+      ),
       ratePerSqftPkr: String(data.booking.ratePerSqftPkr),
     },
     client: {

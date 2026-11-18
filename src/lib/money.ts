@@ -57,16 +57,17 @@ export function moneyEquals(
 }
 
 /**
- * Asking price = round(rate × net area + adjustment, 0) to whole rupees.
- * Matches the SQL view `unit_pricing`. Decimal strings only — no JS floats.
+ * Asking price = round(rate × gross area + adjustment, 0) to whole rupees.
+ * Matches the SQL view `unit_pricing` (Gross Sq. Ft. × Rate per Sq. Ft. = Total Unit Price).
+ * Decimal strings only — no JS floats.
  */
 export function computeTotalPrice(
   ratePerSqftPkr: string,
-  netAreaSqft: string,
+  grossAreaSqft: string,
   priceAdjustmentPkr = "0",
 ): string {
   const ratePaisa = parseDecimal(ratePerSqftPkr);
-  const areaPaisa = parseDecimal(netAreaSqft);
+  const areaPaisa = parseDecimal(grossAreaSqft);
   const adjustmentPaisa = parseDecimal(priceAdjustmentPkr);
   const productFour = ratePaisa * areaPaisa;
   const adjustmentFour = adjustmentPaisa * PAISA_SCALE;

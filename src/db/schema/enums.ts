@@ -51,9 +51,44 @@ export const documentOwnerTypes = ["CLIENT", "KIN"] as const;
 export type DocumentOwnerType = (typeof documentOwnerTypes)[number];
 export const documentOwnerTypeEnum = pgEnum("document_owner_type", documentOwnerTypes);
 
-export const documentTypes = ["PHOTO", "CNIC_FRONT", "CNIC_BACK", "KIN_PHOTO"] as const;
+export const documentTypes = [
+  "PHOTO",
+  "CNIC_FRONT",
+  "CNIC_BACK",
+  "KIN_PHOTO",
+  "LIVE_PHOTO",
+  "KIN_LIVE_PHOTO",
+  "THUMB_IMPRESSION",
+  "KIN_THUMB_IMPRESSION",
+] as const;
 export type DocumentType = (typeof documentTypes)[number];
 export const documentTypeEnum = pgEnum("document_type", documentTypes);
+
+export const installmentTypes = ["REGULAR", "BALLOON", "POSSESSION"] as const;
+export type InstallmentType = (typeof installmentTypes)[number];
+export const installmentTypeEnum = pgEnum("installment_type", installmentTypes);
+
+export const paymentCategories = [
+  "TOKEN",
+  "DOWN_PAYMENT",
+  "INSTALLMENT",
+  "POSSESSION",
+  "BALLOON",
+  "SURCHARGE",
+] as const;
+export type PaymentCategory = (typeof paymentCategories)[number];
+export const paymentCategoryEnum = pgEnum("payment_category", paymentCategories);
+
+export const mergeRequestStatuses = ["PENDING", "APPROVED", "REJECTED"] as const;
+export type MergeRequestStatus = (typeof mergeRequestStatuses)[number];
+export const mergeRequestStatusEnum = pgEnum(
+  "merge_request_status",
+  mergeRequestStatuses,
+);
+
+export const agreementStatuses = ["DRAFT", "GENERATED", "SIGNED_UPLOADED"] as const;
+export type AgreementStatus = (typeof agreementStatuses)[number];
+export const agreementStatusEnum = pgEnum("agreement_status", agreementStatuses);
 
 export const auditActions = [
   "CREATE",
@@ -74,6 +109,14 @@ export const auditActions = [
   "PAYMENT_VOID",
   "PAYMENT_EDIT",
   "INSTALLMENT_RESCHEDULE",
+  "UNIT_MERGE_REQUEST",
+  "UNIT_MERGE_APPROVE",
+  "UNIT_MERGE_REJECT",
+  "UNIT_RESTRUCTURE",
+  "SURCHARGE_WAIVE",
+  "SURCHARGE_EXEMPT",
+  "AGREEMENT_CREATE",
+  "AGREEMENT_UPLOAD",
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 export const auditActionEnum = pgEnum("audit_action", auditActions);

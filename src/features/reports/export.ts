@@ -3,6 +3,8 @@ import { parseDecimal } from "@/lib/money";
 import type {
   BookedUnitsReportData,
   ClientLedgerReportData,
+  DetailedCollectionsReportData,
+  DetailedCollectionTxRow,
   InstallmentsReportData,
   ReservedUnitsReportData,
   SoldUnitsReportData,
@@ -635,6 +637,110 @@ export async function generateSummaryExcel(
     applyDataRowStyles(row);
     row.getCell(8).numFmt = PKR_NUMBER_FORMAT;
     row.getCell(9).numFmt = PKR_NUMBER_FORMAT;
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+// -------------------------------------------------------------
+// 6. Detailed Collections Report Excel (6 Category Sheets)
+// -------------------------------------------------------------
+export async function generateDetailedCollectionsExcel(
+  data: DetailedCollectionsReportData,
+  filterDesc: string,
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Sardar's Mall ERP";
+  wb.created = new Date();
+
+  const addTxSheet = (name: string, title: string, rows: DetailedCollectionTxRow[]) => {
+    const ws = wb.addWorksheet(name, {
+      views: [{ state: "frozen", xSplit: 0, ySplit: 4, activeCell: "A5" }],
+    });
+    applyBrandHeader(ws, title, filterDesc, 7);
+    const hdr = ws.getRow(4);
+    hdr.values = [
+      "Date",
+      "Receipt No",
+      "Customer",
+      "CNIC",
+      "Unit",
+      "Method",
+      "Amount (PKR)",
+    ];
+    applyTableHeaderStyles(hdr);
+    ws.columns = [
+      { key: "date", width: 14 },
+      { key: "receiptNo", width: 18 },
+      { key: "clientName", width: 24 },
+      { key: "clientCnic", width: 18 },
+      { key: "unitCode", width: 20 },
+      { key: "method", width: 16 },
+      { key: "amount", width: 18 },
+    ];
+    for (const r of rows) {
+      const row = ws.addRow({
+        date: new Date(r.date).toISOString().split("T")[0],
+        receiptNo: r.receiptNo || "-",
+        clientName: r.clientName,
+        clientCnic: r.clientCnic,
+        unitCode: r.unitCode,
+        method: r.method || "-",
+        amount: Number(parseDecimal(r.amountPkr)) / 100,
+      });
+      applyDataRowStyles(row);
+      row.getCell(7).numFmt = PKR_NUMBER_FORMAT;
+    }
+  };
+
+  addTxSheet("Token Amounts", "Token Amount Collections", data.tokens);
+  addTxSheet("Down Payments", "Down Payment Collections", data.downPayments);
+  addTxSheet("Installments", "Installment Collections", data.installments);
+  addTxSheet("Possession Payments", "Possession Payment Collections", data.possessions);
+  addTxSheet("Balloon Payments", "Annual Balloon Payment Collections", data.balloons);
+
+  const surWs = wb.addWorksheet("Surcharges", {
+    views: [{ state: "frozen", xSplit: 0, ySplit: 4, activeCell: "A5" }],
+  });
+  applyBrandHeader(surWs, "Overdue Surcharges Report", filterDesc, 8);
+  const sh = surWs.getRow(4);
+  sh.values = [
+    "Customer",
+    "CNIC",
+    "Unit",
+    "Installment",
+    "Days > 30d",
+    "Accrued (PKR)",
+    "Waived (PKR)",
+    "Net Due (PKR)",
+  ];
+  applyTableHeaderStyles(sh);
+  surWs.columns = [
+    { key: "clientName", width: 24 },
+    { key: "clientCnic", width: 18 },
+    { key: "unitCode", width: 20 },
+    { key: "label", width: 22 },
+    { key: "days", width: 12 },
+    { key: "accrued", width: 16 },
+    { key: "waived", width: 16 },
+    { key: "netDue", width: 16 },
+  ];
+  for (const r of data.surcharges) {
+    const row = surWs.addRow({
+      clientName: r.clientName,
+      clientCnic: r.clientCnic,
+      unitCode: r.unitCode,
+      label: r.installmentLabel,
+      days: r.chargeableDays,
+      accrued: Number(parseDecimal(r.rawAccruedPkr)) / 100,
+      waived: Number(parseDecimal(r.waivedPkr)) / 100,
+      netDue: Number(parseDecimal(r.netDuePkr)) / 100,
+    });
+    applyDataRowStyles(row);
+    row.getCell(6).numFmt = PKR_NUMBER_FORMAT;
+    row.getCell(7).numFmt = PKR_NUMBER_FORMAT;
+    row.getCell(8).numFmt = PKR_NUMBER_FORMAT;
   }
 
   const buffer = await wb.xlsx.writeBuffer();

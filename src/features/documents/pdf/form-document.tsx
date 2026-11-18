@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/alt-text, react/no-unescaped-entities */
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
 import { formatPkr } from "@/lib/money";
+import { formatUnitDisplayCode } from "@/lib/area";
 import { BOOKING_FORM_CONTENT, COMPANY_LEGAL_NAME } from "../booking-form-content";
 import { pdfStyles, BRAND, INK, MUTED, BG_LIGHT, BG_WHITE } from "./styles";
 import { SARDARS_MALL_MARK_DATA_URL } from "./logo-base64";
@@ -26,7 +27,8 @@ export type PdfUnit = {
   unitCode: string;
   floorName: string;
   categoryName: string;
-  netAreaSqft: string;
+  grossAreaSqft?: string;
+  netAreaSqft?: string;
   ratePerSqftPkr: string;
 };
 
@@ -297,14 +299,21 @@ export function FormalFormPdf(props: FormPdfProps) {
           </View>
           <View style={pdfStyles.cardBody}>
             <View style={pdfStyles.fieldRow}>
-              <GridField label="Unit Unique No" value={props.unit.unitCode} isMono />
+              <GridField
+                label="Unit Unique No"
+                value={formatUnitDisplayCode(
+                  props.unit.unitCode,
+                  props.unit.categoryName,
+                )}
+                isMono
+              />
               <GridField label="Floor Level" value={props.unit.floorName} />
               <GridField label="Property Category" value={props.unit.categoryName} />
             </View>
             <View style={[pdfStyles.fieldRow, { marginBottom: 0 }]}>
               <GridField
-                label="Net Area (Sq Ft)"
-                value={`${props.unit.netAreaSqft} sft`}
+                label="Gross Area (Sq Ft)"
+                value={`${props.unit.grossAreaSqft || props.unit.netAreaSqft || "—"} sft`}
               />
               <GridField
                 label="Down Payment Amount"

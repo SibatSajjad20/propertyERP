@@ -20,6 +20,7 @@ import {
   Tag,
   CalendarDots,
   ChartPie,
+  FileText,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { UserRole } from "@/db/schema/enums";
@@ -50,6 +51,7 @@ const navIcons: Record<
   "/bookings": Receipt,
   "/reservations": ClockCountdown,
   "/installments": CalendarDots,
+  "/agreements": FileText,
   "/sold": Tag,
   "/reports": ChartPie,
 };

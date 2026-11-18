@@ -60,6 +60,9 @@ function getBreadcrumbName(pathname: string): { parent?: string; current: string
   if (pathname === "/inventory") {
     return { current: "Inventory" };
   }
+  if (pathname.startsWith("/inventory/merges")) {
+    return { parent: "Inventory", current: "Merge Requests" };
+  }
   if (pathname === "/units/new") {
     return { parent: "Inventory", current: "New Unit" };
   }
@@ -96,6 +99,12 @@ function getBreadcrumbName(pathname: string): { parent?: string; current: string
   if (pathname === "/installments" || pathname.startsWith("/installments")) {
     return { parent: "Sales", current: "Installments" };
   }
+  if (pathname === "/agreements") {
+    return { parent: "Sales", current: "Agreements" };
+  }
+  if (pathname.startsWith("/agreements/")) {
+    return { parent: "Agreements", current: "Agreement Detail" };
+  }
   if (pathname === "/sold") {
     return { parent: "Sales", current: "Sold" };
   }
@@ -115,6 +124,9 @@ function getBreadcrumbName(pathname: string): { parent?: string; current: string
     return { parent: "Reports", current: "Reserved" };
   }
   if (pathname === "/reports/installments") {
+    return { parent: "Reports", current: "Installments" };
+  }
+  if (pathname === "/reports/collections") {
     return { parent: "Reports", current: "Collections" };
   }
   if (pathname === "/reports/client-ledger") {
