@@ -99,7 +99,11 @@ export function DirectSaleScreen({
   }, [selectedUnit, salePrice]);
 
   const askingPrice = selectedUnit?.computedPricePkr || "0.00";
-  const isCustomPrice = salePrice && salePrice !== askingPrice;
+  const isCustomPrice = Boolean(
+    salePrice &&
+    Math.round(Number(salePrice.replace(/,/g, "")) * 100) !==
+      Math.round(Number(askingPrice.replace(/,/g, "")) * 100),
+  );
   const isAdmin = role === "ADMIN";
 
   async function handleConfirmSale() {
@@ -108,11 +112,11 @@ export function DirectSaleScreen({
     const isKinCnicValid =
       !nextOfKin.cnic?.trim() || CNIC_REGEX.test(formatCnic(nextOfKin.cnic));
 
-    if (!client.fullName.trim()) {
-      toast.error("Please enter the client's full name");
+    if (client.fullName.trim().length < 2) {
+      toast.error("Please enter the client's full name (at least 2 characters)");
       return;
     }
-    if (!client.relationName.trim()) {
+    if (client.relationName.trim().length < 2) {
       toast.error("Please enter the client's S/O or W/O name");
       return;
     }
@@ -123,21 +127,24 @@ export function DirectSaleScreen({
       );
       return;
     }
-    if (!client.phone.trim()) {
-      toast.error("Please enter the client's phone number");
+    if (client.phone.trim().length < 10) {
+      toast.error("Please enter a valid client phone number (at least 10 digits)");
       return;
     }
-    if (!client.homeAddress.trim() || !client.postalAddress.trim()) {
-      toast.error("Please fill in client addresses");
+    if (client.homeAddress.trim().length < 5 || client.postalAddress.trim().length < 5) {
+      toast.error("Home and postal addresses must each be at least 5 characters");
       return;
     }
     if (
-      !nextOfKin.name.trim() ||
-      !nextOfKin.relationName.trim() ||
-      !nextOfKin.relation.trim() ||
-      !nextOfKin.phone.trim()
+      nextOfKin.name.trim().length < 2 ||
+      nextOfKin.relationName.trim().length < 2 ||
+      nextOfKin.relation.trim().length < 2
     ) {
-      toast.error("Please fill in next of kin name, relation, and phone");
+      toast.error("Please fill in next of kin name, S/O or W/O name, and relation");
+      return;
+    }
+    if (nextOfKin.phone.trim().length < 10) {
+      toast.error("Please enter a valid nominee phone number (at least 10 digits)");
       return;
     }
     if (!nextOfKin.cnic?.trim() || !isKinCnicValid) {
@@ -145,17 +152,6 @@ export function DirectSaleScreen({
       toast.error(
         `Nominee CNIC must be 13 digits (format 12345-1234567-1, currently ${digits} digits)`,
       );
-      return;
-    }
-    if (
-      !isDocReady(clientDocs.PHOTO) ||
-      !isDocReady(clientDocs.CNIC_FRONT) ||
-      !isDocReady(clientDocs.CNIC_BACK) ||
-      !isDocReady(kinDocs.KIN_PHOTO) ||
-      !isDocReady(kinDocs.CNIC_FRONT) ||
-      !isDocReady(kinDocs.CNIC_BACK)
-    ) {
-      toast.error("Upload the required client and nominee documents");
       return;
     }
 
@@ -170,19 +166,30 @@ export function DirectSaleScreen({
 
     setIsSubmitting(true);
     try {
+      let docUploadWarning: string | null = null;
       const pending = collectPending({ client: clientDocs, kin: kinDocs });
       if (pending.length > 0) {
-        const saved = await flushPendingUploads({
-          pending,
-          client,
-          nextOfKin,
-          clientId,
-          kinId,
-        });
-        setClientId(saved.clientId);
-        if (saved.kinId) setKinId(saved.kinId);
+        try {
+          const saved = await flushPendingUploads({
+            pending,
+            client,
+            nextOfKin,
+            clientId,
+            kinId,
+          });
+          setClientId(saved.clientId);
+          if (saved.kinId) setKinId(saved.kinId);
+        } catch (docErr: any) {
+          const msg =
+            typeof docErr?.message === "string" &&
+            !docErr.message.includes("Minified React error")
+              ? docErr.message
+              : "Document storage is unavailable right now";
+          docUploadWarning = msg;
+        }
       }
-      const result = await createDirectSale({
+
+      const response = await createDirectSale({
         unitId: selectedUnit.id,
         client,
         nextOfKin,
@@ -193,6 +200,19 @@ export function DirectSaleScreen({
         bank: bank || undefined,
         notes: notes || undefined,
       });
+
+      if (!response.ok) {
+        toast.error(response.error || "Failed to complete direct sale");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const result = response.data;
+      if (docUploadWarning) {
+        toast.warning(
+          `Sale completed, but documents were not uploaded (${docUploadWarning}). You can upload them on the sale page.`,
+        );
+      }
 
       toast.success(`Unit ${selectedUnit.unitCode} sold successfully!`, {
         action: result?.id
@@ -208,7 +228,11 @@ export function DirectSaleScreen({
         router.push(`/sold/${result.id}` as never);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to complete direct sale");
+      const msg =
+        typeof err?.message === "string" && !err.message.includes("Minified React error")
+          ? err.message
+          : "Failed to complete direct sale. Please check all fields and try again.";
+      toast.error(msg);
       setIsSubmitting(false);
     }
   }
@@ -225,55 +249,48 @@ export function DirectSaleScreen({
       }
       if (step === 2) {
         if (
-          !client.fullName.trim() ||
-          !client.relationName.trim() ||
+          client.fullName.trim().length < 2 ||
+          client.relationName.trim().length < 2 ||
           !client.cnic.trim() ||
-          !client.phone.trim()
+          client.phone.trim().length < 10
         ) {
-          toast.error("Please fill in required buyer details");
+          toast.error("Please fill in required buyer details (phone min 10 digits)");
+          return;
+        }
+        if (!CNIC_REGEX.test(formatCnic(client.cnic))) {
+          const digits = client.cnic.replace(/\D/g, "").length;
+          toast.error(
+            `Client CNIC must be 13 digits matching format 12345-1234567-1 (currently ${digits} digits)`,
+          );
           return;
         }
         if (
-          !nextOfKin.name.trim() ||
-          !nextOfKin.relationName.trim() ||
-          !nextOfKin.relation.trim() ||
-          !nextOfKin.phone.trim() ||
+          client.homeAddress.trim().length < 5 ||
+          client.postalAddress.trim().length < 5
+        ) {
+          toast.error("Home and postal addresses must each be at least 5 characters");
+          return;
+        }
+        if (
+          nextOfKin.name.trim().length < 2 ||
+          nextOfKin.relationName.trim().length < 2 ||
+          nextOfKin.relation.trim().length < 2 ||
+          nextOfKin.phone.trim().length < 10 ||
           !nextOfKin.cnic?.trim()
         ) {
-          toast.error("Please fill in required next of kin details");
+          toast.error(
+            "Please fill in required next of kin details (phone min 10 digits)",
+          );
           return;
         }
-        if (
-          !isDocReady(clientDocs.PHOTO) ||
-          !isDocReady(clientDocs.CNIC_FRONT) ||
-          !isDocReady(clientDocs.CNIC_BACK) ||
-          !isDocReady(kinDocs.KIN_PHOTO) ||
-          !isDocReady(kinDocs.CNIC_FRONT) ||
-          !isDocReady(kinDocs.CNIC_BACK)
-        ) {
-          setDocErrors({
-            PHOTO: isDocReady(clientDocs.PHOTO)
-              ? undefined
-              : "Passport photo is required",
-            CNIC_FRONT: isDocReady(clientDocs.CNIC_FRONT)
-              ? undefined
-              : "CNIC front is required",
-            CNIC_BACK: isDocReady(clientDocs.CNIC_BACK)
-              ? undefined
-              : "CNIC back is required",
-            KIN_PHOTO: isDocReady(kinDocs.KIN_PHOTO)
-              ? undefined
-              : "Nominee passport photo is required",
-            KIN_CNIC_FRONT: isDocReady(kinDocs.CNIC_FRONT)
-              ? undefined
-              : "Nominee CNIC front is required",
-            KIN_CNIC_BACK: isDocReady(kinDocs.CNIC_BACK)
-              ? undefined
-              : "Nominee CNIC back is required",
-          });
-          toast.error("Upload the required client and nominee documents");
+        if (!CNIC_REGEX.test(formatCnic(nextOfKin.cnic))) {
+          const digits = nextOfKin.cnic.replace(/\D/g, "").length;
+          toast.error(
+            `Nominee CNIC must be 13 digits matching format 12345-1234567-1 (currently ${digits} digits)`,
+          );
           return;
         }
+        setDocErrors({});
       }
       setCurrentStep(step + 1);
     } finally {
@@ -296,12 +313,8 @@ export function DirectSaleScreen({
               isAdvancing ||
               (currentStep === 1 && !selectedUnit) ||
               (currentStep === 2 &&
-                (!isDocReady(clientDocs.PHOTO) ||
-                  !isDocReady(clientDocs.CNIC_FRONT) ||
-                  !isDocReady(clientDocs.CNIC_BACK) ||
-                  !isDocReady(kinDocs.KIN_PHOTO) ||
-                  !isDocReady(kinDocs.CNIC_FRONT) ||
-                  !isDocReady(kinDocs.CNIC_BACK) ||
+                (!client.fullName.trim() ||
+                  !client.cnic.trim() ||
                   !nextOfKin.name.trim() ||
                   !nextOfKin.cnic?.trim()))
             }
@@ -421,7 +434,10 @@ export function DirectSaleScreen({
             }}
           />
           <div>
-            <h3 className="mb-3 text-[14px] font-semibold text-ink">Client documents</h3>
+            <h3 className="mb-3 text-[14px] font-semibold text-ink">
+              Client documents{" "}
+              <span className="font-normal text-ink-muted">(Optional)</span>
+            </h3>
             <ClientDocumentFields
               clientId={clientId}
               docs={clientDocs}
@@ -437,7 +453,10 @@ export function DirectSaleScreen({
             />
           </div>
           <div>
-            <h3 className="mb-3 text-[14px] font-semibold text-ink">Nominee documents</h3>
+            <h3 className="mb-3 text-[14px] font-semibold text-ink">
+              Nominee documents{" "}
+              <span className="font-normal text-ink-muted">(Optional)</span>
+            </h3>
             <KinDocumentFields
               clientId={clientId}
               kinId={kinId}

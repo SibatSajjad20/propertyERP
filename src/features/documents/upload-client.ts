@@ -85,6 +85,10 @@ export async function flushPendingUploads(opts: {
     })),
   });
 
+  if (!prepared.ok) {
+    throw new Error(prepared.error || "Could not prepare document uploads.");
+  }
+
   await Promise.all(
     prepared.uploads.map(async (signed) => {
       const item = opts.pending.find(
@@ -125,6 +129,10 @@ export async function flushPendingUploads(opts: {
       };
     }),
   });
+
+  if (!saved.ok) {
+    throw new Error(saved.error || "Could not finalize document uploads.");
+  }
 
   return saved;
 }

@@ -161,33 +161,21 @@ export function BookingWizard({
   const isKinCnicValid =
     !nextOfKin.cnic?.trim() || CNIC_REGEX.test(formatCnic(nextOfKin.cnic));
 
-  const clientDocsReady = Boolean(
-    isDocReady(clientDocs.PHOTO) &&
-    isDocReady(clientDocs.CNIC_FRONT) &&
-    isDocReady(clientDocs.CNIC_BACK),
-  );
-  const kinDocsReady = Boolean(
-    isDocReady(kinDocs.KIN_PHOTO) &&
-    isDocReady(kinDocs.CNIC_FRONT) &&
-    isDocReady(kinDocs.CNIC_BACK),
-  );
   const canProceedStep3 = Boolean(
-    client.fullName.trim() &&
-    client.relationName.trim() &&
+    client.fullName.trim().length >= 2 &&
+    client.relationName.trim().length >= 2 &&
     isClientCnicValid &&
-    client.phone.trim() &&
-    client.homeAddress.trim() &&
-    client.postalAddress.trim() &&
-    clientDocsReady,
+    client.phone.trim().length >= 10 &&
+    client.homeAddress.trim().length >= 5 &&
+    client.postalAddress.trim().length >= 5,
   );
   const canProceedStep4 = Boolean(
-    nextOfKin.name.trim() &&
-    nextOfKin.relationName.trim() &&
-    nextOfKin.relation.trim() &&
-    nextOfKin.phone.trim() &&
+    nextOfKin.name.trim().length >= 2 &&
+    nextOfKin.relationName.trim().length >= 2 &&
+    nextOfKin.relation.trim().length >= 2 &&
+    nextOfKin.phone.trim().length >= 10 &&
     isKinCnicValid &&
-    Boolean(nextOfKin.cnic?.trim()) &&
-    kinDocsReady,
+    Boolean(nextOfKin.cnic?.trim()),
   );
 
   function applyMatchedDocs(match: {
@@ -270,11 +258,11 @@ export function BookingWizard({
         return;
       }
       if (step === 3) {
-        if (!client.fullName.trim()) {
-          toast.error("Please enter the client's full name");
+        if (client.fullName.trim().length < 2) {
+          toast.error("Please enter the client's full name (at least 2 characters)");
           return;
         }
-        if (!client.relationName.trim()) {
+        if (client.relationName.trim().length < 2) {
           toast.error("Please enter the client's S/O or W/O name");
           return;
         }
@@ -289,39 +277,30 @@ export function BookingWizard({
           );
           return;
         }
-        if (!client.phone.trim()) {
-          toast.error("Please enter the client's phone number");
+        if (client.phone.trim().length < 10) {
+          toast.error("Please enter a valid phone number (at least 10 digits)");
           return;
         }
-        if (!client.homeAddress.trim() || !client.postalAddress.trim()) {
-          toast.error("Please fill in both home and postal addresses");
-          return;
-        }
-        if (!clientDocsReady) {
-          setDocErrors({
-            PHOTO: isDocReady(clientDocs.PHOTO)
-              ? undefined
-              : "Passport photo is required",
-            CNIC_FRONT: isDocReady(clientDocs.CNIC_FRONT)
-              ? undefined
-              : "CNIC front is required",
-            CNIC_BACK: isDocReady(clientDocs.CNIC_BACK)
-              ? undefined
-              : "CNIC back is required",
-          });
-          toast.error("Upload the client's photo and CNIC scans");
+        if (
+          client.homeAddress.trim().length < 5 ||
+          client.postalAddress.trim().length < 5
+        ) {
+          toast.error("Home and postal addresses must each be at least 5 characters");
           return;
         }
         setDocErrors({});
       }
       if (step === 4) {
         if (
-          !nextOfKin.name.trim() ||
-          !nextOfKin.relationName.trim() ||
-          !nextOfKin.relation.trim() ||
-          !nextOfKin.phone.trim()
+          nextOfKin.name.trim().length < 2 ||
+          nextOfKin.relationName.trim().length < 2 ||
+          nextOfKin.relation.trim().length < 2
         ) {
-          toast.error("Please fill in nominee name, relation, and phone");
+          toast.error("Please fill in nominee name, S/O or W/O name, and relation");
+          return;
+        }
+        if (nextOfKin.phone.trim().length < 10) {
+          toast.error("Please enter a valid nominee phone number (at least 10 digits)");
           return;
         }
         if (!nextOfKin.cnic?.trim() || !isKinCnicValid) {
@@ -329,21 +308,6 @@ export function BookingWizard({
           toast.error(
             `Nominee CNIC must be 13 digits (format: 12345-1234567-1, currently ${digits} digits)`,
           );
-          return;
-        }
-        if (!kinDocsReady) {
-          setDocErrors({
-            KIN_PHOTO: isDocReady(kinDocs.KIN_PHOTO)
-              ? undefined
-              : "Nominee passport photo is required",
-            KIN_CNIC_FRONT: isDocReady(kinDocs.CNIC_FRONT)
-              ? undefined
-              : "Nominee CNIC front is required",
-            KIN_CNIC_BACK: isDocReady(kinDocs.CNIC_BACK)
-              ? undefined
-              : "Nominee CNIC back is required",
-          });
-          toast.error("Upload the nominee photo and CNIC scans");
           return;
         }
         setDocErrors({});
@@ -365,8 +329,19 @@ export function BookingWizard({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await flushWizardDocs("all");
-      const result = await createBooking({
+      let docUploadWarning: string | null = null;
+      try {
+        await flushWizardDocs("all");
+      } catch (docErr: any) {
+        const msg =
+          typeof docErr?.message === "string" &&
+          !docErr.message.includes("Minified React error")
+            ? docErr.message
+            : "Document storage is unavailable right now";
+        docUploadWarning = msg;
+      }
+
+      const response = await createBooking({
         unitId: selectedUnit.id,
         reservationId,
         client,
@@ -385,6 +360,20 @@ export function BookingWizard({
         notes: paymentState.notes || undefined,
       });
 
+      if (!response.ok) {
+        toast.error(response.error || "Failed to create booking");
+        submittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+
+      const result = response.data;
+      if (docUploadWarning) {
+        toast.warning(
+          `Booking created, but documents were not uploaded (${docUploadWarning}). You can upload them on the booking page.`,
+        );
+      }
+
       toast.success(`Booking ${result?.bookingNo || ""} created successfully!`, {
         action: result?.id
           ? {
@@ -399,7 +388,11 @@ export function BookingWizard({
         router.push(`/bookings/${result.id}` as never);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create booking");
+      const msg =
+        typeof err?.message === "string" && !err.message.includes("Minified React error")
+          ? err.message
+          : "Failed to create booking. Please check all fields and try again.";
+      toast.error(msg);
       submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -588,7 +581,8 @@ export function BookingWizard({
             />
             <div>
               <h3 className="mb-3 text-[14px] font-semibold text-ink">
-                Client documents
+                Client documents{" "}
+                <span className="font-normal text-ink-muted">(Optional)</span>
               </h3>
               <ClientDocumentFields
                 clientId={clientId}
@@ -621,7 +615,8 @@ export function BookingWizard({
             />
             <div>
               <h3 className="mb-3 text-[14px] font-semibold text-ink">
-                Nominee documents
+                Nominee documents{" "}
+                <span className="font-normal text-ink-muted">(Optional)</span>
               </h3>
               <KinDocumentFields
                 clientId={clientId}

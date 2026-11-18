@@ -74,8 +74,25 @@ function parseInput<T>(
   return result.data;
 }
 import { requireSession } from "@/lib/auth";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import {
+  errorMessage,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "@/lib/errors";
 import { logger } from "@/lib/logger";
+
+function formatActionError(err: unknown): string {
+  const pgCode =
+    typeof err === "object" && err !== null
+      ? ((err as { code?: string; cause?: { code?: string } }).code ??
+        (err as { cause?: { code?: string } }).cause?.code)
+      : undefined;
+  if (pgCode === "23505") {
+    return "A duplicate record conflict occurred. Please retry.";
+  }
+  return errorMessage(err);
+}
 import { computeTotalPrice, formatDecimal, parseDecimal } from "@/lib/money";
 import { assertCan, can } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
@@ -145,8 +162,27 @@ async function nextBookingNumber(tx: Tx): Promise<string> {
     .from(bookings)
     .where(sql`${bookings.bookingNo} LIKE ${prefix + "%"}`);
 
-  const seq = (Number(row?.count ?? 0) + 1).toString().padStart(4, "0");
-  return `${prefix}${seq}`;
+  let seq = Number(row?.count ?? 0) + 1;
+  let candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
+
+  const [existing] = await tx
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(eq(bookings.bookingNo, candidate))
+    .limit(1);
+
+  if (existing) {
+    const [maxRow] = await tx
+      .select({
+        maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${bookings.bookingNo} FROM ${prefix.length + 1})::int), 0)::int`,
+      })
+      .from(bookings)
+      .where(sql`${bookings.bookingNo} LIKE ${prefix + "%"}`);
+    seq = Number(maxRow?.maxSeq ?? 0) + 1;
+    candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
+  }
+
+  return candidate;
 }
 
 async function nextReceiptNumber(tx: Tx): Promise<string> {
@@ -157,8 +193,27 @@ async function nextReceiptNumber(tx: Tx): Promise<string> {
     .from(payments)
     .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
 
-  const seq = (Number(row?.count ?? 0) + 1).toString().padStart(4, "0");
-  return `${prefix}${seq}`;
+  let seq = Number(row?.count ?? 0) + 1;
+  let candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
+
+  const [existing] = await tx
+    .select({ id: payments.id })
+    .from(payments)
+    .where(eq(payments.receiptNo, candidate))
+    .limit(1);
+
+  if (existing) {
+    const [maxRow] = await tx
+      .select({
+        maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${payments.receiptNo} FROM ${prefix.length + 1})::int), 0)::int`,
+      })
+      .from(payments)
+      .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
+    seq = Number(maxRow?.maxSeq ?? 0) + 1;
+    candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
+  }
+
+  return candidate;
 }
 
 export async function createReservation(input: unknown) {
@@ -340,226 +395,234 @@ export async function extendReservation(input: unknown) {
 }
 
 export async function createBooking(input: unknown) {
-  const parsed = parseInput(createBookingSchema, input);
-  const session = await requireSession();
-  assertCan(session.user.role, "bookings.create");
+  try {
+    const parsed = parseInput(createBookingSchema, input);
+    const session = await requireSession();
+    assertCan(session.user.role, "bookings.create");
 
-  const created = await db.transaction(async (tx) => {
-    const { client, kin } = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
-    if (!kin) {
-      throw new ValidationError("Next of kin is required");
-    }
-    await requireClientDocuments(tx, client.id, kin.id);
+    const created = await db.transaction(async (tx) => {
+      const { client, kin } = await upsertClientAndKin(
+        tx,
+        parsed.client,
+        parsed.nextOfKin,
+      );
+      if (!kin) {
+        throw new ValidationError("Next of kin is required");
+      }
 
-    const [unit] = await tx
-      .select()
-      .from(units)
-      .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
-      .for("update");
+      const [unit] = await tx
+        .select()
+        .from(units)
+        .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
+        .for("update");
 
-    if (!unit) {
-      throw new NotFoundError("Unit not found");
-    }
+      if (!unit) {
+        throw new NotFoundError("Unit not found");
+      }
 
-    if (!unit.isSellable) {
-      throw new ValidationError("This unit is not sellable.");
-    }
+      if (!unit.isSellable) {
+        throw new ValidationError("This unit is not sellable.");
+      }
 
-    // Unit must be AVAILABLE or RESERVED by this client
-    if (unit.status !== "AVAILABLE") {
-      if (unit.status === "RESERVED") {
-        const [activeRes] = await tx
-          .select()
-          .from(reservations)
-          .where(
-            and(
-              eq(reservations.unitId, unit.id),
-              eq(reservations.clientId, client.id),
-              eq(reservations.status, "ACTIVE"),
-            ),
-          )
-          .limit(1);
+      // Unit must be AVAILABLE or RESERVED by this client
+      if (unit.status !== "AVAILABLE") {
+        if (unit.status === "RESERVED") {
+          const [activeRes] = await tx
+            .select()
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.unitId, unit.id),
+                eq(reservations.clientId, client.id),
+                eq(reservations.status, "ACTIVE"),
+              ),
+            )
+            .limit(1);
 
-        if (!activeRes) {
-          throw new ValidationError(
-            `Unit is currently reserved by another client or reservation expired.`,
-          );
+          if (!activeRes) {
+            throw new ValidationError(
+              `Unit is currently reserved by another client or reservation expired.`,
+            );
+          }
+        } else {
+          throw new ValidationError(`Unit is not available (status: ${unit.status}).`);
         }
-      } else {
-        throw new ValidationError(`Unit is not available (status: ${unit.status}).`);
       }
-    }
 
-    const listPricePkr = computeTotalPrice(
-      unit.ratePerSqftPkr,
-      unit.netAreaSqft,
-      unit.priceAdjustmentPkr,
-    );
-
-    // Calculate discount & enforce permissions
-    const discountCalc = calculateDiscount(
-      listPricePkr,
-      parsed.discountType,
-      parsed.discountValue,
-    );
-
-    if (discountCalc.requiresAdmin) {
-      assertCan(session.user.role, "sales.large_discount");
-      if (!parsed.discountReason || parsed.discountReason.trim().length === 0) {
-        throw new ValidationError("A reason is required for discounts exceeding 10%.");
-      }
-    }
-
-    const netPricePkr = discountCalc.netPricePkr;
-    const downPaymentPaisa = parseDecimal(parsed.downPaymentPkr);
-    const netPricePaisa = parseDecimal(netPricePkr);
-
-    if (downPaymentPaisa > netPricePaisa) {
-      throw new ValidationError("Down payment cannot exceed net price.");
-    }
-
-    const bookingNo = await nextBookingNumber(tx);
-    const receiptNo = await nextReceiptNumber(tx);
-    const bookedAt = new Date();
-    const numbers = await allocateDocumentNumbers(tx, unit.unitCode, bookedAt);
-
-    const schedule = generateSchedule({
-      listPricePkr,
-      discountType: parsed.discountType,
-      discountValue: parsed.discountValue,
-      downPaymentPkr: parsed.downPaymentPkr,
-      possessionAmountPkr: parsed.possessionAmountPkr,
-      plan: parsed.plan,
-      installmentCount: parsed.installmentCount,
-      startDate: new Date(parsed.startDate),
-    });
-
-    const isFullyPaid = downPaymentPaisa >= netPricePaisa;
-
-    // Convert any existing active reservation for this unit/client
-    await tx
-      .update(reservations)
-      .set({
-        status: "CONVERTED",
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(reservations.unitId, unit.id),
-          eq(reservations.clientId, client.id),
-          eq(reservations.status, "ACTIVE"),
-        ),
+      const listPricePkr = computeTotalPrice(
+        unit.ratePerSqftPkr,
+        unit.netAreaSqft,
+        unit.priceAdjustmentPkr,
       );
 
-    // Insert booking
-    const [booking] = await tx
-      .insert(bookings)
-      .values({
-        unitId: unit.id,
-        clientId: client.id,
-        bookingNo,
-        serialNo: numbers.serialNo,
-        applicationFormNo: numbers.applicationFormNo,
-        registrationNo: numbers.registrationNo,
-        listPrice: listPricePkr,
-        discountType: parsed.discountType || null,
-        discountValue: parsed.discountValue || "0.00",
-        discountReason: parsed.discountReason?.trim() || null,
-        netPrice: netPricePkr,
-        downPayment: parsed.downPaymentPkr,
-        possessionAmount: parsed.possessionAmountPkr || "0.00",
+      // Calculate discount & enforce permissions
+      const discountCalc = calculateDiscount(
+        listPricePkr,
+        parsed.discountType,
+        parsed.discountValue,
+      );
+
+      if (discountCalc.requiresAdmin) {
+        assertCan(session.user.role, "sales.large_discount");
+        if (!parsed.discountReason || parsed.discountReason.trim().length === 0) {
+          throw new ValidationError("A reason is required for discounts exceeding 10%.");
+        }
+      }
+
+      const netPricePkr = discountCalc.netPricePkr;
+      const downPaymentPaisa = parseDecimal(parsed.downPaymentPkr);
+      const netPricePaisa = parseDecimal(netPricePkr);
+
+      if (downPaymentPaisa > netPricePaisa) {
+        throw new ValidationError("Down payment cannot exceed net price.");
+      }
+
+      const bookingNo = await nextBookingNumber(tx);
+      const receiptNo = await nextReceiptNumber(tx);
+      const bookedAt = new Date();
+      const numbers = await allocateDocumentNumbers(tx, unit.unitCode, bookedAt);
+
+      const schedule = generateSchedule({
+        listPricePkr,
+        discountType: parsed.discountType,
+        discountValue: parsed.discountValue,
+        downPaymentPkr: parsed.downPaymentPkr,
+        possessionAmountPkr: parsed.possessionAmountPkr,
         plan: parsed.plan,
         installmentCount: parsed.installmentCount,
         startDate: new Date(parsed.startDate),
-        status: isFullyPaid ? "COMPLETED" : "ACTIVE",
-        paidTotal: parsed.downPaymentPkr,
-        salesAgent: session.user.name,
-        bookingOffice: "SARDAR'S MALL",
-        createdBy: session.user.id,
-      })
-      .returning();
+      });
 
-    if (!booking) throw new Error("Failed to create booking");
+      const isFullyPaid = downPaymentPaisa >= netPricePaisa;
 
-    // Insert installments
-    if (schedule.installments.length > 0) {
-      await tx.insert(installments).values(
-        schedule.installments.map((inst) => ({
+      // Convert any existing active reservation for this unit/client
+      await tx
+        .update(reservations)
+        .set({
+          status: "CONVERTED",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(reservations.unitId, unit.id),
+            eq(reservations.clientId, client.id),
+            eq(reservations.status, "ACTIVE"),
+          ),
+        );
+
+      // Insert booking
+      const [booking] = await tx
+        .insert(bookings)
+        .values({
+          unitId: unit.id,
+          clientId: client.id,
+          bookingNo,
+          serialNo: numbers.serialNo,
+          applicationFormNo: numbers.applicationFormNo,
+          registrationNo: numbers.registrationNo,
+          listPrice: listPricePkr,
+          discountType: parsed.discountType || null,
+          discountValue: parsed.discountValue || "0.00",
+          discountReason: parsed.discountReason?.trim() || null,
+          netPrice: netPricePkr,
+          downPayment: parsed.downPaymentPkr,
+          possessionAmount: parsed.possessionAmountPkr || "0.00",
+          plan: parsed.plan,
+          installmentCount: parsed.installmentCount,
+          startDate: new Date(parsed.startDate),
+          status: isFullyPaid ? "COMPLETED" : "ACTIVE",
+          paidTotal: parsed.downPaymentPkr,
+          salesAgent: session.user.name,
+          bookingOffice: "SARDAR'S MALL",
+          createdBy: session.user.id,
+        })
+        .returning();
+
+      if (!booking) throw new Error("Failed to create booking");
+
+      // Insert installments
+      if (schedule.installments.length > 0) {
+        await tx.insert(installments).values(
+          schedule.installments.map((inst) => ({
+            bookingId: booking.id,
+            seq: inst.seq,
+            dueDate: inst.dueDate,
+            amount: inst.amountPkr,
+            paidAmount: "0.00",
+            status: "PENDING" as const,
+          })),
+        );
+      }
+
+      // Insert first payment (down payment receipt)
+      await tx.insert(payments).values({
+        bookingId: booking.id,
+        receiptNo,
+        amount: parsed.downPaymentPkr,
+        method: parsed.paymentMethod,
+        chequeNo: parsed.chequeNo?.trim() || null,
+        bank: parsed.bank?.trim() || null,
+        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Down payment",
+        paidAt: new Date(),
+        notes: parsed.notes?.trim() || "Down payment on booking",
+        receivedBy: session.user.id,
+      });
+
+      // Unit status transition
+      if (isFullyPaid) {
+        // Auto SOLD when paid 100%
+        await changeUnitStatusInTx(
+          tx,
+          {
+            unitId: unit.id,
+            expectedVersion: unit.version,
+            toStatus: "SOLD",
+            bookingRef: bookingNo,
+            soldPricePkr: netPricePkr,
+            reason: `100% paid on booking (${bookingNo})`,
+          },
+          session.user,
+        );
+
+        // Create sales record
+        await tx.insert(sales).values({
+          unitId: unit.id,
+          clientId: client.id,
           bookingId: booking.id,
-          seq: inst.seq,
-          dueDate: inst.dueDate,
-          amount: inst.amountPkr,
-          paidAmount: "0.00",
-          status: "PENDING" as const,
-        })),
-      );
-    }
+          serialNo: numbers.serialNo,
+          applicationFormNo: numbers.applicationFormNo,
+          registrationNo: numbers.registrationNo,
+          salePrice: netPricePkr,
+          soldAt: new Date(),
+          notes: `Completed booking ${bookingNo}`,
+          status: "ACTIVE",
+          createdBy: session.user.id,
+        });
+      } else {
+        // Unit -> BOOKED
+        await changeUnitStatusInTx(
+          tx,
+          {
+            unitId: unit.id,
+            expectedVersion: unit.version,
+            toStatus: "BOOKED",
+            bookingRef: bookingNo,
+            reason: `Booked under ${bookingNo}`,
+          },
+          session.user,
+        );
+      }
 
-    // Insert first payment (down payment receipt)
-    await tx.insert(payments).values({
-      bookingId: booking.id,
-      receiptNo,
-      amount: parsed.downPaymentPkr,
-      method: parsed.paymentMethod,
-      chequeNo: parsed.chequeNo?.trim() || null,
-      bank: parsed.bank?.trim() || null,
-      reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Down payment",
-      paidAt: new Date(),
-      notes: parsed.notes?.trim() || "Down payment on booking",
-      receivedBy: session.user.id,
+      return booking;
     });
 
-    // Unit status transition
-    if (isFullyPaid) {
-      // Auto SOLD when paid 100%
-      await changeUnitStatusInTx(
-        tx,
-        {
-          unitId: unit.id,
-          expectedVersion: unit.version,
-          toStatus: "SOLD",
-          bookingRef: bookingNo,
-          soldPricePkr: netPricePkr,
-          reason: `100% paid on booking (${bookingNo})`,
-        },
-        session.user,
-      );
-
-      // Create sales record
-      await tx.insert(sales).values({
-        unitId: unit.id,
-        clientId: client.id,
-        bookingId: booking.id,
-        serialNo: numbers.serialNo,
-        applicationFormNo: numbers.applicationFormNo,
-        registrationNo: numbers.registrationNo,
-        salePrice: netPricePkr,
-        soldAt: new Date(),
-        notes: `Completed booking ${bookingNo}`,
-        status: "ACTIVE",
-        createdBy: session.user.id,
-      });
-    } else {
-      // Unit -> BOOKED
-      await changeUnitStatusInTx(
-        tx,
-        {
-          unitId: unit.id,
-          expectedVersion: unit.version,
-          toStatus: "BOOKED",
-          bookingRef: bookingNo,
-          reason: `Booked under ${bookingNo}`,
-        },
-        session.user,
-      );
-    }
-
-    return booking;
-  });
-
-  logger.info({ bookingId: created.id, actorId: session.user.id }, "booking created");
-  revalidateSalesPaths(parsed.unitId, created.id);
-  return created;
+    logger.info({ bookingId: created.id, actorId: session.user.id }, "booking created");
+    revalidateSalesPaths(parsed.unitId, created.id);
+    return { ok: true as const, data: created };
+  } catch (err) {
+    logger.error({ err }, "createBooking failed");
+    return { ok: false as const, error: formatActionError(err) };
+  }
 }
 
 export async function recordPayment(input: unknown) {
@@ -789,103 +852,111 @@ export async function returnBooking(input: unknown) {
 }
 
 export async function createDirectSale(input: unknown) {
-  const parsed = parseInput(createDirectSaleSchema, input);
-  const session = await requireSession();
-  assertCan(session.user.role, "sales.create");
+  try {
+    const parsed = parseInput(createDirectSaleSchema, input);
+    const session = await requireSession();
+    assertCan(session.user.role, "sales.create");
 
-  const created = await db.transaction(async (tx) => {
-    const { client, kin } = await upsertClientAndKin(tx, parsed.client, parsed.nextOfKin);
-    if (!kin) {
-      throw new ValidationError("Next of kin is required");
-    }
-    await requireClientDocuments(tx, client.id, kin.id);
-
-    const [unit] = await tx
-      .select()
-      .from(units)
-      .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
-      .for("update");
-
-    if (!unit) {
-      throw new NotFoundError("Unit not found");
-    }
-
-    if (!unit.isSellable) {
-      throw new ValidationError("This unit is not sellable.");
-    }
-
-    if (unit.status !== "AVAILABLE") {
-      throw new ValidationError(
-        `Unit is not available (current status: ${unit.status}).`,
+    const created = await db.transaction(async (tx) => {
+      const { client, kin } = await upsertClientAndKin(
+        tx,
+        parsed.client,
+        parsed.nextOfKin,
       );
-    }
+      if (!kin) {
+        throw new ValidationError("Next of kin is required");
+      }
 
-    const computedPrice = computeTotalPrice(
-      unit.ratePerSqftPkr,
-      unit.netAreaSqft,
-      unit.priceAdjustmentPkr,
-    );
+      const [unit] = await tx
+        .select()
+        .from(units)
+        .where(and(eq(units.id, parsed.unitId), isNull(units.archivedAt)))
+        .for("update");
 
-    // If sale price differs from computed price, ADMIN permission is required
-    if (parsed.salePricePkr !== computedPrice) {
-      assertCan(session.user.role, "units.manage");
-      if (
-        !parsed.priceAdjustmentReason ||
-        parsed.priceAdjustmentReason.trim().length === 0
-      ) {
+      if (!unit) {
+        throw new NotFoundError("Unit not found");
+      }
+
+      if (!unit.isSellable) {
+        throw new ValidationError("This unit is not sellable.");
+      }
+
+      if (unit.status !== "AVAILABLE") {
         throw new ValidationError(
-          "A reason is required when sale price differs from asking price.",
+          `Unit is not available (current status: ${unit.status}).`,
         );
       }
-    }
 
-    const soldAt = new Date();
-    const numbers = await allocateDocumentNumbers(tx, unit.unitCode, soldAt);
-    const saleRef = numbers.applicationFormNo;
+      const computedPrice = computeTotalPrice(
+        unit.ratePerSqftPkr,
+        unit.netAreaSqft,
+        unit.priceAdjustmentPkr,
+      );
 
-    // Unit -> SOLD
-    await changeUnitStatusInTx(
-      tx,
-      {
-        unitId: unit.id,
-        expectedVersion: unit.version,
-        toStatus: "SOLD",
-        bookingRef: saleRef,
-        soldPricePkr: parsed.salePricePkr,
-        reason: parsed.notes || `Direct sale to ${client.fullName}`,
-      },
-      session.user,
-    );
+      // If sale price differs from computed price, ADMIN permission is required
+      if (parseDecimal(parsed.salePricePkr) !== parseDecimal(computedPrice)) {
+        assertCan(session.user.role, "units.manage");
+        if (
+          !parsed.priceAdjustmentReason ||
+          parsed.priceAdjustmentReason.trim().length === 0
+        ) {
+          throw new ValidationError(
+            "A reason is required when sale price differs from asking price.",
+          );
+        }
+      }
 
-    const [saleRecord] = await tx
-      .insert(sales)
-      .values({
-        unitId: unit.id,
-        clientId: client.id,
-        serialNo: numbers.serialNo,
-        applicationFormNo: numbers.applicationFormNo,
-        registrationNo: numbers.registrationNo,
-        salePrice: parsed.salePricePkr,
-        soldAt,
-        notes: parsed.notes?.trim() || null,
-        paymentMethod: parsed.paymentMethod,
-        chequeNo: parsed.chequeNo?.trim() || null,
-        bank: parsed.bank?.trim() || null,
-        reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Full payment",
-        salesAgent: session.user.name,
-        bookingOffice: "SARDAR'S MALL",
-        status: "ACTIVE",
-        createdBy: session.user.id,
-      })
-      .returning();
+      const soldAt = new Date();
+      const numbers = await allocateDocumentNumbers(tx, unit.unitCode, soldAt);
+      const saleRef = numbers.applicationFormNo;
 
-    if (!saleRecord) throw new Error("Failed to create sale");
-    return saleRecord;
-  });
+      // Unit -> SOLD
+      await changeUnitStatusInTx(
+        tx,
+        {
+          unitId: unit.id,
+          expectedVersion: unit.version,
+          toStatus: "SOLD",
+          bookingRef: saleRef,
+          soldPricePkr: parsed.salePricePkr,
+          reason: parsed.notes || `Direct sale to ${client.fullName}`,
+        },
+        session.user,
+      );
 
-  logger.info({ saleId: created.id, actorId: session.user.id }, "direct sale created");
-  revalidateSalesPaths(parsed.unitId);
-  return created;
+      const [saleRecord] = await tx
+        .insert(sales)
+        .values({
+          unitId: unit.id,
+          clientId: client.id,
+          serialNo: numbers.serialNo,
+          applicationFormNo: numbers.applicationFormNo,
+          registrationNo: numbers.registrationNo,
+          salePrice: parsed.salePricePkr,
+          soldAt,
+          notes: parsed.notes?.trim() || null,
+          paymentMethod: parsed.paymentMethod,
+          chequeNo: parsed.chequeNo?.trim() || null,
+          bank: parsed.bank?.trim() || null,
+          reference: parsed.notes?.trim() || parsed.chequeNo?.trim() || "Full payment",
+          salesAgent: session.user.name,
+          bookingOffice: "SARDAR'S MALL",
+          status: "ACTIVE",
+          createdBy: session.user.id,
+        })
+        .returning();
+
+      if (!saleRecord) throw new Error("Failed to create sale");
+      return saleRecord;
+    });
+
+    logger.info({ saleId: created.id, actorId: session.user.id }, "direct sale created");
+    revalidateSalesPaths(parsed.unitId);
+    return { ok: true as const, data: created };
+  } catch (err) {
+    logger.error({ err }, "createDirectSale failed");
+    return { ok: false as const, error: formatActionError(err) };
+  }
 }
 
 export async function buybackSale(input: unknown) {

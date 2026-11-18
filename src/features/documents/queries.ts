@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { clientDocuments } from "@/db/schema/sales";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer, isStorageConfigured } from "@/lib/supabase-server";
 import {
   CLIENT_DOCUMENTS_BUCKET,
   SIGNED_READ_SECONDS,
@@ -62,6 +62,14 @@ export async function signDocumentUrls(
 ): Promise<SignedDocumentUrls[]> {
   return timed("signDocumentUrls", async () => {
     if (docs.length === 0) return [];
+    if (!isStorageConfigured()) {
+      return docs.map((doc) => ({
+        id: doc.id,
+        previewUrl: null,
+        fullUrl: null,
+        mimeType: doc.mimeType,
+      }));
+    }
     const supabase = getSupabaseServer();
     const pathToDoc = new Map<string, string>();
     const paths: string[] = [];

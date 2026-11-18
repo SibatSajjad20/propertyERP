@@ -8,9 +8,10 @@ import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { clientDocuments, clients, nextOfKin } from "@/db/schema/sales";
 import { requireSession } from "@/lib/auth";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { errorMessage, NotFoundError, ValidationError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { assertCan, can } from "@/lib/permissions";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseServer, isStorageConfigured } from "@/lib/supabase-server";
 import { clientSchema, requiredNextOfKinSchema } from "@/features/sales/schema";
 import { upsertClientAndKin } from "@/features/sales/client-upsert";
 import {
@@ -444,143 +445,147 @@ export async function assertRequiredDocumentsForClient(clientId: string, kinId: 
 
 export async function prepareUploads(input: unknown) {
   return timed("prepareUploads", async () => {
-    const parsed = parse(prepareUploadsSchema, input);
-    const session = await requireSession();
-    assertCanManageDocuments(session.user.role);
+    try {
+      const parsed = parse(prepareUploadsSchema, input);
+      const session = await requireSession();
+      assertCanManageDocuments(session.user.role);
 
-    for (const doc of parsed.docs) {
-      if (doc.sizeBytes > MAX_DOCUMENT_BYTES) {
-        throw new ValidationError("File must be 5 MB or smaller");
-      }
-      if (!assertAllowedMime(doc.docType, doc.mimeType)) {
-        throw new ValidationError(photoMimeError(doc.docType));
-      }
-      const ownerError = photoOwnerError(doc.docType, doc.ownerType);
-      if (ownerError) throw new ValidationError(ownerError);
-    }
-
-    const needsKin = parsed.docs.some((doc) => doc.ownerType === "KIN");
-    const ids = await db.transaction(async (tx) => {
-      let clientId = parsed.clientId;
-      let kinId = parsed.kinId ?? null;
-      if (parsed.client) {
-        const { client, kin } = await upsertClientAndKin(
-          tx,
-          parsed.client,
-          parsed.nextOfKin ?? null,
-        );
-        clientId = client.id;
-        kinId = kin?.id ?? kinId;
-      }
-      if (!clientId) {
-        throw new ValidationError("Save client details before uploading documents");
-      }
-      if (needsKin && !kinId) {
-        throw new ValidationError("Save next of kin details before uploading CNIC scans");
-      }
-      return { clientId, kinId };
-    });
-
-    const supabase = getSupabaseServer();
-    const uploads = await Promise.all(
-      parsed.docs.map(async (doc) => {
-        const ext = extFromMime(doc.mimeType, doc.fileExt);
-        const storagePath = buildStoragePath({
-          ownerType: doc.ownerType,
-          clientId: ids.clientId,
-          kinId: ids.kinId ?? undefined,
-          docType: doc.docType,
-          ext,
-        });
-        const { data, error } = await supabase.storage
-          .from(CLIENT_DOCUMENTS_BUCKET)
-          .createSignedUploadUrl(storagePath);
-        if (error || !data) {
-          throw new ValidationError(error?.message ?? "Could not create upload URL");
-        }
-        let thumbnail: { path: string; token: string; signedUrl: string } | undefined;
-        if (doc.hasThumbnail) {
-          const thumbPath = thumbnailStoragePath(storagePath);
-          const thumb = await supabase.storage
-            .from(CLIENT_DOCUMENTS_BUCKET)
-            .createSignedUploadUrl(thumbPath);
-          if (thumb.error || !thumb.data) {
-            throw new ValidationError(
-              thumb.error?.message ?? "Could not create thumbnail URL",
-            );
-          }
-          thumbnail = {
-            path: thumb.data.path,
-            token: thumb.data.token,
-            signedUrl: thumb.data.signedUrl,
-          };
-        }
+      if (!isStorageConfigured()) {
         return {
-          ownerType: doc.ownerType,
-          docType: doc.docType,
-          path: data.path,
-          token: data.token,
-          signedUrl: data.signedUrl,
-          mimeType: doc.mimeType,
-          thumbnail,
+          ok: false as const,
+          error:
+            "Document storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
         };
-      }),
-    );
+      }
 
-    return { clientId: ids.clientId, kinId: ids.kinId, uploads };
+      for (const doc of parsed.docs) {
+        if (doc.sizeBytes > MAX_DOCUMENT_BYTES) {
+          throw new ValidationError("File must be 5 MB or smaller");
+        }
+        if (!assertAllowedMime(doc.docType, doc.mimeType)) {
+          throw new ValidationError(photoMimeError(doc.docType));
+        }
+        const ownerError = photoOwnerError(doc.docType, doc.ownerType);
+        if (ownerError) throw new ValidationError(ownerError);
+      }
+
+      const needsKin = parsed.docs.some((doc) => doc.ownerType === "KIN");
+      const ids = await db.transaction(async (tx) => {
+        let clientId = parsed.clientId;
+        let kinId = parsed.kinId ?? null;
+        if (parsed.client) {
+          const { client, kin } = await upsertClientAndKin(
+            tx,
+            parsed.client,
+            parsed.nextOfKin ?? null,
+          );
+          clientId = client.id;
+          kinId = kin?.id ?? kinId;
+        }
+        if (!clientId) {
+          throw new ValidationError("Save client details before uploading documents");
+        }
+        if (needsKin && !kinId) {
+          throw new ValidationError(
+            "Save next of kin details before uploading CNIC scans",
+          );
+        }
+        return { clientId, kinId };
+      });
+
+      const supabase = getSupabaseServer();
+      const uploads = await Promise.all(
+        parsed.docs.map(async (doc) => {
+          const ext = extFromMime(doc.mimeType, doc.fileExt);
+          const storagePath = buildStoragePath({
+            ownerType: doc.ownerType,
+            clientId: ids.clientId,
+            kinId: ids.kinId ?? undefined,
+            docType: doc.docType,
+            ext,
+          });
+          const { data, error } = await supabase.storage
+            .from(CLIENT_DOCUMENTS_BUCKET)
+            .createSignedUploadUrl(storagePath);
+          if (error || !data) {
+            throw new ValidationError(error?.message ?? "Could not create upload URL");
+          }
+          let thumbnail: { path: string; token: string; signedUrl: string } | undefined;
+          if (doc.hasThumbnail) {
+            const thumbPath = thumbnailStoragePath(storagePath);
+            const thumb = await supabase.storage
+              .from(CLIENT_DOCUMENTS_BUCKET)
+              .createSignedUploadUrl(thumbPath);
+            if (thumb.error || !thumb.data) {
+              throw new ValidationError(
+                thumb.error?.message ?? "Could not create thumbnail URL",
+              );
+            }
+            thumbnail = {
+              path: thumb.data.path,
+              token: thumb.data.token,
+              signedUrl: thumb.data.signedUrl,
+            };
+          }
+          return {
+            ownerType: doc.ownerType,
+            docType: doc.docType,
+            path: data.path,
+            token: data.token,
+            signedUrl: data.signedUrl,
+            mimeType: doc.mimeType,
+            thumbnail,
+          };
+        }),
+      );
+
+      return { ok: true as const, clientId: ids.clientId, kinId: ids.kinId, uploads };
+    } catch (err) {
+      logger.error({ err }, "prepareUploads failed");
+      return { ok: false as const, error: errorMessage(err) };
+    }
   });
 }
 
 export async function finalizeUploads(input: unknown) {
   return timed("finalizeUploads", async () => {
-    const parsed = parse(finalizeUploadsSchema, input);
-    const session = await requireSession();
-    assertCanManageDocuments(session.user.role);
+    try {
+      const parsed = parse(finalizeUploadsSchema, input);
+      const session = await requireSession();
+      assertCanManageDocuments(session.user.role);
 
-    const storagePaths: string[] = [];
-    for (const doc of parsed.docs) {
-      assertPathMatches({
-        storagePath: doc.storagePath,
-        ownerType: doc.ownerType,
-        clientId: parsed.clientId,
-        kinId: parsed.kinId,
-        docType: doc.docType,
-      });
-      if (doc.sizeBytes > MAX_DOCUMENT_BYTES) {
-        throw new ValidationError("File must be 5 MB or smaller");
-      }
-      if (!assertAllowedMime(doc.docType, doc.mimeType)) {
-        throw new ValidationError("Unsupported file type");
-      }
-      if (
-        doc.thumbnailPath &&
-        doc.thumbnailPath !== thumbnailStoragePath(doc.storagePath)
-      ) {
-        throw new ValidationError("Invalid thumbnail path");
-      }
-      storagePaths.push(doc.storagePath);
-    }
-    await assertStorageObjectsExist(storagePaths);
-
-    const now = new Date();
-    const saved = await db.transaction(async (tx) => {
-      const rows = [];
+      const storagePaths: string[] = [];
       for (const doc of parsed.docs) {
-        const currentRows = await tx
-          .select()
-          .from(clientDocuments)
-          .where(
-            currentDocFilters({
-              clientId: parsed.clientId,
-              ownerType: doc.ownerType,
-              docType: doc.docType,
-              kinId: parsed.kinId,
-            }),
-          );
-        if (currentRows.length > 0) {
-          await tx
-            .update(clientDocuments)
-            .set({ replacedAt: now })
+        assertPathMatches({
+          storagePath: doc.storagePath,
+          ownerType: doc.ownerType,
+          clientId: parsed.clientId,
+          kinId: parsed.kinId,
+          docType: doc.docType,
+        });
+        if (doc.sizeBytes > MAX_DOCUMENT_BYTES) {
+          throw new ValidationError("File must be 5 MB or smaller");
+        }
+        if (!assertAllowedMime(doc.docType, doc.mimeType)) {
+          throw new ValidationError("Unsupported file type");
+        }
+        if (
+          doc.thumbnailPath &&
+          doc.thumbnailPath !== thumbnailStoragePath(doc.storagePath)
+        ) {
+          throw new ValidationError("Invalid thumbnail path");
+        }
+        storagePaths.push(doc.storagePath);
+      }
+      await assertStorageObjectsExist(storagePaths);
+
+      const now = new Date();
+      const saved = await db.transaction(async (tx) => {
+        const rows = [];
+        for (const doc of parsed.docs) {
+          const currentRows = await tx
+            .select()
+            .from(clientDocuments)
             .where(
               currentDocFilters({
                 clientId: parsed.clientId,
@@ -589,62 +594,79 @@ export async function finalizeUploads(input: unknown) {
                 kinId: parsed.kinId,
               }),
             );
+          if (currentRows.length > 0) {
+            await tx
+              .update(clientDocuments)
+              .set({ replacedAt: now })
+              .where(
+                currentDocFilters({
+                  clientId: parsed.clientId,
+                  ownerType: doc.ownerType,
+                  docType: doc.docType,
+                  kinId: parsed.kinId,
+                }),
+              );
+          }
+          const [row] = await tx
+            .insert(clientDocuments)
+            .values({
+              ownerType: doc.ownerType,
+              clientId: parsed.clientId,
+              kinId: doc.ownerType === "KIN" ? (parsed.kinId ?? null) : null,
+              docType: doc.docType,
+              storagePath: doc.storagePath,
+              mimeType: doc.mimeType,
+              sizeBytes: doc.sizeBytes,
+              uploadedBy: session.user.id,
+            })
+            .returning();
+          if (!row) throw new ValidationError("Failed to save document");
+          await tx.insert(auditLog).values({
+            actorId: session.user.id,
+            entity: "client_document",
+            entityId: row.id,
+            action: currentRows.length > 0 ? "UPDATE" : "CREATE",
+            before:
+              currentRows[0] != null
+                ? {
+                    id: currentRows[0].id,
+                    storagePath: currentRows[0].storagePath,
+                    docType: currentRows[0].docType,
+                  }
+                : null,
+            after: {
+              id: row.id,
+              storagePath: row.storagePath,
+              docType: row.docType,
+              ownerType: row.ownerType,
+              clientId: row.clientId,
+              kinId: row.kinId,
+            },
+          });
+          rows.push(row);
         }
-        const [row] = await tx
-          .insert(clientDocuments)
-          .values({
-            ownerType: doc.ownerType,
-            clientId: parsed.clientId,
-            kinId: doc.ownerType === "KIN" ? (parsed.kinId ?? null) : null,
-            docType: doc.docType,
-            storagePath: doc.storagePath,
-            mimeType: doc.mimeType,
-            sizeBytes: doc.sizeBytes,
-            uploadedBy: session.user.id,
-          })
-          .returning();
-        if (!row) throw new ValidationError("Failed to save document");
-        await tx.insert(auditLog).values({
-          actorId: session.user.id,
-          entity: "client_document",
-          entityId: row.id,
-          action: currentRows.length > 0 ? "UPDATE" : "CREATE",
-          before:
-            currentRows[0] != null
-              ? {
-                  id: currentRows[0].id,
-                  storagePath: currentRows[0].storagePath,
-                  docType: currentRows[0].docType,
-                }
-              : null,
-          after: {
-            id: row.id,
-            storagePath: row.storagePath,
-            docType: row.docType,
-            ownerType: row.ownerType,
-            clientId: row.clientId,
-            kinId: row.kinId,
-          },
-        });
-        rows.push(row);
-      }
-      return rows;
-    });
+        return rows;
+      });
 
-    revalidatePath("/bookings");
-    revalidatePath("/sold");
-    return {
-      clientId: parsed.clientId,
-      kinId: parsed.kinId ?? null,
-      documents: saved.map((row) => ({
-        id: row.id,
-        ownerType: row.ownerType,
-        clientId: row.clientId,
-        kinId: row.kinId,
-        docType: row.docType,
-        mimeType: row.mimeType,
-      })),
-    };
+      revalidatePath("/bookings");
+      revalidatePath("/sold");
+      return {
+        ok: true as const,
+        clientId: parsed.clientId,
+        kinId: parsed.kinId ?? null,
+        documents: saved.map((row) => ({
+          id: row.id,
+          ownerType: row.ownerType,
+          clientId: row.clientId,
+          kinId: row.kinId,
+          docType: row.docType,
+          mimeType: row.mimeType,
+        })),
+      };
+    } catch (err) {
+      logger.error({ err }, "finalizeUploads failed");
+      return { ok: false as const, error: errorMessage(err) };
+    }
   });
 }
 

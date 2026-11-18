@@ -53,16 +53,28 @@ export async function allocateDocumentNumbers(
   date: Date,
 ): Promise<DocumentNumbers> {
   const year = date.getFullYear();
+  const [maxRow] = await tx
+    .select({
+      maxSerial: sql<number>`GREATEST(
+        COALESCE((SELECT MAX(serial_no) FROM bookings WHERE EXTRACT(YEAR FROM created_at) = ${year}), 0),
+        COALESCE((SELECT MAX(serial_no) FROM sales WHERE EXTRACT(YEAR FROM created_at) = ${year}), 0)
+      )::int`,
+    })
+    .from(sql`(SELECT 1) AS _t`);
+  const existingMax = Number(maxRow?.maxSerial ?? 0);
+
   const [row] = await tx
     .insert(documentCounters)
-    .values({ key: DOCUMENT_COUNTER_KEY, year, lastValue: 1 })
+    .values({ key: DOCUMENT_COUNTER_KEY, year, lastValue: existingMax + 1 })
     .onConflictDoUpdate({
       target: [documentCounters.key, documentCounters.year],
-      set: { lastValue: sql`${documentCounters.lastValue} + 1` },
+      set: {
+        lastValue: sql`GREATEST(${documentCounters.lastValue}, ${existingMax}) + 1`,
+      },
     })
     .returning({ lastValue: documentCounters.lastValue });
 
-  const next = row?.lastValue ?? 1;
+  const next = row?.lastValue ?? existingMax + 1;
   return formatDocumentNumbers(unitCode, date, next);
 }
 
