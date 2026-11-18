@@ -8,7 +8,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withTransientDbRetry } from "@/db";
 import * as schema from "@/db/schema";
 import { user } from "@/db/schema/auth";
 import { userRoles, type UserRole } from "@/db/schema/enums";
@@ -190,25 +190,29 @@ type RequireSessionOptions = {
 
 export const getSession = cache(async () => {
   const resolvedHeaders = await headers();
-  const session = await auth.api.getSession({
-    headers: resolvedHeaders,
-  });
+  const session = await withTransientDbRetry(() =>
+    auth.api.getSession({
+      headers: resolvedHeaders,
+    }),
+  );
   if (!session) {
     return null;
   }
 
   // Cookie cache can keep `mustChangePassword` / `disabled` stale for up to 5
   // minutes. Privileged flags always come from the live user row.
-  const [row] = await db
-    .select({
-      mustChangePassword: user.mustChangePassword,
-      disabled: user.disabled,
-      role: user.role,
-      name: user.name,
-    })
-    .from(user)
-    .where(eq(user.id, session.user.id))
-    .limit(1);
+  const [row] = await withTransientDbRetry(() =>
+    db
+      .select({
+        mustChangePassword: user.mustChangePassword,
+        disabled: user.disabled,
+        role: user.role,
+        name: user.name,
+      })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1),
+  );
   if (!row) {
     return null;
   }

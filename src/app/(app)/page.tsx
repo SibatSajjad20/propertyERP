@@ -1,3 +1,4 @@
+import { withTransientDbRetry } from "@/db";
 import { DashboardScreen } from "@/features/dashboard/components/dashboard-screen";
 import {
   getDashboardBundle,
@@ -52,11 +53,13 @@ export default async function DashboardPage({
   };
 
   try {
-    [bundle, activities, filterOptions] = await Promise.all([
-      getDashboardBundle(filter),
-      isSales ? Promise.resolve([]) : getRecentActivity(8),
-      getDashboardFilterOptions(),
-    ]);
+    [bundle, activities, filterOptions] = await withTransientDbRetry(() =>
+      Promise.all([
+        getDashboardBundle(filter),
+        isSales ? Promise.resolve([]) : getRecentActivity(8),
+        getDashboardFilterOptions(),
+      ]),
+    );
   } catch (err) {
     console.error("Dashboard bundle fetch error during SSR:", err);
     bundle = {

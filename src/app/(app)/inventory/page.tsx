@@ -1,3 +1,4 @@
+import { withTransientDbRetry } from "@/db";
 import { InventoryScreen } from "@/features/units/components/inventory-screen";
 import { getPendingMergeRequestCount } from "@/features/units/merge-queries";
 import {
@@ -26,12 +27,14 @@ export default async function InventoryRoute({
   const query = parseInventorySearchParams(await searchParams);
   const canMerge = can(session.user.role, "units.merge_request");
   const [{ rows, totals, nextCursor, pageSize }, options, history, pendingMergeCount] =
-    await Promise.all([
-      listInventory(query),
-      getInventoryFilterOptions(),
-      query.unitId ? listUnitStatusHistory(query.unitId) : Promise.resolve([]),
-      canMerge ? getPendingMergeRequestCount() : Promise.resolve(0),
-    ]);
+    await withTransientDbRetry(() =>
+      Promise.all([
+        listInventory(query),
+        getInventoryFilterOptions(),
+        query.unitId ? listUnitStatusHistory(query.unitId) : Promise.resolve([]),
+        canMerge ? getPendingMergeRequestCount() : Promise.resolve(0),
+      ]),
+    );
 
   return (
     <InventoryScreen

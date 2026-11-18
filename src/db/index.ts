@@ -18,12 +18,15 @@ function createClient() {
   }
   const max = process.env.DB_MAX_CONNECTIONS
     ? parseInt(process.env.DB_MAX_CONNECTIONS, 10)
-    : 10;
+    : process.env.NODE_ENV === "production"
+      ? 10
+      : 3;
   return postgres(url, {
     prepare: false,
     max,
-    idle_timeout: 20,
-    connect_timeout: 30,
+    idle_timeout: 300,
+    keep_alive: 30,
+    connect_timeout: 10,
     ...(lacksSslMode ? { ssl: "require" as const } : {}),
     connection: { statement_timeout: 45000 },
   } as unknown as postgres.Options<Record<string, never>>);
@@ -36,6 +39,56 @@ export const db = globalForDb.db ?? drizzle(sql, { schema });
 globalForDb.db = db;
 
 export type Database = typeof db;
+
+const TRANSIENT_DB_CODES = new Set([
+  "ECONNRESET",
+  "CONNECT_TIMEOUT",
+  "ETIMEDOUT",
+  "CONNECTION_CLOSED",
+  "EPIPE",
+  "ECONNREFUSED",
+  "EAI_AGAIN",
+]);
+
+export function isTransientDbError(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; depth < 5 && cur && typeof cur === "object"; depth++) {
+    const rec = cur as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof rec.code === "string" && TRANSIENT_DB_CODES.has(rec.code)) {
+      return true;
+    }
+    if (
+      typeof rec.message === "string" &&
+      (rec.message.includes("CONNECT_TIMEOUT") ||
+        rec.message.includes("ECONNRESET") ||
+        rec.message.includes("ETIMEDOUT") ||
+        rec.message.includes("Client network socket disconnected"))
+    ) {
+      return true;
+    }
+    cur = rec.cause;
+  }
+  return false;
+}
+
+export async function withTransientDbRetry<T>(
+  fn: () => Promise<T>,
+  retries = 2,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt >= retries || !isTransientDbError(err)) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 
 export async function pingDatabase() {
   await sql`select 1`;
