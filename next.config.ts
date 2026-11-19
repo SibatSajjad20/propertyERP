@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
   images: {
     qualities: [75, 85],
   },
-  serverExternalPackages: ["@react-pdf/renderer", "@supabase/supabase-js"],
+  serverExternalPackages: ["@react-pdf/renderer", "@supabase/supabase-js", "postgres"],
   experimental: {
     agentUpgrade: "security",
     serverActions: {

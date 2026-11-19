@@ -3,6 +3,8 @@ import { BookingsScreen } from "@/features/sales/components/bookings-screen";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
+export const maxDuration = 30;
+
 export const metadata = {
   title: "Bookings",
 };

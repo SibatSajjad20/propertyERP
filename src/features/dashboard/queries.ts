@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withTransientDbRetry } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
@@ -429,189 +429,220 @@ export interface DashboardBundle {
   salesOverTime: SalesOverTimePoint[];
 }
 
+const dashboardBundleCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    data: DashboardBundle;
+  }
+>();
+const DASHBOARD_BUNDLE_CACHE_TTL_MS = 30_000; // 30 seconds
+
+export function invalidateDashboardBundleCache() {
+  dashboardBundleCache.clear();
+}
+
 export async function getDashboardBundle(filter?: {
   propertyId?: string;
   blockId?: string;
 }): Promise<DashboardBundle> {
-  const t0 = performance.now();
-
-  const now = new Date();
-  const startOfMonth = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  ).toISOString();
-
-  const [floorsData, salesOverTime, sumsRows] = await Promise.all([
-    getFloorsLedger(filter),
-    getSalesOverTime(filter),
-    db.execute(sql`
-      select
-        (select coalesce(sum(${payments.amount}), 0)::text from ${payments}) as payments_total,
-        (select coalesce(sum(${sales.salePrice}), 0)::text from ${sales}) as sales_total,
-        (select coalesce(sum(${refunds.refundAmount}), 0)::text from ${refunds}) as refunds_total,
-        (select coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${refunds}) as refunds_month,
-        (select coalesce(sum(${buybacks.buybackAmount}), 0)::text from ${buybacks}) as buybacks_total,
-        (select coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${buybacks}) as buybacks_month,
-        (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_count,
-        (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_pkr,
-        (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_count,
-        (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_pkr,
-        (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count
-    `),
-  ]);
-
-  const sumsRow = ((sumsRows as unknown as Record<string, unknown>[])[0] ?? {}) as Record<
-    string,
-    unknown
-  >;
-  const sums = {
-    payments_total: String(sumsRow.payments_total ?? "0"),
-    sales_total: String(sumsRow.sales_total ?? "0"),
-    refunds_total: String(sumsRow.refunds_total ?? "0"),
-    buybacks_total: String(sumsRow.buybacks_total ?? "0"),
-    refunds_month: String(sumsRow.refunds_month ?? "0"),
-    buybacks_month: String(sumsRow.buybacks_month ?? "0"),
-    overdue_count: Number(sumsRow.overdue_count ?? 0),
-    overdue_pkr: String(sumsRow.overdue_pkr ?? "0"),
-    due_this_week_count: Number(sumsRow.due_this_week_count ?? 0),
-    due_this_week_pkr: String(sumsRow.due_this_week_pkr ?? "0"),
-    expiring_reservations_count: Number(sumsRow.expiring_reservations_count ?? 0),
-  };
-
-  let totalUnits = 0;
-  let availableUnits = 0;
-  let reservedUnits = 0;
-  let bookedUnits = 0;
-  let soldUnits = 0;
-  let availableValueTotal = 0n;
-  let reservedValueTotal = 0n;
-  let bookedValueTotal = 0n;
-  let soldValueTotal = 0n;
-
-  const blockMap = new Map<
-    string,
-    {
-      blockId: string;
-      blockName: string;
-      total: number;
-      available: number;
-      reserved: number;
-      booked: number;
-      sold: number;
-      availableValuePkr: bigint;
-      reservedValuePkr: bigint;
-      bookedValuePkr: bigint;
-      soldValuePkr: bigint;
-      totalValuePkr: bigint;
-    }
-  >();
-
-  for (const f of floorsData) {
-    totalUnits += f.total;
-    availableUnits += f.available;
-    reservedUnits += f.reserved;
-    bookedUnits += f.booked;
-    soldUnits += f.sold;
-    const availVal = BigInt(Math.round(Number(f.availableValuePkr) || 0));
-    const resVal = BigInt(Math.round(Number(f.reservedValuePkr) || 0));
-    const bkVal = BigInt(Math.round(Number(f.bookedValuePkr) || 0));
-    const soldVal = BigInt(Math.round(Number(f.soldValuePkr) || 0));
-    const totalVal = BigInt(Math.round(Number(f.totalValuePkr) || 0));
-    availableValueTotal += availVal;
-    reservedValueTotal += resVal;
-    bookedValueTotal += bkVal;
-    soldValueTotal += soldVal;
-
-    const existingBlock = blockMap.get(f.blockId);
-    if (existingBlock) {
-      existingBlock.total += f.total;
-      existingBlock.available += f.available;
-      existingBlock.reserved += f.reserved;
-      existingBlock.booked += f.booked;
-      existingBlock.sold += f.sold;
-      existingBlock.availableValuePkr += availVal;
-      existingBlock.reservedValuePkr += resVal;
-      existingBlock.bookedValuePkr += bkVal;
-      existingBlock.soldValuePkr += soldVal;
-      existingBlock.totalValuePkr += totalVal;
-    } else {
-      blockMap.set(f.blockId, {
-        blockId: f.blockId,
-        blockName: f.blockName,
-        total: f.total,
-        available: f.available,
-        reserved: f.reserved,
-        booked: f.booked,
-        sold: f.sold,
-        availableValuePkr: availVal,
-        reservedValuePkr: resVal,
-        bookedValuePkr: bkVal,
-        soldValuePkr: soldVal,
-        totalValuePkr: totalVal,
-      });
-    }
+  const cacheKey = JSON.stringify({
+    propertyId: filter?.propertyId ?? "",
+    blockId: filter?.blockId ?? "",
+  });
+  const cached = dashboardBundleCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
   }
 
-  const grossCollectedPaisa =
-    parseDecimal(sums?.payments_total ?? "0") + parseDecimal(sums?.sales_total ?? "0");
-  const totalReversalsPaisa =
-    parseDecimal(sums?.refunds_total ?? "0") + parseDecimal(sums?.buybacks_total ?? "0");
-  const monthReversalsPaisa =
-    parseDecimal(sums?.refunds_month ?? "0") + parseDecimal(sums?.buybacks_month ?? "0");
-  const netCollectedPaisa =
-    grossCollectedPaisa > totalReversalsPaisa
-      ? grossCollectedPaisa - totalReversalsPaisa
-      : 0n;
+  return withTransientDbRetry(async () => {
+    const t0 = performance.now();
 
-  const soldPercent = totalUnits > 0 ? (soldUnits / totalUnits) * 100 : 0;
-  const stats: DashboardStats = {
-    total: totalUnits,
-    available: availableUnits,
-    reserved: reservedUnits,
-    booked: bookedUnits,
-    sold: soldUnits,
-    soldPercent,
-    availableValuePkr: availableValueTotal.toString(),
-    reservedValuePkr: reservedValueTotal.toString(),
-    bookedValuePkr: bookedValueTotal.toString(),
-    soldValuePkr: soldValueTotal.toString(),
-    monthReversalsPkr: formatDecimal(monthReversalsPaisa),
-    netCollectedPkr: formatDecimal(netCollectedPaisa),
-  };
+    const now = new Date();
+    const startOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    ).toISOString();
 
-  const blocksData: BlockBreakdownRow[] = Array.from(blockMap.values()).map((b) => ({
-    blockId: b.blockId,
-    blockName: b.blockName,
-    total: b.total,
-    available: b.available,
-    reserved: b.reserved,
-    booked: b.booked,
-    sold: b.sold,
-    soldPercent: b.total > 0 ? (b.sold / b.total) * 100 : 0,
-    availableValuePkr: b.availableValuePkr.toString(),
-    reservedValuePkr: b.reservedValuePkr.toString(),
-    bookedValuePkr: b.bookedValuePkr.toString(),
-    soldValuePkr: b.soldValuePkr.toString(),
-    totalValuePkr: b.totalValuePkr.toString(),
-  }));
+    const [floorsData, salesOverTime, sumsRows] = await Promise.all([
+      getFloorsLedger(filter),
+      getSalesOverTime(filter),
+      db.execute(sql`
+        select
+          (select coalesce(sum(${payments.amount}), 0)::text from ${payments}) as payments_total,
+          (select coalesce(sum(${sales.salePrice}), 0)::text from ${sales}) as sales_total,
+          (select coalesce(sum(${refunds.refundAmount}), 0)::text from ${refunds}) as refunds_total,
+          (select coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${refunds}) as refunds_month,
+          (select coalesce(sum(${buybacks.buybackAmount}), 0)::text from ${buybacks}) as buybacks_total,
+          (select coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${buybacks}) as buybacks_month,
+          (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_count,
+          (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_pkr,
+          (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_count,
+          (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_pkr,
+          (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count
+      `),
+    ]);
 
-  const attention: DashboardNeedsAttention = {
-    overdueCount: Number(sums?.overdue_count ?? 0),
-    overduePkr: sums?.overdue_pkr ?? "0",
-    dueThisWeekCount: Number(sums?.due_this_week_count ?? 0),
-    dueThisWeekPkr: sums?.due_this_week_pkr ?? "0",
-    expiringReservationsCount: Number(sums?.expiring_reservations_count ?? 0),
-  };
+    const sumsRow = ((sumsRows as unknown as Record<string, unknown>[])[0] ??
+      {}) as Record<string, unknown>;
+    const sums = {
+      payments_total: String(sumsRow.payments_total ?? "0"),
+      sales_total: String(sumsRow.sales_total ?? "0"),
+      refunds_total: String(sumsRow.refunds_total ?? "0"),
+      buybacks_total: String(sumsRow.buybacks_total ?? "0"),
+      refunds_month: String(sumsRow.refunds_month ?? "0"),
+      buybacks_month: String(sumsRow.buybacks_month ?? "0"),
+      overdue_count: Number(sumsRow.overdue_count ?? 0),
+      overdue_pkr: String(sumsRow.overdue_pkr ?? "0"),
+      due_this_week_count: Number(sumsRow.due_this_week_count ?? 0),
+      due_this_week_pkr: String(sumsRow.due_this_week_pkr ?? "0"),
+      expiring_reservations_count: Number(sumsRow.expiring_reservations_count ?? 0),
+    };
 
-  const durationMs = Math.round(performance.now() - t0);
-  logger.info({ durationMs, filter }, "server timing: dashboard bundle");
+    let totalUnits = 0;
+    let availableUnits = 0;
+    let reservedUnits = 0;
+    let bookedUnits = 0;
+    let soldUnits = 0;
+    let availableValueTotal = 0n;
+    let reservedValueTotal = 0n;
+    let bookedValueTotal = 0n;
+    let soldValueTotal = 0n;
 
-  return {
-    stats,
-    attention,
-    floors: floorsData,
-    blocks: blocksData,
-    salesOverTime,
-  };
+    const blockMap = new Map<
+      string,
+      {
+        blockId: string;
+        blockName: string;
+        total: number;
+        available: number;
+        reserved: number;
+        booked: number;
+        sold: number;
+        availableValuePkr: bigint;
+        reservedValuePkr: bigint;
+        bookedValuePkr: bigint;
+        soldValuePkr: bigint;
+        totalValuePkr: bigint;
+      }
+    >();
+
+    for (const f of floorsData) {
+      totalUnits += f.total;
+      availableUnits += f.available;
+      reservedUnits += f.reserved;
+      bookedUnits += f.booked;
+      soldUnits += f.sold;
+      const availVal = BigInt(Math.round(Number(f.availableValuePkr) || 0));
+      const resVal = BigInt(Math.round(Number(f.reservedValuePkr) || 0));
+      const bkVal = BigInt(Math.round(Number(f.bookedValuePkr) || 0));
+      const soldVal = BigInt(Math.round(Number(f.soldValuePkr) || 0));
+      const totalVal = BigInt(Math.round(Number(f.totalValuePkr) || 0));
+      availableValueTotal += availVal;
+      reservedValueTotal += resVal;
+      bookedValueTotal += bkVal;
+      soldValueTotal += soldVal;
+
+      const existingBlock = blockMap.get(f.blockId);
+      if (existingBlock) {
+        existingBlock.total += f.total;
+        existingBlock.available += f.available;
+        existingBlock.reserved += f.reserved;
+        existingBlock.booked += f.booked;
+        existingBlock.sold += f.sold;
+        existingBlock.availableValuePkr += availVal;
+        existingBlock.reservedValuePkr += resVal;
+        existingBlock.bookedValuePkr += bkVal;
+        existingBlock.soldValuePkr += soldVal;
+        existingBlock.totalValuePkr += totalVal;
+      } else {
+        blockMap.set(f.blockId, {
+          blockId: f.blockId,
+          blockName: f.blockName,
+          total: f.total,
+          available: f.available,
+          reserved: f.reserved,
+          booked: f.booked,
+          sold: f.sold,
+          availableValuePkr: availVal,
+          reservedValuePkr: resVal,
+          bookedValuePkr: bkVal,
+          soldValuePkr: soldVal,
+          totalValuePkr: totalVal,
+        });
+      }
+    }
+
+    const grossCollectedPaisa =
+      parseDecimal(sums?.payments_total ?? "0") + parseDecimal(sums?.sales_total ?? "0");
+    const totalReversalsPaisa =
+      parseDecimal(sums?.refunds_total ?? "0") +
+      parseDecimal(sums?.buybacks_total ?? "0");
+    const monthReversalsPaisa =
+      parseDecimal(sums?.refunds_month ?? "0") +
+      parseDecimal(sums?.buybacks_month ?? "0");
+    const netCollectedPaisa =
+      grossCollectedPaisa > totalReversalsPaisa
+        ? grossCollectedPaisa - totalReversalsPaisa
+        : 0n;
+
+    const soldPercent = totalUnits > 0 ? (soldUnits / totalUnits) * 100 : 0;
+    const stats: DashboardStats = {
+      total: totalUnits,
+      available: availableUnits,
+      reserved: reservedUnits,
+      booked: bookedUnits,
+      sold: soldUnits,
+      soldPercent,
+      availableValuePkr: availableValueTotal.toString(),
+      reservedValuePkr: reservedValueTotal.toString(),
+      bookedValuePkr: bookedValueTotal.toString(),
+      soldValuePkr: soldValueTotal.toString(),
+      monthReversalsPkr: formatDecimal(monthReversalsPaisa),
+      netCollectedPkr: formatDecimal(netCollectedPaisa),
+    };
+
+    const blocksData: BlockBreakdownRow[] = Array.from(blockMap.values()).map((b) => ({
+      blockId: b.blockId,
+      blockName: b.blockName,
+      total: b.total,
+      available: b.available,
+      reserved: b.reserved,
+      booked: b.booked,
+      sold: b.sold,
+      soldPercent: b.total > 0 ? (b.sold / b.total) * 100 : 0,
+      availableValuePkr: b.availableValuePkr.toString(),
+      reservedValuePkr: b.reservedValuePkr.toString(),
+      bookedValuePkr: b.bookedValuePkr.toString(),
+      soldValuePkr: b.soldValuePkr.toString(),
+      totalValuePkr: b.totalValuePkr.toString(),
+    }));
+
+    const attention: DashboardNeedsAttention = {
+      overdueCount: Number(sums?.overdue_count ?? 0),
+      overduePkr: sums?.overdue_pkr ?? "0",
+      dueThisWeekCount: Number(sums?.due_this_week_count ?? 0),
+      dueThisWeekPkr: sums?.due_this_week_pkr ?? "0",
+      expiringReservationsCount: Number(sums?.expiring_reservations_count ?? 0),
+    };
+
+    const durationMs = Math.round(performance.now() - t0);
+    logger.info({ durationMs, filter }, "server timing: dashboard bundle");
+
+    const bundle: DashboardBundle = {
+      stats,
+      attention,
+      floors: floorsData,
+      blocks: blocksData,
+      salesOverTime,
+    };
+
+    dashboardBundleCache.set(cacheKey, {
+      expiresAt: Date.now() + DASHBOARD_BUNDLE_CACHE_TTL_MS,
+      data: bundle,
+    });
+
+    return bundle;
+  });
 }
 
 export async function getRecentActivity(limit = 10): Promise<RecentActivityItem[]> {
@@ -734,21 +765,45 @@ export async function getRecentActivity(limit = 10): Promise<RecentActivityItem[
   });
 }
 
-export async function getDashboardFilterOptions(): Promise<DashboardFilterOptions> {
-  const [props, blks] = await Promise.all([
-    db
-      .select({ id: properties.id, name: properties.name })
-      .from(properties)
-      .where(isNull(properties.archivedAt))
-      .orderBy(asc(properties.name)),
-    db
-      .select({ id: blocks.id, propertyId: blocks.propertyId, name: blocks.name })
-      .from(blocks)
-      .where(isNull(blocks.archivedAt))
-      .orderBy(asc(blocks.name)),
-  ]);
+let cachedDashboardFilterOptions: {
+  expiresAt: number;
+  data: DashboardFilterOptions;
+} | null = null;
+const DASHBOARD_FILTER_OPTIONS_CACHE_TTL_MS = 5 * 60_000; // 5 minutes
 
-  return { properties: props, blocks: blks };
+export function invalidateDashboardFilterOptionsCache() {
+  cachedDashboardFilterOptions = null;
+}
+
+export async function getDashboardFilterOptions(): Promise<DashboardFilterOptions> {
+  if (
+    cachedDashboardFilterOptions &&
+    cachedDashboardFilterOptions.expiresAt > Date.now()
+  ) {
+    return cachedDashboardFilterOptions.data;
+  }
+
+  const [props, blks] = await withTransientDbRetry(() =>
+    Promise.all([
+      db
+        .select({ id: properties.id, name: properties.name })
+        .from(properties)
+        .where(isNull(properties.archivedAt))
+        .orderBy(asc(properties.name)),
+      db
+        .select({ id: blocks.id, propertyId: blocks.propertyId, name: blocks.name })
+        .from(blocks)
+        .where(isNull(blocks.archivedAt))
+        .orderBy(asc(blocks.name)),
+    ]),
+  );
+
+  const data: DashboardFilterOptions = { properties: props, blocks: blks };
+  cachedDashboardFilterOptions = {
+    expiresAt: Date.now() + DASHBOARD_FILTER_OPTIONS_CACHE_TTL_MS,
+    data,
+  };
+  return data;
 }
 
 export async function getExportInventoryData(filter?: {

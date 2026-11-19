@@ -14,6 +14,7 @@ import { logger } from "@/lib/logger";
 import { effectivePricingArea } from "@/lib/area";
 import { computeTotalPrice, moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
+import { invalidateDashboardBundleCache } from "@/features/dashboard/queries";
 import {
   getInventoryFilterOptions,
   getUnitById,
@@ -50,6 +51,7 @@ function staleUnit(): never {
 }
 
 function revalidateUnits(unitId?: string) {
+  invalidateDashboardBundleCache();
   revalidateTag("dashboard", "max");
   revalidateTag("report-summary", "max");
   revalidatePath("/inventory");

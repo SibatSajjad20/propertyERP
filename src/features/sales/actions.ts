@@ -21,6 +21,7 @@ import { upsertClientAndKin } from "./client-upsert";
 import { allocateDocumentNumbers } from "./document-numbers";
 import { requiredDocumentErrorMessage } from "@/features/documents/required";
 import { units } from "@/db/schema/units";
+import { invalidateDashboardBundleCache } from "@/features/dashboard/queries";
 import { formatCnic } from "./schema";
 
 export async function findClientByCnic(cnic: string) {
@@ -117,6 +118,7 @@ import {
 } from "./schema";
 
 function revalidateSalesPaths(unitId?: string, bookingId?: string) {
+  invalidateDashboardBundleCache();
   revalidateTag("dashboard", "max");
   revalidateTag("report-summary", "max");
   revalidatePath("/inventory");

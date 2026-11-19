@@ -4,6 +4,8 @@ import { listImportBatches } from "@/features/import/queries";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
+export const maxDuration = 30;
+
 export const metadata = {
   title: "Import",
 };

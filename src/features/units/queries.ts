@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withTransientDbRetry } from "@/db";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
 import { unitStatusHistory, units } from "@/db/schema/units";
@@ -165,70 +165,94 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
   nextCursor: string | null;
   pageSize: number;
 }> {
-  const q = query ?? {};
-  const t0 = performance.now();
-  const where = inventoryWhere(q);
-  const order = q.dir === "desc" ? desc(sortColumn(q.sort)) : asc(sortColumn(q.sort));
-  const pageSize = Math.min(
-    Math.max(q.pageSize ?? INVENTORY_PAGE_SIZE, 1),
-    INVENTORY_MAX_PAGE_SIZE,
-  );
-  const offset = q.unpaged ? 0 : Math.max(Number(q.cursor ?? 0) || 0, 0);
+  return withTransientDbRetry(async () => {
+    const q = query ?? {};
+    const t0 = performance.now();
+    const where = inventoryWhere(q);
+    const order = q.dir === "desc" ? desc(sortColumn(q.sort)) : asc(sortColumn(q.sort));
+    const pageSize = Math.min(
+      Math.max(q.pageSize ?? INVENTORY_PAGE_SIZE, 1),
+      INVENTORY_MAX_PAGE_SIZE,
+    );
+    const offset = q.unpaged ? 0 : Math.max(Number(q.cursor ?? 0) || 0, 0);
 
-  let rowsQuery = db
-    .select(inventorySelect)
-    .from(units)
-    .innerJoin(floors, eq(floors.id, units.floorId))
-    .innerJoin(categories, eq(categories.id, units.categoryId))
-    .where(where)
-    .orderBy(order, asc(units.unitCode));
-
-  if (!q.unpaged) {
-    rowsQuery = rowsQuery.limit(pageSize + 1).offset(offset) as typeof rowsQuery;
-  }
-
-  const [rawRows, [totalsRow]] = await Promise.all([
-    rowsQuery,
-    db
-      .select({
-        count: sql<number>`count(*)::int`,
-        availableCount: sql<number>`count(*) filter (where ${units.status} = 'AVAILABLE')::int`,
-        soldCount: sql<number>`count(*) filter (where ${units.status} = 'SOLD')::int`,
-        netAreaSqft: sql<string>`coalesce(sum(${units.netAreaSqft}), 0)::numeric(14, 2)`,
-        valuePkr: sql<string>`coalesce(sum(${bookPriceExpr()}), 0)::numeric(14, 2)`,
-      })
+    let rowsQuery = db
+      .select(inventorySelect)
       .from(units)
       .innerJoin(floors, eq(floors.id, units.floorId))
       .innerJoin(categories, eq(categories.id, units.categoryId))
-      .where(where),
-  ]);
+      .where(where)
+      .orderBy(order, asc(units.unitCode));
 
-  const durationMs = Math.round(performance.now() - t0);
-  const hasMore = !q.unpaged && rawRows.length > pageSize;
-  const pageRows = hasMore ? rawRows.slice(0, pageSize) : rawRows;
-  const totals = {
-    count: Number(totalsRow?.count ?? 0),
-    availableCount: Number(totalsRow?.availableCount ?? 0),
-    soldCount: Number(totalsRow?.soldCount ?? 0),
-    netAreaSqft: totalsRow?.netAreaSqft ?? "0.00",
-    valuePkr: totalsRow?.valuePkr ?? "0.00",
-  };
+    if (!q.unpaged) {
+      rowsQuery = rowsQuery.limit(pageSize + 1).offset(offset) as typeof rowsQuery;
+    }
 
-  logger.info(
-    { durationMs, count: pageRows.length, totalCount: totals.count, query },
-    "server timing: listInventory",
-  );
+    let rawRows: Awaited<typeof rowsQuery>;
+    let totalsRow:
+      | {
+          count: number;
+          availableCount: number;
+          soldCount: number;
+          netAreaSqft: string;
+          valuePkr: string;
+        }
+      | undefined;
 
-  return {
-    rows: pageRows.map((row) => ({
-      ...row,
-      soldAt: row.soldAt ? row.soldAt.toISOString() : null,
-    })),
-    totals,
-    totalCount: totals.count,
-    nextCursor: hasMore ? String(offset + pageSize) : null,
-    pageSize,
-  };
+    if (offset > 0) {
+      rawRows = await rowsQuery;
+    } else {
+      rawRows = await rowsQuery;
+      const totalsResult = await db
+        .select({
+          count: sql<number>`count(*)::int`,
+          availableCount: sql<number>`count(*) filter (where ${units.status} = 'AVAILABLE')::int`,
+          soldCount: sql<number>`count(*) filter (where ${units.status} = 'SOLD')::int`,
+          netAreaSqft: sql<string>`coalesce(sum(${units.netAreaSqft}), 0)::numeric(14, 2)`,
+          valuePkr: sql<string>`coalesce(sum(${bookPriceExpr()}), 0)::numeric(14, 2)`,
+        })
+        .from(units)
+        .innerJoin(floors, eq(floors.id, units.floorId))
+        .innerJoin(categories, eq(categories.id, units.categoryId))
+        .where(where);
+      totalsRow = totalsResult[0];
+    }
+
+    const durationMs = Math.round(performance.now() - t0);
+    const hasMore = !q.unpaged && rawRows.length > pageSize;
+    const pageRows = hasMore ? rawRows.slice(0, pageSize) : rawRows;
+    const totals = totalsRow
+      ? {
+          count: Number(totalsRow.count ?? 0),
+          availableCount: Number(totalsRow.availableCount ?? 0),
+          soldCount: Number(totalsRow.soldCount ?? 0),
+          netAreaSqft: totalsRow.netAreaSqft ?? "0.00",
+          valuePkr: totalsRow.valuePkr ?? "0.00",
+        }
+      : {
+          count: 0,
+          availableCount: 0,
+          soldCount: 0,
+          netAreaSqft: "0.00",
+          valuePkr: "0.00",
+        };
+
+    logger.info(
+      { durationMs, count: pageRows.length, totalCount: totals.count, query },
+      "server timing: listInventory",
+    );
+
+    return {
+      rows: pageRows.map((row) => ({
+        ...row,
+        soldAt: row.soldAt ? row.soldAt.toISOString() : null,
+      })),
+      totals,
+      totalCount: totals.count,
+      nextCursor: hasMore ? String(offset + pageSize) : null,
+      pageSize,
+    };
+  });
 }
 
 export async function listInventoryRows(): Promise<InventoryRow[]> {
@@ -242,41 +266,67 @@ export async function listInventoryRows(): Promise<InventoryRow[]> {
   return rows;
 }
 
-export async function getInventoryFilterOptions(): Promise<InventoryFilterOptions> {
-  const [floorRows, categoryRows] = await Promise.all([
-    db
-      .select({
-        id: floors.id,
-        name: floors.name,
-        level: floors.level,
-      })
-      .from(floors)
-      .innerJoin(blocks, eq(blocks.id, floors.blockId))
-      .innerJoin(properties, eq(properties.id, blocks.propertyId))
-      .where(
-        and(
-          isNull(floors.archivedAt),
-          isNull(blocks.archivedAt),
-          isNull(properties.archivedAt),
-        ),
-      )
-      .orderBy(asc(floors.level), asc(floors.name)),
-    db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        isSellableDefault: categories.isSellableDefault,
-      })
-      .from(categories)
-      .innerJoin(properties, eq(properties.id, categories.propertyId))
-      .where(isNull(properties.archivedAt))
-      .orderBy(asc(categories.name)),
-  ]);
+let cachedInventoryFilterOptions: {
+  expiresAt: number;
+  data: InventoryFilterOptions;
+} | null = null;
+const FILTER_OPTIONS_CACHE_TTL_MS = 5 * 60_000; // 5 minutes
 
-  return {
+export function invalidateInventoryFilterOptionsCache() {
+  cachedInventoryFilterOptions = null;
+}
+
+export async function getInventoryFilterOptions(): Promise<InventoryFilterOptions> {
+  if (
+    cachedInventoryFilterOptions &&
+    cachedInventoryFilterOptions.expiresAt > Date.now()
+  ) {
+    return cachedInventoryFilterOptions.data;
+  }
+
+  const [floorRows, categoryRows] = await withTransientDbRetry(() =>
+    Promise.all([
+      db
+        .select({
+          id: floors.id,
+          name: floors.name,
+          level: floors.level,
+        })
+        .from(floors)
+        .innerJoin(blocks, eq(blocks.id, floors.blockId))
+        .innerJoin(properties, eq(properties.id, blocks.propertyId))
+        .where(
+          and(
+            isNull(floors.archivedAt),
+            isNull(blocks.archivedAt),
+            isNull(properties.archivedAt),
+          ),
+        )
+        .orderBy(asc(floors.level), asc(floors.name)),
+      db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          isSellableDefault: categories.isSellableDefault,
+        })
+        .from(categories)
+        .innerJoin(properties, eq(properties.id, categories.propertyId))
+        .where(isNull(properties.archivedAt))
+        .orderBy(asc(categories.name)),
+    ]),
+  );
+
+  const data: InventoryFilterOptions = {
     floors: floorRows.map((row) => ({ id: row.id, name: row.name, level: row.level })),
     categories: categoryRows,
   };
+
+  cachedInventoryFilterOptions = {
+    expiresAt: Date.now() + FILTER_OPTIONS_CACHE_TTL_MS,
+    data,
+  };
+
+  return data;
 }
 
 export async function getCachedInventoryFilterOptions(): Promise<InventoryFilterOptions> {

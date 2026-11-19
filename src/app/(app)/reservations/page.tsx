@@ -3,6 +3,8 @@ import { ReservationsScreen } from "@/features/sales/components/reservations-scr
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
+export const maxDuration = 30;
+
 export const metadata = {
   title: "Reservations",
 };

@@ -3,6 +3,8 @@ import { SoldScreen } from "@/features/sales/components/sold-screen";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 
+export const maxDuration = 30;
+
 export const metadata = {
   title: "Sold Units",
 };

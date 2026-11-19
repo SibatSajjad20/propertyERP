@@ -119,13 +119,6 @@ export function InventoryScreen({
   const rows = inventoryQuery.data ? inventoryQuery.rows : initialRows;
   const totals = inventoryQuery.totals ?? initialTotals;
   const options = optionsData ?? initialOptions;
-  const { hasNextPage, fetchNextPage, data: inventoryPages } = inventoryQuery;
-
-  useEffect(() => {
-    if (hasNextPage && inventoryPages?.pages.length === 1) {
-      void fetchNextPage();
-    }
-  }, [hasNextPage, inventoryPages?.pages.length, fetchNextPage]);
 
   // Sync URL search params client-side without full RSC reloads
   function updateQuery(overrides: Partial<InventoryQuery>) {

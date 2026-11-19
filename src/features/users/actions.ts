@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { account, session as sessionTable, user } from "@/db/schema/auth";
-import { requireSession } from "@/lib/auth";
+import { clearUserFlagsCache, requireSession } from "@/lib/auth";
 import { ValidationError } from "@/lib/errors";
 import { assertCan } from "@/lib/permissions";
 import {
@@ -138,6 +138,7 @@ export async function updateUserRole(input: unknown) {
     ...publicUser(updated),
     change: "role",
   });
+  clearUserFlagsCache(parsed.id);
   revalidatePath("/settings/users");
   revalidatePath("/audit");
   return publicUser(updated);
@@ -175,6 +176,7 @@ export async function setUserDisabled(input: unknown) {
     ...publicUser(updated),
     change: parsed.disabled ? "disabled" : "enabled",
   });
+  clearUserFlagsCache(parsed.id);
   revalidatePath("/settings/users");
   revalidatePath("/audit");
   return publicUser(updated);
@@ -220,6 +222,7 @@ export async function resetUserPassword(input: unknown) {
       change: "password_reset",
     });
   }
+  clearUserFlagsCache(parsed.id);
   revalidatePath("/settings/users");
   revalidatePath("/audit");
   return updated ? publicUser(updated) : publicUser(current);

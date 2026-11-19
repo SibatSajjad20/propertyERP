@@ -188,6 +188,27 @@ type RequireSessionOptions = {
   redirect?: boolean;
 };
 
+interface UserFlagsCacheEntry {
+  expiresAt: number;
+  data: {
+    mustChangePassword: boolean;
+    disabled: boolean;
+    role: UserRole;
+    name: string;
+  };
+}
+
+const userFlagsCache = new Map<string, UserFlagsCacheEntry>();
+const USER_FLAGS_CACHE_TTL_MS = 60_000; // 60 seconds
+
+export function clearUserFlagsCache(userId?: string) {
+  if (userId) {
+    userFlagsCache.delete(userId);
+  } else {
+    userFlagsCache.clear();
+  }
+}
+
 export const getSession = cache(async () => {
   const resolvedHeaders = await headers();
   const session = await withTransientDbRetry(() =>
@@ -199,22 +220,35 @@ export const getSession = cache(async () => {
     return null;
   }
 
-  // Cookie cache can keep `mustChangePassword` / `disabled` stale for up to 5
-  // minutes. Privileged flags always come from the live user row.
-  const [row] = await withTransientDbRetry(() =>
-    db
-      .select({
-        mustChangePassword: user.mustChangePassword,
-        disabled: user.disabled,
-        role: user.role,
-        name: user.name,
-      })
-      .from(user)
-      .where(eq(user.id, session.user.id))
-      .limit(1),
-  );
+  // Live user row flags cached in-memory for 60 seconds to avoid a redundant
+  // round trip to remote Supabase on every navigation, while ensuring timely revocation.
+  const cachedUserFlags = userFlagsCache.get(session.user.id);
+  let row =
+    cachedUserFlags && cachedUserFlags.expiresAt > Date.now()
+      ? cachedUserFlags.data
+      : null;
+
   if (!row) {
-    return null;
+    const [fetchedRow] = await withTransientDbRetry(() =>
+      db
+        .select({
+          mustChangePassword: user.mustChangePassword,
+          disabled: user.disabled,
+          role: user.role,
+          name: user.name,
+        })
+        .from(user)
+        .where(eq(user.id, session.user.id))
+        .limit(1),
+    );
+    if (!fetchedRow) {
+      return null;
+    }
+    row = fetchedRow;
+    userFlagsCache.set(session.user.id, {
+      expiresAt: Date.now() + USER_FLAGS_CACHE_TTL_MS,
+      data: fetchedRow,
+    });
   }
 
   return {

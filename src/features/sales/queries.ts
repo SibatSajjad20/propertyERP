@@ -3,7 +3,7 @@ import "server-only";
 
 import { cache } from "react";
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withTransientDbRetry } from "@/db";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
 import {
@@ -108,103 +108,105 @@ export async function getSelectableUnits(params: {
 }
 
 export async function listBookings(filters?: { status?: string; q?: string }) {
-  const conditions = [];
+  return withTransientDbRetry(async () => {
+    const conditions = [];
 
-  if (filters?.status && filters.status !== "ALL") {
-    conditions.push(eq(bookings.status, filters.status as any));
-  }
+    if (filters?.status && filters.status !== "ALL") {
+      conditions.push(eq(bookings.status, filters.status as any));
+    }
 
-  if (filters?.q && filters.q.trim()) {
-    const term = `%${filters.q.trim()}%`;
-    conditions.push(
-      or(
-        ilike(bookings.bookingNo, term),
-        ilike(bookings.applicationFormNo, term),
-        ilike(bookings.registrationNo, term),
-        sql`${bookings.serialNo}::text ilike ${term}`,
-        ilike(units.unitCode, term),
-        ilike(clients.fullName, term),
-        ilike(clients.cnic, term),
-        ilike(clients.phone, term),
-      ),
-    );
-  }
-
-  const now = new Date();
-  const [rows, [kpiRow], [overdueRow]] = await Promise.all([
-    db
-      .select({
-        id: bookings.id,
-        bookingNo: bookings.bookingNo,
-        serialNo: bookings.serialNo,
-        applicationFormNo: bookings.applicationFormNo,
-        registrationNo: bookings.registrationNo,
-        status: bookings.status,
-        listPrice: bookings.listPrice,
-        netPrice: bookings.netPrice,
-        downPayment: bookings.downPayment,
-        paidTotal: bookings.paidTotal,
-        plan: bookings.plan,
-        installmentCount: bookings.installmentCount,
-        startDate: bookings.startDate,
-        createdAt: bookings.createdAt,
-        unitId: units.id,
-        unitCode: units.unitCode,
-        unitVersion: units.version,
-        floorName: floors.name,
-        blockName: blocks.name,
-        clientId: clients.id,
-        clientName: clients.fullName,
-        clientPhone: clients.phone,
-        clientCnic: clients.cnic,
-      })
-      .from(bookings)
-      .innerJoin(units, eq(bookings.unitId, units.id))
-      .innerJoin(floors, eq(units.floorId, floors.id))
-      .innerJoin(blocks, eq(floors.blockId, blocks.id))
-      .innerJoin(clients, eq(bookings.clientId, clients.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(bookings.createdAt)),
-    db
-      .select({
-        activeBookings: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE')::int`,
-        collectedPkr: sql<string>`coalesce(sum(${bookings.paidTotal}) filter (where ${bookings.status} in ('ACTIVE', 'COMPLETED')), 0)::text`,
-        outstandingPkr: sql<string>`coalesce(sum(greatest(${bookings.netPrice} - ${bookings.paidTotal}, 0)) filter (where ${bookings.status} = 'ACTIVE'), 0)::text`,
-      })
-      .from(bookings),
-    db
-      .select({
-        overduePkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}), 0)::text`,
-      })
-      .from(installments)
-      .innerJoin(bookings, eq(installments.bookingId, bookings.id))
-      .where(
-        and(
-          eq(bookings.status, "ACTIVE"),
-          lte(installments.dueDate, now),
-          sql`${installments.paidAmount} < ${installments.amount}`,
+    if (filters?.q && filters.q.trim()) {
+      const term = `%${filters.q.trim()}%`;
+      conditions.push(
+        or(
+          ilike(bookings.bookingNo, term),
+          ilike(bookings.applicationFormNo, term),
+          ilike(bookings.registrationNo, term),
+          sql`${bookings.serialNo}::text ilike ${term}`,
+          ilike(units.unitCode, term),
+          ilike(clients.fullName, term),
+          ilike(clients.cnic, term),
+          ilike(clients.phone, term),
         ),
-      ),
-  ]);
+      );
+    }
 
-  return {
-    rows: rows.map((r) => {
-      const net = parseDecimal(r.netPrice);
-      const paid = parseDecimal(r.paidTotal);
-      const paidPercent =
-        net > 0n ? Math.min(100, Math.round(Number((paid * 10_000n) / net) / 100)) : 0;
-      return {
-        ...r,
-        paidPercent,
-      };
-    }),
-    kpi: {
-      activeBookings: Number(kpiRow?.activeBookings ?? 0),
-      collectedPkr: formatDecimal(parseDecimal(kpiRow?.collectedPkr ?? "0")),
-      outstandingPkr: formatDecimal(parseDecimal(kpiRow?.outstandingPkr ?? "0")),
-      overduePkr: formatDecimal(parseDecimal(overdueRow?.overduePkr ?? "0")),
-    },
-  };
+    const now = new Date();
+    const [rows, [kpiRow], [overdueRow]] = await Promise.all([
+      db
+        .select({
+          id: bookings.id,
+          bookingNo: bookings.bookingNo,
+          serialNo: bookings.serialNo,
+          applicationFormNo: bookings.applicationFormNo,
+          registrationNo: bookings.registrationNo,
+          status: bookings.status,
+          listPrice: bookings.listPrice,
+          netPrice: bookings.netPrice,
+          downPayment: bookings.downPayment,
+          paidTotal: bookings.paidTotal,
+          plan: bookings.plan,
+          installmentCount: bookings.installmentCount,
+          startDate: bookings.startDate,
+          createdAt: bookings.createdAt,
+          unitId: units.id,
+          unitCode: units.unitCode,
+          unitVersion: units.version,
+          floorName: floors.name,
+          blockName: blocks.name,
+          clientId: clients.id,
+          clientName: clients.fullName,
+          clientPhone: clients.phone,
+          clientCnic: clients.cnic,
+        })
+        .from(bookings)
+        .innerJoin(units, eq(bookings.unitId, units.id))
+        .innerJoin(floors, eq(units.floorId, floors.id))
+        .innerJoin(blocks, eq(floors.blockId, blocks.id))
+        .innerJoin(clients, eq(bookings.clientId, clients.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(bookings.createdAt)),
+      db
+        .select({
+          activeBookings: sql<number>`count(*) filter (where ${bookings.status} = 'ACTIVE')::int`,
+          collectedPkr: sql<string>`coalesce(sum(${bookings.paidTotal}) filter (where ${bookings.status} in ('ACTIVE', 'COMPLETED')), 0)::text`,
+          outstandingPkr: sql<string>`coalesce(sum(greatest(${bookings.netPrice} - ${bookings.paidTotal}, 0)) filter (where ${bookings.status} = 'ACTIVE'), 0)::text`,
+        })
+        .from(bookings),
+      db
+        .select({
+          overduePkr: sql<string>`coalesce(sum(${installments.amount} - ${installments.paidAmount}), 0)::text`,
+        })
+        .from(installments)
+        .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+        .where(
+          and(
+            eq(bookings.status, "ACTIVE"),
+            lte(installments.dueDate, now),
+            sql`${installments.paidAmount} < ${installments.amount}`,
+          ),
+        ),
+    ]);
+
+    return {
+      rows: rows.map((r) => {
+        const net = parseDecimal(r.netPrice);
+        const paid = parseDecimal(r.paidTotal);
+        const paidPercent =
+          net > 0n ? Math.min(100, Math.round(Number((paid * 10_000n) / net) / 100)) : 0;
+        return {
+          ...r,
+          paidPercent,
+        };
+      }),
+      kpi: {
+        activeBookings: Number(kpiRow?.activeBookings ?? 0),
+        collectedPkr: formatDecimal(parseDecimal(kpiRow?.collectedPkr ?? "0")),
+        outstandingPkr: formatDecimal(parseDecimal(kpiRow?.outstandingPkr ?? "0")),
+        overduePkr: formatDecimal(parseDecimal(overdueRow?.overduePkr ?? "0")),
+      },
+    };
+  });
 }
 
 export const getBookingDetail = cache(async function getBookingDetail(id: string) {
@@ -395,81 +397,83 @@ export const getSoldTitle = cache(async function getSoldTitle(id: string) {
 });
 
 export async function listReservations(filters?: { status?: string; q?: string }) {
-  const conditions = [];
+  return withTransientDbRetry(async () => {
+    const conditions = [];
 
-  if (filters?.status && filters.status !== "ALL") {
-    conditions.push(eq(reservations.status, filters.status as any));
-  }
+    if (filters?.status && filters.status !== "ALL") {
+      conditions.push(eq(reservations.status, filters.status as any));
+    }
 
-  if (filters?.q && filters.q.trim()) {
-    const term = `%${filters.q.trim()}%`;
-    conditions.push(
-      or(
-        ilike(units.unitCode, term),
-        ilike(clients.fullName, term),
-        ilike(clients.cnic, term),
-        ilike(clients.phone, term),
-      ),
-    );
-  }
+    if (filters?.q && filters.q.trim()) {
+      const term = `%${filters.q.trim()}%`;
+      conditions.push(
+        or(
+          ilike(units.unitCode, term),
+          ilike(clients.fullName, term),
+          ilike(clients.cnic, term),
+          ilike(clients.phone, term),
+        ),
+      );
+    }
 
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const in24hIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const in24hIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-  const [rows, [kpiRow]] = await Promise.all([
-    db
-      .select({
-        id: reservations.id,
-        status: reservations.status,
-        startAt: reservations.startAt,
-        expiresAt: reservations.expiresAt,
-        durationDays: reservations.durationDays,
-        tokenAmount: reservations.tokenAmount,
-        tokenReceiptNo: reservations.tokenReceiptNo,
-        tokenAdjustedToBookingId: reservations.tokenAdjustedToBookingId,
-        notes: reservations.notes,
-        createdAt: reservations.createdAt,
-        unitId: units.id,
-        unitCode: units.unitCode,
-        categoryName: categories.name,
-        unitVersion: units.version,
-        floorName: floors.name,
-        blockName: blocks.name,
-        clientId: clients.id,
-        clientName: clients.fullName,
-        clientPhone: clients.phone,
-        clientCnic: clients.cnic,
-        createdByName: user.name,
-      })
-      .from(reservations)
-      .innerJoin(units, eq(reservations.unitId, units.id))
-      .innerJoin(floors, eq(units.floorId, floors.id))
-      .innerJoin(blocks, eq(floors.blockId, blocks.id))
-      .innerJoin(categories, eq(units.categoryId, categories.id))
-      .innerJoin(clients, eq(reservations.clientId, clients.id))
-      .leftJoin(user, eq(reservations.createdBy, user.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(reservations.createdAt)),
-    db
-      .select({
-        activeCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE')::int`,
-        expiringSoonCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > ${nowIso}::timestamptz and ${reservations.expiresAt} < ${in24hIso}::timestamptz)::int`,
-        convertedCount: sql<number>`count(*) filter (where ${reservations.status} = 'CONVERTED')::int`,
-        cancelledCount: sql<number>`count(*) filter (where ${reservations.status} = 'CANCELLED')::int`,
-      })
-      .from(reservations),
-  ]);
+    const [rows, [kpiRow]] = await Promise.all([
+      db
+        .select({
+          id: reservations.id,
+          status: reservations.status,
+          startAt: reservations.startAt,
+          expiresAt: reservations.expiresAt,
+          durationDays: reservations.durationDays,
+          tokenAmount: reservations.tokenAmount,
+          tokenReceiptNo: reservations.tokenReceiptNo,
+          tokenAdjustedToBookingId: reservations.tokenAdjustedToBookingId,
+          notes: reservations.notes,
+          createdAt: reservations.createdAt,
+          unitId: units.id,
+          unitCode: units.unitCode,
+          categoryName: categories.name,
+          unitVersion: units.version,
+          floorName: floors.name,
+          blockName: blocks.name,
+          clientId: clients.id,
+          clientName: clients.fullName,
+          clientPhone: clients.phone,
+          clientCnic: clients.cnic,
+          createdByName: user.name,
+        })
+        .from(reservations)
+        .innerJoin(units, eq(reservations.unitId, units.id))
+        .innerJoin(floors, eq(units.floorId, floors.id))
+        .innerJoin(blocks, eq(floors.blockId, blocks.id))
+        .innerJoin(categories, eq(units.categoryId, categories.id))
+        .innerJoin(clients, eq(reservations.clientId, clients.id))
+        .leftJoin(user, eq(reservations.createdBy, user.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(reservations.createdAt)),
+      db
+        .select({
+          activeCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE')::int`,
+          expiringSoonCount: sql<number>`count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > ${nowIso}::timestamptz and ${reservations.expiresAt} < ${in24hIso}::timestamptz)::int`,
+          convertedCount: sql<number>`count(*) filter (where ${reservations.status} = 'CONVERTED')::int`,
+          cancelledCount: sql<number>`count(*) filter (where ${reservations.status} = 'CANCELLED')::int`,
+        })
+        .from(reservations),
+    ]);
 
-  return {
-    rows,
-    kpi: {
-      activeCount: Number(kpiRow?.activeCount ?? 0),
-      expiringSoonCount: Number(kpiRow?.expiringSoonCount ?? 0),
-      convertedCount: Number(kpiRow?.convertedCount ?? 0),
-      cancelledCount: Number(kpiRow?.cancelledCount ?? 0),
-    },
-  };
+    return {
+      rows,
+      kpi: {
+        activeCount: Number(kpiRow?.activeCount ?? 0),
+        expiringSoonCount: Number(kpiRow?.expiringSoonCount ?? 0),
+        convertedCount: Number(kpiRow?.convertedCount ?? 0),
+        cancelledCount: Number(kpiRow?.cancelledCount ?? 0),
+      },
+    };
+  });
 }
 
 export const getReservationDetail = cache(async function getReservationDetail(
@@ -546,124 +550,126 @@ export const getReservationDetail = cache(async function getReservationDetail(
 });
 
 export async function listSoldUnits(filters?: { q?: string }) {
-  // Query sales records (both direct sales and completed bookings with sales records)
-  const directSalesQuery = db
-    .select({
-      id: sales.id,
-      saleType:
-        sql<string>`case when ${sales.bookingId} is not null then 'COMPLETED_BOOKING' else 'DIRECT_SALE' end`.as(
-          "sale_type",
+  return withTransientDbRetry(async () => {
+    // Query sales records (both direct sales and completed bookings with sales records)
+    const directSalesQuery = db
+      .select({
+        id: sales.id,
+        saleType:
+          sql<string>`case when ${sales.bookingId} is not null then 'COMPLETED_BOOKING' else 'DIRECT_SALE' end`.as(
+            "sale_type",
+          ),
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        floorName: floors.name,
+        blockName: blocks.name,
+        categoryName: categories.name,
+        clientId: clients.id,
+        clientName: clients.fullName,
+        clientPhone: clients.phone,
+        clientCnic: clients.cnic,
+        pricePkr: sales.salePrice,
+        soldAt: sales.soldAt,
+        status: sales.status,
+        bookingNo: bookings.bookingNo,
+        bookingId: sales.bookingId,
+        serialNo: sales.serialNo,
+        applicationFormNo: sales.applicationFormNo,
+        registrationNo: sales.registrationNo,
+      })
+      .from(sales)
+      .innerJoin(units, eq(sales.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(sales.clientId, clients.id))
+      .leftJoin(bookings, eq(sales.bookingId, bookings.id));
+
+    // Query completed bookings that do NOT already have a sales record
+    const completedBookingsQuery = db
+      .select({
+        id: bookings.id,
+        saleType: sql<string>`'COMPLETED_BOOKING'`.as("sale_type"),
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        floorName: floors.name,
+        blockName: blocks.name,
+        categoryName: categories.name,
+        clientId: clients.id,
+        clientName: clients.fullName,
+        clientPhone: clients.phone,
+        clientCnic: clients.cnic,
+        pricePkr: bookings.netPrice,
+        soldAt: bookings.updatedAt,
+        status: sql<string>`'ACTIVE'`.as("status"),
+        bookingNo: bookings.bookingNo,
+        bookingId: bookings.id,
+        serialNo: bookings.serialNo,
+        applicationFormNo: bookings.applicationFormNo,
+        registrationNo: bookings.registrationNo,
+      })
+      .from(bookings)
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(bookings.clientId, clients.id))
+      .where(
+        and(
+          eq(bookings.status, "COMPLETED"),
+          sql`not exists (select 1 from "sales" where "sales"."booking_id" = "bookings"."id")`,
         ),
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      floorName: floors.name,
-      blockName: blocks.name,
-      categoryName: categories.name,
-      clientId: clients.id,
-      clientName: clients.fullName,
-      clientPhone: clients.phone,
-      clientCnic: clients.cnic,
-      pricePkr: sales.salePrice,
-      soldAt: sales.soldAt,
-      status: sales.status,
-      bookingNo: bookings.bookingNo,
-      bookingId: sales.bookingId,
-      serialNo: sales.serialNo,
-      applicationFormNo: sales.applicationFormNo,
-      registrationNo: sales.registrationNo,
-    })
-    .from(sales)
-    .innerJoin(units, eq(sales.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .innerJoin(clients, eq(sales.clientId, clients.id))
-    .leftJoin(bookings, eq(sales.bookingId, bookings.id));
+      );
 
-  // Query completed bookings that do NOT already have a sales record
-  const completedBookingsQuery = db
-    .select({
-      id: bookings.id,
-      saleType: sql<string>`'COMPLETED_BOOKING'`.as("sale_type"),
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      floorName: floors.name,
-      blockName: blocks.name,
-      categoryName: categories.name,
-      clientId: clients.id,
-      clientName: clients.fullName,
-      clientPhone: clients.phone,
-      clientCnic: clients.cnic,
-      pricePkr: bookings.netPrice,
-      soldAt: bookings.updatedAt,
-      status: sql<string>`'ACTIVE'`.as("status"),
-      bookingNo: bookings.bookingNo,
-      bookingId: bookings.id,
-      serialNo: bookings.serialNo,
-      applicationFormNo: bookings.applicationFormNo,
-      registrationNo: bookings.registrationNo,
-    })
-    .from(bookings)
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .innerJoin(clients, eq(bookings.clientId, clients.id))
-    .where(
-      and(
-        eq(bookings.status, "COMPLETED"),
-        sql`not exists (select 1 from "sales" where "sales"."booking_id" = "bookings"."id")`,
-      ),
+    const [directRows, completedRows] = await Promise.all([
+      directSalesQuery,
+      completedBookingsQuery,
+    ]);
+
+    let allSold = [...directRows, ...completedRows].sort(
+      (a, b) => b.soldAt.getTime() - a.soldAt.getTime(),
     );
 
-  const [directRows, completedRows] = await Promise.all([
-    directSalesQuery,
-    completedBookingsQuery,
-  ]);
-
-  let allSold = [...directRows, ...completedRows].sort(
-    (a, b) => b.soldAt.getTime() - a.soldAt.getTime(),
-  );
-
-  if (filters?.q && filters.q.trim()) {
-    const term = filters.q.trim().toLowerCase();
-    allSold = allSold.filter(
-      (r) =>
-        r.unitCode.toLowerCase().includes(term) ||
-        r.clientName.toLowerCase().includes(term) ||
-        r.clientCnic.toLowerCase().includes(term) ||
-        r.clientPhone.toLowerCase().includes(term) ||
-        (r.bookingNo && r.bookingNo.toLowerCase().includes(term)) ||
-        String(r.serialNo).includes(term) ||
-        r.applicationFormNo.toLowerCase().includes(term) ||
-        r.registrationNo.toLowerCase().includes(term),
-    );
-  }
-
-  let totalVolumePaisa = 0n;
-  let activeSoldCount = 0;
-  for (const s of allSold) {
-    if (s.status === "ACTIVE") {
-      activeSoldCount++;
-      totalVolumePaisa += parseDecimal(s.pricePkr);
+    if (filters?.q && filters.q.trim()) {
+      const term = filters.q.trim().toLowerCase();
+      allSold = allSold.filter(
+        (r) =>
+          r.unitCode.toLowerCase().includes(term) ||
+          r.clientName.toLowerCase().includes(term) ||
+          r.clientCnic.toLowerCase().includes(term) ||
+          r.clientPhone.toLowerCase().includes(term) ||
+          (r.bookingNo && r.bookingNo.toLowerCase().includes(term)) ||
+          String(r.serialNo).includes(term) ||
+          r.applicationFormNo.toLowerCase().includes(term) ||
+          r.registrationNo.toLowerCase().includes(term),
+      );
     }
-  }
 
-  const avgPricePkr =
-    activeSoldCount > 0
-      ? formatDecimal(totalVolumePaisa / BigInt(activeSoldCount))
-      : "0.00";
+    let totalVolumePaisa = 0n;
+    let activeSoldCount = 0;
+    for (const s of allSold) {
+      if (s.status === "ACTIVE") {
+        activeSoldCount++;
+        totalVolumePaisa += parseDecimal(s.pricePkr);
+      }
+    }
 
-  return {
-    rows: allSold,
-    kpi: {
-      totalSold: activeSoldCount,
-      totalVolumePkr: formatDecimal(totalVolumePaisa),
-      avgPricePkr,
-    },
-  };
+    const avgPricePkr =
+      activeSoldCount > 0
+        ? formatDecimal(totalVolumePaisa / BigInt(activeSoldCount))
+        : "0.00";
+
+    return {
+      rows: allSold,
+      kpi: {
+        totalSold: activeSoldCount,
+        totalVolumePkr: formatDecimal(totalVolumePaisa),
+        avgPricePkr,
+      },
+    };
+  });
 }
 
 export const getSoldDetail = cache(async function getSoldDetail(id: string) {

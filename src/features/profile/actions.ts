@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { auth, requireSession } from "@/lib/auth";
+import { auth, clearUserFlagsCache, requireSession } from "@/lib/auth";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { user } from "@/db/schema/auth";
@@ -56,6 +56,7 @@ export async function updateOwnName(input: unknown) {
     }),
   });
 
+  clearUserFlagsCache(session.user.id);
   revalidatePath("/settings/profile");
   revalidatePath("/settings/users");
   revalidatePath("/audit");
@@ -115,6 +116,7 @@ export async function changeOwnPassword(input: unknown) {
     }),
   });
 
+  clearUserFlagsCache(session.user.id);
   revalidatePath("/settings/profile");
   revalidatePath("/");
   revalidatePath("/audit");
