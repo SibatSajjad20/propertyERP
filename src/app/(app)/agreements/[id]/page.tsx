@@ -5,6 +5,8 @@ import { assertCan } from "@/lib/permissions";
 import { getAgreementDetail } from "@/features/agreements/queries";
 import { AgreementDetailScreen } from "@/features/agreements/components/agreement-detail-screen";
 
+export const maxDuration = 30;
+
 export const metadata: Metadata = {
   title: "Agreement Detail",
 };

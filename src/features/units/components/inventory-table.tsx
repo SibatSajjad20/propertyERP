@@ -77,7 +77,7 @@ export function InventoryTable({
         cell: (info) => {
           const row = info.row.original;
           return (
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <span className="unit-code font-mono font-medium text-ink">
                 {info.getValue()}
               </span>
@@ -92,12 +92,15 @@ export function InventoryTable({
       }),
       helper.accessor("unitNumber", {
         header: "Unit no.",
-        cell: (info) =>
-          formatUnitNumberLabel(
-            info.row.original.unitCode,
-            info.getValue(),
-            info.row.original.categoryName,
-          ),
+        cell: (info) => (
+          <span className="whitespace-nowrap">
+            {formatUnitNumberLabel(
+              info.row.original.unitCode,
+              info.getValue(),
+              info.row.original.categoryName,
+            )}
+          </span>
+        ),
       }),
       helper.accessor("floorName", {
         header: "Floor",
@@ -237,16 +240,49 @@ export function InventoryTable({
   }, [lastVirtualIndex, data.length, onNearEnd]);
 
   function columnClass(id: string) {
-    if (id === "grossAreaSqft" || id === "ownershipGroup" || id === "soldAt") {
-      return "hidden xl:table-cell";
-    }
-    if (id === "ratePerSqftPkr" || id === "unitNumber" || id === "categoryName") {
-      return "hidden md:table-cell";
-    }
-    if (id === "netAreaSqft") {
-      return "hidden sm:table-cell";
-    }
-    return undefined;
+    const visibility = (() => {
+      if (id === "grossAreaSqft" || id === "ownershipGroup" || id === "soldAt") {
+        return "hidden xl:table-cell";
+      }
+      if (id === "ratePerSqftPkr" || id === "unitNumber" || id === "categoryName") {
+        return "hidden md:table-cell";
+      }
+      if (id === "netAreaSqft") {
+        return "hidden sm:table-cell";
+      }
+      return undefined;
+    })();
+
+    const sizing = (() => {
+      switch (id) {
+        case "unitCode":
+          return "w-28 min-w-[7rem] whitespace-nowrap";
+        case "unitNumber":
+          return "whitespace-nowrap min-w-[200px]";
+        case "floorName":
+          return "w-16 whitespace-nowrap";
+        case "categoryName":
+          return "w-24 whitespace-nowrap";
+        case "netAreaSqft":
+        case "grossAreaSqft":
+          return "w-24 whitespace-nowrap";
+        case "ratePerSqftPkr":
+          return "w-28 whitespace-nowrap";
+        case "bookPricePkr":
+          return "w-32 whitespace-nowrap";
+        case "status":
+          return "w-28 whitespace-nowrap";
+        case "ownershipGroup":
+        case "soldAt":
+          return "whitespace-nowrap";
+        case "actions":
+          return "w-10 px-1";
+        default:
+          return undefined;
+      }
+    })();
+
+    return cn(visibility, sizing);
   }
 
   return (

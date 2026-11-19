@@ -4,6 +4,8 @@ import { assertCan } from "@/lib/permissions";
 import { listAgreementCandidates, listAgreements } from "@/features/agreements/queries";
 import { AgreementsScreen } from "@/features/agreements/components/agreements-screen";
 
+export const maxDuration = 30;
+
 export const metadata: Metadata = {
   title: "Agreements",
 };
@@ -20,10 +22,8 @@ export default async function AgreementsPage({
   const bookingId = typeof params.bookingId === "string" ? params.bookingId : undefined;
   const saleId = typeof params.saleId === "string" ? params.saleId : undefined;
 
-  const [agreements, candidates] = await Promise.all([
-    listAgreements(),
-    listAgreementCandidates(),
-  ]);
+  const agreements = await listAgreements();
+  const candidates = await listAgreementCandidates();
 
   return (
     <AgreementsScreen
