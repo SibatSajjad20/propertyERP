@@ -312,7 +312,7 @@ function ReportFilterBar({
             <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
-          <span className="font-mono text-xs text-[#64748B]">
+          <span className="font-sans tabular-nums text-xs text-[#64748B]">
             Report Generated: {new Date().toLocaleDateString("en-US")}
           </span>
         </div>

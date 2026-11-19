@@ -80,14 +80,14 @@ export function DueThisWeekCard({ summary, onSelectBooking }: DueThisWeekCardPro
                 >
                   <td className="px-3 py-2 font-medium text-ink">
                     <div>{row.clientName}</div>
-                    <div className="font-mono text-[10px] text-ink-muted">
+                    <div className="font-sans text-[10px] text-ink-muted tabular-nums">
                       {row.clientCnic}
                     </div>
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-ink">
+                  <td className="unit-code px-3 py-2 text-[11px] text-ink">
                     {row.unitCode}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-primary">
+                  <td className="px-3 py-2 font-sans text-[11px] text-primary tabular-nums">
                     {row.bookingNo}
                   </td>
                   <td className="px-2 py-2 text-center font-sans text-ink-muted tabular-nums">

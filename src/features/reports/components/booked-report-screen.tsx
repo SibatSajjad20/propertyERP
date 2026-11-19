@@ -98,14 +98,14 @@ export function BookedReportScreen({ data, filterOptions }: BookedReportScreenPr
                     onClick={() => router.push(`/bookings/${row.bookingId}`)}
                     className="cursor-pointer transition-colors hover:bg-subtle/40"
                   >
-                    <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-primary">
+                    <td className="px-4 py-2.5 font-sans text-[11px] font-medium text-primary tabular-nums">
                       {row.bookingNo}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-ink">
+                    <td className="unit-code px-3 py-2.5 text-[11px] text-ink">
                       {row.unitCode}
                     </td>
                     <td className="px-4 py-2.5 font-medium text-ink">{row.clientName}</td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-ink-muted">
+                    <td className="px-3 py-2.5 font-sans text-[11px] text-ink-muted tabular-nums">
                       {row.clientCnic}
                     </td>
                     <td className="px-3 py-2.5 font-sans text-ink-muted tabular-nums">

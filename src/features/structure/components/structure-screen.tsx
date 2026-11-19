@@ -406,7 +406,7 @@ export function StructureScreen({
                         key={f.id}
                         className="group h-9 transition-colors hover:bg-subtle/50"
                       >
-                        <td className="px-3 text-right font-mono text-ink-muted tabular-nums">
+                        <td className="px-3 text-right font-sans text-ink-muted tabular-nums">
                           {f.level}
                         </td>
                         <td className="px-3">
@@ -430,7 +430,7 @@ export function StructureScreen({
                             <span className="font-medium text-ink">{f.name}</span>
                           )}
                         </td>
-                        <td className="px-3 text-right font-mono text-ink tabular-nums">
+                        <td className="px-3 text-right font-sans text-ink tabular-nums">
                           {f.unitCount}
                         </td>
                         {canManage && (

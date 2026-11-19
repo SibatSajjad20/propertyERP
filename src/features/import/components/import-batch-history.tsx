@@ -119,7 +119,7 @@ export function ImportBatchHistory({
 
                 <div className="flex items-center gap-4 self-end sm:self-auto">
                   {/* Counts pill */}
-                  <div className="flex items-center gap-2 font-mono text-[12px] text-ink-muted tabular-nums">
+                  <div className="flex items-center gap-2 font-sans text-[12px] text-ink-muted tabular-nums">
                     <span className="text-ink">
                       <strong>{batch.rowCount}</strong> rows
                     </span>

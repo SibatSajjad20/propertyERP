@@ -176,7 +176,7 @@ export function CommandMenu({
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="unit-code font-mono text-[12px] font-semibold text-primary">
+                      <span className="unit-code font-sans tabular-nums text-[12px] font-semibold text-primary">
                         {unit.unitCode}
                       </span>
                       <span className="text-[12px] text-ink-muted">

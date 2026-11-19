@@ -232,7 +232,7 @@ export function AgreementsScreen({
                     <td className="px-4 py-3">
                       <Link
                         href={`/agreements/${row.id}` as never}
-                        className="font-mono font-semibold text-primary hover:underline"
+                        className="font-sans font-semibold text-primary tabular-nums hover:underline"
                       >
                         {row.agreementNo}
                       </Link>
@@ -242,14 +242,14 @@ export function AgreementsScreen({
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-ink">{row.clientName}</p>
-                      <p className="font-mono text-[11px] text-ink-muted">
+                      <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         {row.clientCnic} · {row.clientPhone}
                       </p>
                     </td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/units/${row.unitId}` as never}
-                        className="unit-code font-mono font-medium text-ink hover:text-primary hover:underline"
+                        className="unit-code font-medium text-ink hover:text-primary hover:underline"
                       >
                         {row.unitDisplay}
                       </Link>

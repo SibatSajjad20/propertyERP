@@ -130,21 +130,26 @@ textarea {
   letter-spacing: -0.015em;
 }
 
-/* Monospace strictly for unit codes, IDs, hashes */
+/* Single unified number and code font across the entire app */
 .unit-code {
-  font-family:
-    var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum", "ss01", "cv11";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-/* Enable font-feature-settings "ss01", "cv11" and font-variant-numeric: tabular-nums on tables, KPIs, prices and areas */
+/* Enable font-feature-settings "tnum", "ss01", "cv11" and font-variant-numeric: tabular-nums on tables, KPIs, prices, areas, inputs */
 table,
 th,
 td,
 .tabular-nums,
 .kpi,
 .price,
-.area {
-  font-feature-settings: "ss01", "cv11";
+.area,
+.unit-code,
+input[type="number"],
+.number-font {
+  font-feature-settings: "tnum", "ss01", "cv11";
   font-variant-numeric: tabular-nums;
   font-family: var(--font-sans);
 }

@@ -120,7 +120,7 @@ function StructurePanelForm({
                 type="number"
                 min={0}
                 max={200}
-                className="font-mono tabular-nums"
+                className="font-sans tabular-nums"
                 value={level}
                 onChange={(event) => setLevel(event.target.value)}
                 required

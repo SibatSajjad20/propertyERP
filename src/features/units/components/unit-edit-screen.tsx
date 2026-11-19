@@ -83,7 +83,7 @@ export function UnitEditScreen({ unit, options, role }: UnitEditScreenProps) {
 
       <div className="border-b border-line pb-4">
         <div className="flex items-center gap-2">
-          <span className="unit-code font-mono text-[13px] font-semibold text-primary">
+          <span className="unit-code font-sans tabular-nums text-[13px] font-semibold text-primary">
             {unit.unitCode}
           </span>
           <span className="text-[13px] text-ink-muted">· Unit {unit.unitNumber}</span>

@@ -320,7 +320,7 @@ export function MergeUnitsDialog({
                     className="flex items-start justify-between gap-2 rounded-[6px] border border-line bg-surface p-2.5 text-[12px]"
                   >
                     <div className="min-w-0">
-                      <p className="unit-code truncate font-mono font-semibold text-primary">
+                      <p className="unit-code truncate font-sans tabular-nums font-semibold text-primary">
                         {formatUnitDisplayCode(u.unitCode, u.categoryName)}
                       </p>
                       <p className="truncate text-[11px] text-ink-muted">
@@ -373,7 +373,7 @@ export function MergeUnitsDialog({
                         <td className="px-2.5 py-1.5">
                           <Checkbox checked={checked} aria-label={u.unitCode} />
                         </td>
-                        <td className="unit-code px-2.5 py-1.5 font-mono font-medium text-ink">
+                        <td className="unit-code px-2.5 py-1.5 font-sans tabular-nums font-medium text-ink">
                           {formatUnitDisplayCode(u.unitCode, u.categoryName)}
                         </td>
                         <td className="px-2.5 py-1.5 text-ink-muted">{u.floorName}</td>
@@ -428,7 +428,7 @@ export function MergeUnitsDialog({
                       setProposedUnitCode(e.target.value.toUpperCase());
                     }}
                     placeholder="e.g. GF-S1-S2"
-                    className="font-mono"
+                    className="unit-code font-sans tabular-nums"
                     required
                   />
                 </div>

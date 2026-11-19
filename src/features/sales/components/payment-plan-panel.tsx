@@ -595,7 +595,7 @@ export function PaymentPlanPanel({
                 payments, and possession payment.
               </p>
             </div>
-            <span className="font-mono text-[11px] text-ink-muted">
+            <span className="font-sans tabular-nums text-[11px] text-ink-muted">
               {schedule.installments.length} entries
             </span>
           </div>
@@ -622,7 +622,7 @@ export function PaymentPlanPanel({
                           : "hover:bg-subtle/30"
                     }
                   >
-                    <td className="px-4 py-2 font-mono text-[11px] text-ink-muted">
+                    <td className="px-4 py-2 font-sans tabular-nums text-[11px] text-ink-muted">
                       {inst.seq}
                     </td>
                     <td className="px-4 py-2">

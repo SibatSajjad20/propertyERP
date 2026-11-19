@@ -220,7 +220,7 @@ function RescheduleDialogForm({
             <tbody className="divide-y divide-line/60">
               {draftRows.map((row, idx) => (
                 <tr key={idx} className="hover:bg-subtle/20">
-                  <td className="px-3 py-2 text-center font-mono text-[11px] text-ink-muted">
+                  <td className="px-3 py-2 text-center font-sans tabular-nums text-[11px] text-ink-muted">
                     {row.seq}
                   </td>
                   <td className="px-3 py-2">

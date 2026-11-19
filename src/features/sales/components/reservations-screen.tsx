@@ -214,7 +214,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                       className="cursor-pointer transition-colors hover:bg-subtle/40"
                     >
                       <td className="px-4 py-3">
-                        <span className="unit-code font-mono text-[13px] font-bold text-primary">
+                        <span className="unit-code text-[13px] font-bold text-primary">
                           {formatUnitDisplayCode(row.unitCode, row.categoryName)}
                         </span>
                         <p className="text-[11px] text-ink-muted">
@@ -234,7 +234,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                               {formatPkr(row.tokenAmount ?? "0")}
                             </span>
                             {row.tokenReceiptNo && (
-                              <p className="font-mono text-[10px] text-ink-muted">
+                              <p className="font-sans text-[10px] text-ink-muted tabular-nums">
                                 {row.tokenReceiptNo}
                               </p>
                             )}

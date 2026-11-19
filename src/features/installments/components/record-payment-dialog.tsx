@@ -303,7 +303,7 @@ export function RecordPaymentDialog({
                     key={alloc.installmentId}
                     className="flex items-center justify-between rounded-[4px] border border-line/60 bg-surface p-1.5 text-[11px]"
                   >
-                    <span className="font-mono text-ink">Inst #{alloc.seq}</span>
+                    <span className="font-sans tabular-nums text-ink">Inst #{alloc.seq}</span>
                     <span className="text-ink-muted tabular-nums">
                       +Rs {alloc.allocatedPkr}
                     </span>

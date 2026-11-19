@@ -95,7 +95,7 @@ export function PrintableReceiptDialog({
               </div>
             </div>
             <div className="text-right">
-              <span className="inline-block rounded border border-line bg-subtle px-2 py-0.5 font-mono text-[13px] font-bold text-primary">
+              <span className="inline-block rounded border border-line bg-subtle px-2 py-0.5 font-sans tabular-nums text-[13px] font-bold text-primary">
                 {receipt.receiptNo}
               </span>
               <p className="mt-1 font-sans text-[11px] text-ink-muted tabular-nums">
@@ -109,7 +109,7 @@ export function PrintableReceiptDialog({
             <div>
               <span className="text-[11px] text-ink-muted uppercase">Received From:</span>
               <p className="text-[13px] font-semibold text-ink">{receipt.clientName}</p>
-              <p className="font-mono text-[12px] text-ink-muted">
+              <p className="font-sans tabular-nums text-[12px] text-ink-muted">
                 CNIC: {receipt.clientCnic}
               </p>
               <p className="font-sans text-[12px] text-ink-muted tabular-nums">
@@ -118,11 +118,11 @@ export function PrintableReceiptDialog({
             </div>
             <div className="text-right">
               <span className="text-[11px] text-ink-muted uppercase">Property Unit:</span>
-              <p className="font-mono text-[14px] font-bold text-primary">
+              <p className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary">
                 {receipt.unitCode}
               </p>
               {receipt.bookingNo && (
-                <p className="font-mono text-[12px] text-ink-muted">
+                <p className="font-sans tabular-nums text-[12px] text-ink-muted">
                   Booking: {receipt.bookingNo}
                 </p>
               )}
@@ -233,7 +233,7 @@ export function PrintableBookingFormDialog({
               </div>
             </div>
             <div className="text-right">
-              <span className="font-mono text-[14px] font-bold text-primary">
+              <span className="font-sans tabular-nums text-[14px] font-bold text-primary">
                 {booking.bookingNo}
               </span>
               <p className="text-[11px] text-ink-muted">
@@ -274,7 +274,7 @@ export function PrintableBookingFormDialog({
               </span>
               <p>
                 <span className="text-ink-muted">Unit Code:</span>{" "}
-                <span className="font-mono font-bold">
+                <span className="unit-code font-sans tabular-nums font-bold">
                   {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
                 </span>
               </p>
@@ -320,7 +320,7 @@ export function PrintableBookingFormDialog({
                     <td className="border border-line px-2 py-1">
                       {new Date(inst.dueDate).toLocaleDateString()}
                     </td>
-                    <td className="border border-line px-2 py-1 text-right font-mono">
+                    <td className="border border-line px-2 py-1 text-right font-sans tabular-nums">
                       {formatPkr(inst.amount)}
                     </td>
                     <td className="border border-line px-2 py-1">{inst.status}</td>

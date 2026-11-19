@@ -226,7 +226,7 @@ export function MergeRequestsScreen({
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3.5">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="unit-code font-mono text-[15px] font-semibold text-primary">
+                      <span className="unit-code font-sans tabular-nums text-[15px] font-semibold text-primary">
                         {formatUnitDisplayCode(
                           req.proposedUnitCode,
                           req.targetCategoryName,
@@ -338,7 +338,7 @@ export function MergeRequestsScreen({
                         <tbody className="divide-y divide-line/60">
                           {req.sourceUnitsSnapshot.map((s) => (
                             <tr key={s.id}>
-                              <td className="unit-code px-2.5 py-1.5 font-mono font-medium text-ink">
+                              <td className="unit-code px-2.5 py-1.5 font-sans tabular-nums font-medium text-ink">
                                 {formatUnitDisplayCode(s.unitCode, s.categoryName)}
                               </td>
                               <td className="px-2.5 py-1.5 text-ink-muted">
@@ -423,7 +423,7 @@ export function MergeRequestsScreen({
               <Input
                 value={editCode}
                 onChange={(e) => setEditCode(e.target.value.toUpperCase())}
-                className="font-mono"
+                className="unit-code font-sans tabular-nums"
               />
             </div>
             <div>
@@ -530,7 +530,7 @@ export function MergeRequestsScreen({
             <DialogTitle>Reject Merge Request</DialogTitle>
             <DialogDescription>
               Provide a clear reason for rejecting merge request{" "}
-              <span className="font-mono font-semibold text-ink">
+              <span className="unit-code font-sans tabular-nums font-semibold text-ink">
                 {rejectingItem?.proposedUnitCode}
               </span>
               .

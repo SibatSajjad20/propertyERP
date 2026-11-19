@@ -190,18 +190,18 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
                     className="cursor-pointer transition-colors hover:bg-subtle/40"
                   >
                     <td className="px-4 py-3">
-                      <span className="font-mono text-[13px] font-bold text-primary">
+                      <span className="font-sans text-[13px] font-bold text-primary tabular-nums">
                         {row.serialNo}
                       </span>
-                      <p className="unit-code font-mono text-[11px] text-ink-muted">
+                      <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         {row.applicationFormNo}
                       </p>
-                      <p className="font-mono text-[11px] text-ink-faint">
+                      <p className="font-sans text-[11px] text-ink-faint tabular-nums">
                         {row.registrationNo}
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="unit-code font-mono text-[13px] font-semibold text-ink">
+                      <span className="unit-code text-[13px] font-semibold text-ink">
                         {row.unitCode}
                       </span>
                       <p className="text-[11px] text-ink-muted">

@@ -164,7 +164,7 @@ export function UnitForm({
             >
               <Input
                 id="unit-code"
-                className="unit-code font-mono uppercase"
+                className="unit-code uppercase"
                 autoComplete="off"
                 {...form.register("unitCode", {
                   onChange: (event) => {
@@ -306,7 +306,7 @@ export function UnitForm({
             >
               <Input
                 id="unit-net"
-                className="text-right font-mono tabular-nums"
+                className="text-right tabular-nums"
                 inputMode="decimal"
                 disabled={soldLocked}
                 {...form.register("netAreaSqft")}
@@ -319,7 +319,7 @@ export function UnitForm({
             >
               <Input
                 id="unit-gross"
-                className="text-right font-mono tabular-nums"
+                className="text-right tabular-nums"
                 inputMode="decimal"
                 disabled={soldLocked}
                 {...form.register("grossAreaSqft")}
@@ -344,7 +344,7 @@ export function UnitForm({
                 render={({ field }) => (
                   <MoneyInput
                     id="unit-rate"
-                    className="text-right font-mono tabular-nums"
+                    className="text-right tabular-nums"
                     disabled={soldLocked}
                     value={field.value}
                     onChange={(e) => field.onChange(e.target.value)}
@@ -365,7 +365,7 @@ export function UnitForm({
                 render={({ field }) => (
                   <MoneyInput
                     id="unit-adj"
-                    className="text-right font-mono tabular-nums"
+                    className="text-right tabular-nums"
                     disabled={soldLocked}
                     allowNegative
                     value={field.value}
@@ -399,7 +399,7 @@ export function UnitForm({
                 {formatPkrCompact(computedTotal)}
               </span>
             </div>
-            <p className="mt-0.5 text-right font-mono text-[11px] text-ink-muted tabular-nums">
+            <p className="mt-0.5 text-right text-[11px] text-ink-muted tabular-nums">
               {formatPkrLedger(computedTotal)}
             </p>
           </div>

@@ -144,7 +144,7 @@ function Row({
           highlight
             ? "font-sans text-[15px] font-semibold text-ink tabular-nums"
             : mono
-              ? "unit-code font-mono text-ink"
+              ? "unit-code font-sans tabular-nums text-ink"
               : "font-sans text-ink tabular-nums"
         }
       >

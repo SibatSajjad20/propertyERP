@@ -65,7 +65,7 @@ export function UnitPanel({
           <div className="flex items-center gap-2">
             <SheetTitle>{titleFor(mode, unit)}</SheetTitle>
             {mode === "view" && unit && (
-              <span className="font-mono text-[11px] text-ink-muted">
+              <span className="font-sans tabular-nums text-[11px] text-ink-muted">
                 #{unit.unitNumber}
               </span>
             )}

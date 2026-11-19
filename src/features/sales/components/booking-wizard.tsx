@@ -686,7 +686,7 @@ export function BookingWizard({
               <div className="card space-y-3 p-5">
                 <div className="flex items-center justify-between border-b border-line pb-2">
                   <h4 className="text-[14px] font-semibold text-ink">Unit Summary</h4>
-                  <span className="unit-code font-mono text-[14px] font-bold text-primary">
+                  <span className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary">
                     {formatUnitDisplayCode(
                       selectedUnit.unitCode,
                       selectedUnit.categoryName,
@@ -729,7 +729,7 @@ export function BookingWizard({
                   <h4 className="text-[14px] font-semibold text-ink">
                     Applicant Details
                   </h4>
-                  <span className="font-mono text-[12px] text-ink-muted">
+                  <span className="font-sans tabular-nums text-[12px] text-ink-muted">
                     {client.cnic}
                   </span>
                 </div>
@@ -841,7 +841,7 @@ export function BookingWizard({
               ) : selectedUnit ? (
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-mono text-[13px] font-bold text-ink">
+                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans tabular-nums text-[13px] font-bold text-ink">
                     {selectedUnit.unitCode}
                   </span>
                   <span className="hidden text-ink-muted sm:inline">

@@ -174,7 +174,7 @@ export function ClientForm({
                 }}
                 maxLength={15}
                 placeholder="12345-1234567-1"
-                className="font-mono text-[13px]"
+                className="font-sans tabular-nums text-[13px]"
               />
               <Button
                 type="button"
@@ -453,7 +453,7 @@ export function ClientForm({
                 }}
                 maxLength={15}
                 placeholder="12345-1234567-2"
-                className="font-mono text-[13px]"
+                className="font-sans tabular-nums text-[13px]"
               />
               {nextOfKin.cnic?.trim() ? (
                 <p

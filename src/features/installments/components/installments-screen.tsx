@@ -193,14 +193,14 @@ export function InstallmentsScreen({
                       <p className="text-[13px] font-medium text-ink">
                         {result.fullName}
                       </p>
-                      <p className="font-mono text-[11px] text-ink-muted">
+                      <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         CNIC: {result.cnic} · Phone: {result.phone}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {result.bookings.map((b) => (
-                      <Badge key={b.id} tone="muted" className="font-mono text-[10px]">
+                      <Badge key={b.id} tone="muted" className="font-sans text-[10px] tabular-nums">
                         {b.unitCode} ({b.bookingNo})
                       </Badge>
                     ))}
@@ -235,7 +235,7 @@ export function InstallmentsScreen({
                   <h2 className="text-[16px] font-bold text-ink">
                     {clientProfile.client.fullName}
                   </h2>
-                  <Badge tone="primary" className="font-mono text-[11px]">
+                  <Badge tone="primary" className="font-sans text-[11px] tabular-nums">
                     CNIC: {clientProfile.client.cnic}
                   </Badge>
                 </div>
@@ -301,8 +301,8 @@ export function InstallmentsScreen({
                             : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
                         )}
                       >
-                        <span className="font-mono">{b.unit.unitCode}</span>
-                        <span>({b.bookingNo})</span>
+                        <span className="unit-code font-sans tabular-nums">{b.unit.unitCode}</span>
+                        <span className="font-sans tabular-nums">({b.bookingNo})</span>
                       </button>
                     );
                   })}
@@ -414,7 +414,7 @@ export function InstallmentsScreen({
                       )}
                     </div>
 
-                    <span className="font-mono text-[11px] text-ink-muted">
+                    <span className="font-sans tabular-nums text-[11px] text-ink-muted">
                       Booking #{currentBooking.bookingNo}
                     </span>
                   </div>
@@ -457,7 +457,7 @@ export function InstallmentsScreen({
                                       isOverdue && "bg-sold/5",
                                     )}
                                   >
-                                    <td className="px-3 py-2.5 text-center font-mono text-[11px] text-ink-muted">
+                                    <td className="px-3 py-2.5 text-center font-sans tabular-nums text-[11px] text-ink-muted">
                                       #{inst.seq}
                                     </td>
                                     <td className="px-4 py-2.5 tabular-nums">
@@ -484,7 +484,7 @@ export function InstallmentsScreen({
                                     <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
                                       {formatPkr(inst.balance)}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-[11px] text-primary">
+                                    <td className="px-4 py-2.5 font-sans text-[11px] text-primary tabular-nums">
                                       {inst.receiptNos || "-"}
                                     </td>
                                     <td className="px-4 py-2.5 text-center">
@@ -537,7 +537,7 @@ export function InstallmentsScreen({
                                     p.isVoided && "bg-sold/5 opacity-60",
                                   )}
                                 >
-                                  <td className="px-4 py-2.5 font-mono text-[11px] font-bold text-primary">
+                                  <td className="px-4 py-2.5 font-sans text-[11px] font-bold text-primary tabular-nums">
                                     {p.receiptNo}
                                   </td>
                                   <td className="px-3 py-2.5 text-ink tabular-nums">

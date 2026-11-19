@@ -65,7 +65,7 @@ export function StatusHistory({ entries }: StatusHistoryProps) {
               {entry.bookingRef ? (
                 <p className="mt-1 text-[12px] text-ink-muted">
                   Booking ref{" "}
-                  <span className="unit-code font-mono font-medium text-ink">
+                  <span className="unit-code font-sans tabular-nums font-medium text-ink">
                     {entry.bookingRef}
                   </span>
                 </p>

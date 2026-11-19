@@ -68,7 +68,7 @@ export function MergedUnitDetailsCard({ mergeInfo }: MergedUnitDetailsCardProps)
             <tbody className="divide-y divide-line/60">
               {mergeInfo.sources.map((src) => (
                 <tr key={src.id} className="bg-surface">
-                  <td className="unit-code px-3 py-2 font-mono font-medium text-primary">
+                  <td className="unit-code px-3 py-2 font-sans tabular-nums font-medium text-primary">
                     {formatUnitDisplayCode(src.unitCode, src.categoryName)}
                   </td>
                   <td className="px-3 py-2 text-ink">{src.unitNumber}</td>

@@ -91,7 +91,7 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
                     onClick={() => router.push(`/reservations/${row.reservationId}`)}
                     className="cursor-pointer transition-colors hover:bg-subtle/40"
                   >
-                    <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-ink">
+                    <td className="unit-code px-4 py-2.5 text-[11px] font-medium text-ink">
                       {row.unitCode}
                     </td>
                     <td className="px-3 py-2.5 text-ink-muted">{row.floorName}</td>

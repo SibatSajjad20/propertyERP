@@ -95,11 +95,11 @@ export default async function UnitDetailPage({
         </Button>
       </div>
 
-      {/* Wide Header with unit code (mono) + status badge + actions */}
+      {/* Wide Header with unit code + status badge + actions */}
       <div className="flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <span className="unit-code font-mono text-[22px] font-semibold text-primary">
+            <span className="unit-code font-sans tabular-nums text-[22px] font-semibold text-primary">
               {formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
             </span>
             <UnitStatusBadge status={unit.status} />

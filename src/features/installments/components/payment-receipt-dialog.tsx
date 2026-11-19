@@ -89,7 +89,7 @@ export function PaymentReceiptDialog({
               </div>
             </div>
             <div className="text-right">
-              <span className="font-mono text-[13px] font-bold text-primary">
+              <span className="font-sans text-[13px] font-bold text-primary tabular-nums">
                 {receipt.receiptNo}
               </span>
               <p className="text-[11px] text-ink-muted tabular-nums">
@@ -121,19 +121,23 @@ export function PaymentReceiptDialog({
             </div>
             <div>
               <span className="text-ink-muted">Client CNIC:</span>
-              <p className="font-mono text-[11px] text-ink">{receipt.clientCnic}</p>
+              <p className="font-sans text-[11px] text-ink tabular-nums">
+                {receipt.clientCnic}
+              </p>
             </div>
             <div>
               <span className="text-ink-muted">Booking Reference:</span>
-              <p className="font-mono text-[11px] font-medium text-primary">
+              <p className="font-sans text-[11px] font-medium text-primary tabular-nums">
                 {receipt.bookingNo}
               </p>
             </div>
             <div>
               <span className="text-ink-muted">Unit &amp; Floor:</span>
               <p className="font-medium text-ink">
-                <span className="font-mono">{receipt.unitCode}</span> ({receipt.floorName}
-                )
+                <span className="unit-code font-sans tabular-nums">
+                  {receipt.unitCode}
+                </span>{" "}
+                ({receipt.floorName})
               </p>
             </div>
             {receipt.notes && (

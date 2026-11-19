@@ -143,7 +143,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         description="Staff accounts, roles, and sign-in status."
         actions={
           <div className="flex items-center gap-2">
-            <span className="rounded-[6px] bg-primary-soft px-2 py-0.5 font-mono text-[12px] font-medium text-primary tabular-nums">
+            <span className="rounded-[6px] bg-primary-soft px-2 py-0.5 font-sans text-[12px] font-medium text-primary tabular-nums">
               {activeCount} active
             </span>
             <Button variant="secondary" size="md" asChild>
@@ -199,7 +199,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                       <span className="truncate font-medium text-ink">{row.name}</span>
                     </div>
                   </td>
-                  <td className="truncate px-4 py-2 font-mono text-[12px] text-ink-muted">
+                  <td className="truncate px-4 py-2 font-sans text-[12px] text-ink-muted">
                     {row.email}
                   </td>
                   <td className="px-4 py-2">{roleBadge(row.role)}</td>
@@ -210,7 +210,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                       <Badge tone="available">Active</Badge>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono text-[12px] text-ink-muted tabular-nums">
+                  <td className="px-4 py-2 text-right font-sans text-[12px] text-ink-muted tabular-nums">
                     {row.lastLoginAt ? formatKarachiDateTime(row.lastLoginAt) : "Never"}
                   </td>
                   <td className="px-2 py-2 text-right">

@@ -254,7 +254,7 @@ function SellConfirm({
         <div className="space-y-2 rounded-[8px] border border-line bg-subtle/50 p-4">
           <div className="flex items-center justify-between text-[13px]">
             <span className="text-ink-muted">Unit code</span>
-            <span className="unit-code font-mono font-medium text-ink">
+            <span className="unit-code font-sans font-medium text-ink tabular-nums">
               {unit.unitCode}
             </span>
           </div>
@@ -364,7 +364,7 @@ function ReverseConfirm({
         </p>
 
         <div className="space-y-1 rounded-[8px] border border-sold/20 bg-sold/5 p-4">
-          <p className="unit-code font-mono text-[13px] font-medium text-ink">
+          <p className="unit-code font-sans text-[13px] font-medium text-ink tabular-nums">
             {unit.unitCode}
           </p>
           <p className="text-[12px] leading-relaxed text-ink-muted">

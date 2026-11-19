@@ -104,7 +104,7 @@ function ClientLedgerScreenInner({
             <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
-          <span className="font-mono text-xs text-[#64748B]">
+          <span className="font-sans text-xs text-[#64748B] tabular-nums">
             Statement Date: {new Date().toLocaleDateString("en-US")}
           </span>
         </div>
@@ -212,7 +212,7 @@ function ClientLedgerScreenInner({
                   className="flex cursor-pointer flex-col rounded-[8px] border border-line bg-subtle/40 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft"
                 >
                   <span className="text-[13px] font-medium text-ink">{c.fullName}</span>
-                  <span className="font-mono text-[11px] text-ink-muted">{c.cnic}</span>
+                  <span className="font-sans text-[11px] text-ink-muted tabular-nums">{c.cnic}</span>
                   <span className="font-sans text-[11px] text-ink-muted tabular-nums">
                     {c.phone}
                   </span>
@@ -275,7 +275,7 @@ function ClientLedgerScreenInner({
                 </div>
                 <div>
                   <span className="text-ink-muted">CNIC:</span>
-                  <p className="font-mono text-[11px] font-medium text-ink">
+                  <p className="font-sans text-[11px] font-medium text-ink tabular-nums">
                     {ledgerData.client.cnic}
                   </p>
                 </div>
@@ -324,7 +324,7 @@ function ClientLedgerScreenInner({
                   </div>
                   <div>
                     <span className="text-ink-muted">CNIC:</span>
-                    <p className="font-mono text-[11px] text-ink">
+                    <p className="font-sans text-[11px] text-ink tabular-nums">
                       {ledgerData.nextOfKin.cnic || "-"}
                     </p>
                   </div>
@@ -360,7 +360,7 @@ function ClientLedgerScreenInner({
                     key={idx}
                     className="flex items-center gap-2.5 rounded-[8px] border border-line bg-subtle/50 px-3 py-1.5"
                   >
-                    <span className="font-mono text-[12px] font-semibold text-ink">
+                    <span className="unit-code text-[12px] font-semibold text-ink">
                       {u.unitCode}
                     </span>
                     <span className="text-[11px] text-ink-muted">{u.floorName}</span>
@@ -480,7 +480,7 @@ function ClientLedgerScreenInner({
                         <td className="px-3 py-2.5 font-medium text-ink">
                           {entry.description}
                         </td>
-                        <td className="px-3 py-2.5 font-mono text-[11px] text-primary">
+                        <td className="px-3 py-2.5 font-sans text-[11px] text-primary tabular-nums">
                           {entry.receiptNo || "-"}
                         </td>
                         <td className="px-3 py-2.5 text-right text-sold tabular-nums">

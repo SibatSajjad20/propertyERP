@@ -57,17 +57,17 @@ function TxTable({
                   year: "numeric",
                 })}
               </td>
-              <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-primary">
+              <td className="px-4 py-2.5 font-sans text-[11px] font-medium text-primary tabular-nums">
                 {r.receiptNo || "—"}
               </td>
               <td className="px-4 py-2.5">
                 <p className="font-medium text-ink">{r.clientName}</p>
-                <p className="font-mono text-[10px] text-ink-muted">
+                <p className="font-sans text-[10px] text-ink-muted tabular-nums">
                   {r.clientCnic} · {r.clientPhone}
                 </p>
               </td>
               <td className="px-4 py-2.5">
-                <span className="unit-code font-mono font-medium text-ink">
+                <span className="unit-code font-medium text-ink">
                   {r.unitCode}
                 </span>
                 <p className="text-[11px] text-ink-muted">
@@ -296,14 +296,14 @@ export function CollectionsReportScreen({
                     <tr key={row.installmentId} className="hover:bg-subtle/30">
                       <td className="px-4 py-2.5">
                         <p className="font-medium text-ink">{row.clientName}</p>
-                        <p className="font-mono text-[10px] text-ink-muted">
+                        <p className="font-sans text-[10px] text-ink-muted tabular-nums">
                           {row.clientCnic}
                         </p>
                       </td>
                       <td className="px-4 py-2.5">
                         <Link
                           href={`/bookings/${row.bookingId}` as never}
-                          className="unit-code font-mono font-medium text-primary hover:underline"
+                          className="unit-code font-medium text-primary hover:underline"
                         >
                           {row.unitCode}
                         </Link>

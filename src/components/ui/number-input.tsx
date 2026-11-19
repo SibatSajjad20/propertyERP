@@ -16,7 +16,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
         inputMode="decimal"
         prefixText={prefix}
         suffixText={suffix}
-        className={cn("text-right font-mono tabular-nums", className)}
+        className={cn("text-right font-sans tabular-nums", className)}
         {...props}
       />
     );

@@ -101,7 +101,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="unit-code font-mono text-[18px] font-bold text-primary">
+              <span className="unit-code font-sans tabular-nums text-[18px] font-bold text-primary">
                 HOLD-{reservation.unitCode}
               </span>
               <Badge tone={isActive ? "accent" : "muted"}>
@@ -193,7 +193,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
             <h4 className="text-[14px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${reservation.unitId}`}
-              className="unit-code font-mono text-[14px] font-bold text-primary hover:text-accent-bright hover:underline"
+              className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
               {formatUnitDisplayCode(reservation.unitCode, reservation.categoryName)}
             </Link>
@@ -231,7 +231,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
         <div className="card space-y-3 p-5">
           <div className="flex items-center justify-between border-b border-line pb-2">
             <h4 className="text-[14px] font-semibold text-ink">Prospective Buyer</h4>
-            <span className="font-mono text-[12px] text-ink-muted">
+            <span className="font-sans tabular-nums text-[12px] text-ink-muted">
               {reservation.clientCnic}
             </span>
           </div>

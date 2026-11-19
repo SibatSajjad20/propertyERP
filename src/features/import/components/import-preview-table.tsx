@@ -106,7 +106,7 @@ export function ImportPreviewTable({
               }`}
             >
               <span>All</span>
-              <span className="font-mono text-[11px] text-ink-muted tabular-nums">
+              <span className="font-sans text-[11px] text-ink-muted tabular-nums">
                 {rows.length}
               </span>
             </button>
@@ -122,7 +122,7 @@ export function ImportPreviewTable({
             >
               <CheckCircle weight="fill" className="size-3 text-available" />
               <span>Valid</span>
-              <span className="font-mono text-[11px] text-available tabular-nums">
+              <span className="font-sans text-[11px] text-available tabular-nums">
                 {validCount}
               </span>
             </button>
@@ -138,7 +138,7 @@ export function ImportPreviewTable({
             >
               <WarningCircle weight="fill" className="size-3 text-primary" />
               <span>Warnings</span>
-              <span className="font-mono text-[11px] text-primary tabular-nums">
+              <span className="font-sans text-[11px] text-primary tabular-nums">
                 {warningCount}
               </span>
             </button>
@@ -153,7 +153,7 @@ export function ImportPreviewTable({
               }`}
             >
               <span>Skipped</span>
-              <span className="font-mono text-[11px] text-ink-muted tabular-nums">
+              <span className="font-sans text-[11px] text-ink-muted tabular-nums">
                 {skippedCount}
               </span>
             </button>
@@ -169,7 +169,7 @@ export function ImportPreviewTable({
             >
               <XCircle weight="fill" className="size-3 text-sold" />
               <span>Errors</span>
-              <span className="font-mono text-[11px] text-sold tabular-nums">
+              <span className="font-sans text-[11px] text-sold tabular-nums">
                 {errorCount}
               </span>
             </button>
@@ -272,7 +272,7 @@ export function ImportPreviewTable({
                     }}
                   >
                     {/* Row index */}
-                    <div className="col-span-1 font-mono text-[11px] text-ink-muted tabular-nums">
+                    <div className="col-span-1 font-sans text-[11px] text-ink-muted tabular-nums">
                       #{item.rowIndex + 1}
                     </div>
 
@@ -322,7 +322,7 @@ export function ImportPreviewTable({
                     </div>
 
                     {/* Unit Code */}
-                    <div className="col-span-1 truncate font-mono font-medium text-ink">
+                    <div className="unit-code col-span-1 truncate font-medium text-ink">
                       {c?.unitCode || "-"}
                     </div>
 
@@ -337,12 +337,12 @@ export function ImportPreviewTable({
                     </div>
 
                     {/* Net Area */}
-                    <div className="col-span-1 text-right font-mono text-ink tabular-nums">
+                    <div className="col-span-1 text-right font-sans text-ink tabular-nums">
                       {c?.netAreaSqft ? `${c.netAreaSqft} sq ft` : "-"}
                     </div>
 
                     {/* Rate */}
-                    <div className="col-span-1 text-right font-mono text-ink tabular-nums">
+                    <div className="col-span-1 text-right font-sans text-ink tabular-nums">
                       {c?.ratePerSqftPkr ? formatPkr(c.ratePerSqftPkr) : "-"}
                     </div>
 
@@ -374,8 +374,8 @@ export function ImportPreviewTable({
         <div className="flex items-center justify-between border-t border-line-strong bg-subtle/40 px-5 py-2.5 text-[12px] text-ink-muted">
           <div>
             Showing{" "}
-            <span className="font-mono text-ink tabular-nums">{filteredRows.length}</span>{" "}
-            of <span className="font-mono text-ink tabular-nums">{rows.length}</span> rows
+            <span className="font-sans text-ink tabular-nums">{filteredRows.length}</span>{" "}
+            of <span className="font-sans text-ink tabular-nums">{rows.length}</span> rows
           </div>
           <div>
             {countsMatch ? (

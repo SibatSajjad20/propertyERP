@@ -270,7 +270,7 @@ export function BookingDetailScreen({
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="unit-code font-mono text-[18px] font-bold text-primary">
+              <span className="font-sans text-[18px] font-bold text-primary tabular-nums">
                 {booking.applicationFormNo}
               </span>
               {booking.status === "ACTIVE" && (
@@ -341,7 +341,7 @@ export function BookingDetailScreen({
             <h4 className="text-[13px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${booking.unitId}`}
-              className="unit-code font-mono text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
+              className="unit-code text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
             >
               {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
             </Link>
@@ -376,7 +376,7 @@ export function BookingDetailScreen({
         <div className="card space-y-3 p-5">
           <div className="flex items-center justify-between border-b border-line pb-2">
             <h4 className="text-[13px] font-semibold text-ink">Client & Nominee</h4>
-            <span className="font-mono text-[11px] text-ink-muted">
+            <span className="font-sans text-[11px] text-ink-muted tabular-nums">
               {booking.clientCnic}
             </span>
           </div>
@@ -532,7 +532,7 @@ export function BookingDetailScreen({
                   : "Surcharge Remove Policy"}
               </Button>
             )}
-            <span className="font-mono text-[12px] text-ink-muted">
+            <span className="font-sans tabular-nums text-[12px] text-ink-muted">
               {installments.length} entries ({booking.plan.toLowerCase()})
             </span>
           </div>
@@ -667,7 +667,7 @@ export function BookingDetailScreen({
               Receipted payments received against this booking.
             </p>
           </div>
-          <span className="font-mono text-[12px] text-ink-muted">
+          <span className="font-sans tabular-nums text-[12px] text-ink-muted">
             {payments.length} receipts
           </span>
         </div>
@@ -694,7 +694,7 @@ export function BookingDetailScreen({
               ) : (
                 payments.map((p: any) => (
                   <tr key={p.id} className="hover:bg-subtle/30">
-                    <td className="px-5 py-2.5 font-mono font-semibold text-primary">
+                    <td className="px-5 py-2.5 font-sans font-semibold text-primary tabular-nums">
                       {p.receiptNo}
                     </td>
                     <td className="px-5 py-2.5 font-sans text-ink tabular-nums">

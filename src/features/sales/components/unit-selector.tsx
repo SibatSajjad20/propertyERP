@@ -170,7 +170,7 @@ export function UnitSelector({
                 {/* Header row: code + radio / check */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="unit-code font-mono text-[15px] font-bold tracking-tight text-ink">
+                    <span className="unit-code font-sans tabular-nums text-[15px] font-bold tracking-tight text-ink">
                       {formatUnitDisplayCode(unit.unitCode, unit.categoryName)}
                     </span>
                     <p className="text-[12px] text-ink-muted">

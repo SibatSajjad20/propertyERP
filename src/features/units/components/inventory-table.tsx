@@ -78,7 +78,7 @@ export function InventoryTable({
           const row = info.row.original;
           return (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span className="unit-code font-mono font-medium text-ink">
+              <span className="unit-code font-medium text-ink">
                 {info.getValue()}
               </span>
               {row.isMergedUnit ? (

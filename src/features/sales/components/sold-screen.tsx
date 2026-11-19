@@ -153,7 +153,7 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                     className="cursor-pointer transition-colors hover:bg-subtle/40"
                   >
                     <td className="px-4 py-3">
-                      <span className="unit-code font-mono text-[13px] font-bold text-primary">
+                      <span className="unit-code text-[13px] font-bold text-primary">
                         {row.unitCode}
                       </span>
                       <p className="text-[11px] text-ink-muted">
@@ -161,13 +161,13 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                       </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-[13px] font-bold text-ink">
+                      <span className="font-sans text-[13px] font-bold text-ink tabular-nums">
                         {row.serialNo}
                       </span>
-                      <p className="unit-code font-mono text-[11px] text-ink-muted">
+                      <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         {row.applicationFormNo}
                       </p>
-                      <p className="font-mono text-[11px] text-ink-faint">
+                      <p className="font-sans text-[11px] text-ink-faint tabular-nums">
                         {row.registrationNo}
                       </p>
                     </td>
@@ -184,7 +184,7 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                         <div>
                           <span className="font-medium text-ink">Completed Booking</span>
                           {row.bookingNo && (
-                            <p className="font-mono text-[11px] text-ink-muted">
+                            <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                               {row.bookingNo}
                             </p>
                           )}

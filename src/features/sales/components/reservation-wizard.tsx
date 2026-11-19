@@ -466,7 +466,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
             <div className="grid grid-cols-1 gap-4 text-[12px] sm:grid-cols-4">
               <div>
                 <span className="text-ink-muted">Unit:</span>
-                <p className="font-mono text-[14px] font-bold text-primary">
+                <p className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary">
                   {formatUnitDisplayCode(
                     selectedUnit.unitCode,
                     selectedUnit.categoryName,
@@ -516,7 +516,7 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
               ) : selectedUnit ? (
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-mono text-[13px] font-bold text-ink">
+                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans tabular-nums text-[13px] font-bold text-ink">
                     {selectedUnit.unitCode}
                   </span>
                   <span className="hidden text-ink-muted sm:inline">
