@@ -9,247 +9,251 @@ export interface ClientLedgerPdfProps {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 36,
-    paddingBottom: 40,
+    paddingTop: 32,
+    paddingBottom: 42,
     paddingHorizontal: 36,
-    fontSize: 8,
+    fontSize: 7.8,
     fontFamily: "Helvetica",
     color: "#0F172A",
-    lineHeight: 1.4,
+    lineHeight: 1.35,
   },
   headerBanner: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 2,
+    alignItems: "flex-start",
+    borderBottomWidth: 1.5,
     borderBottomColor: "#0B558B",
-    paddingBottom: 8,
-    marginBottom: 10,
+    paddingBottom: 6,
+    marginBottom: 8,
   },
   brandTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Helvetica-Bold",
     color: "#0B558B",
     letterSpacing: 0.5,
   },
-  brandSub: {
-    fontSize: 7,
-    color: "#64748B",
+  brandAddress: {
+    fontSize: 7.2,
+    color: "#475569",
     marginTop: 1,
+    fontFamily: "Helvetica-Bold",
+  },
+  allotmentTitle: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#0F172A",
+    marginTop: 3,
+    letterSpacing: 0.2,
+  },
+  rightStampBox: {
+    alignItems: "flex-end",
   },
   statementDate: {
-    fontSize: 8,
-    color: "#64748B",
-  },
-  docTitleBlock: {
-    marginBottom: 8,
-  },
-  docTitle: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    color: "#0F172A",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  docSubtitle: {
     fontSize: 7.5,
-    color: "#64748B",
-    marginTop: 1,
+    color: "#475569",
   },
-  infoGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 10,
-  },
-  infoCard: {
-    flex: 1,
-    borderWidth: 0.5,
-    borderColor: "#CBD5E1",
-    borderRadius: 4,
-    padding: 7,
-    backgroundColor: "#F8FAFC",
-  },
-  infoCardHeader: {
-    fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
-    color: "#0B558B",
-    marginBottom: 5,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 2.5,
-  },
-  infoLabel: {
-    fontSize: 7,
-    color: "#64748B",
-  },
-  infoValue: {
+  badgeText: {
     fontSize: 7,
     fontFamily: "Helvetica-Bold",
-    color: "#0F172A",
-  },
-  unitsSection: {
-    borderWidth: 0.5,
-    borderColor: "#E2E8F0",
-    borderRadius: 4,
-    padding: 6,
-    marginBottom: 10,
-    backgroundColor: "#FFFFFF",
-  },
-  unitsHeader: {
-    fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
     color: "#0B558B",
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  unitsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  unitChip: {
+    backgroundColor: "#F0F9FF",
     borderWidth: 0.5,
+    borderColor: "#BAE6FD",
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 2,
+    marginTop: 3,
+  },
+  boxCard: {
+    borderWidth: 0.8,
     borderColor: "#CBD5E1",
     borderRadius: 3,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    backgroundColor: "#F1F5F9",
-    flexDirection: "row",
-    gap: 4,
-  },
-  kpiRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 10,
-  },
-  kpiTile: {
-    flex: 1,
-    borderWidth: 0.5,
-    borderColor: "#E2E8F0",
-    borderRadius: 4,
     padding: 6,
+    marginBottom: 7,
     backgroundColor: "#FFFFFF",
   },
-  kpiLabel: {
-    fontSize: 7,
+  twoColGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 7,
+  },
+  sectionBanner: {
+    backgroundColor: "#1E293B",
+    color: "#FFFFFF",
     fontFamily: "Helvetica-Bold",
-    color: "#64748B",
+    fontSize: 7.8,
+    paddingVertical: 3.5,
+    paddingHorizontal: 6,
     textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
-  kpiValue: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    marginTop: 2,
-  },
-  table: {
-    borderWidth: 0.5,
+  detailsBox: {
+    flex: 1,
+    borderWidth: 0.8,
     borderColor: "#CBD5E1",
     borderRadius: 3,
     overflow: "hidden",
-    marginBottom: 12,
+  },
+  detailsBody: {
+    padding: 5,
+    backgroundColor: "#FFFFFF",
+  },
+  dataRow: {
+    flexDirection: "row",
+    marginBottom: 2.5,
+    alignItems: "center",
+  },
+  dataLabel: {
+    width: "42%",
+    fontSize: 7.2,
+    color: "#475569",
+    fontFamily: "Helvetica",
+  },
+  dataValue: {
+    width: "58%",
+    fontSize: 7.2,
+    color: "#0F172A",
+    fontFamily: "Helvetica-Bold",
+  },
+  table: {
+    borderWidth: 0.8,
+    borderColor: "#CBD5E1",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 8,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E2E8F0",
-    minHeight: 18,
+    borderBottomColor: "#CBD5E1",
+    minHeight: 16,
     alignItems: "center",
   },
   tableHeader: {
     backgroundColor: "#F1F5F9",
     fontFamily: "Helvetica-Bold",
     borderBottomWidth: 1,
-    borderBottomColor: "#CBD5E1",
-    fontSize: 7.2,
+    borderBottomColor: "#94A3B8",
+    fontSize: 6.8,
   },
-  headerCell: {
+  payHeaderCell: {
+    fontFamily: "Helvetica-Bold",
+    color: "#1E293B",
     textAlign: "center",
-    justifyContent: "center",
-    padding: 3,
   },
-  colDate: {
-    width: "14%",
+  payColSeq: {
+    width: "4%",
+    padding: 2.5,
     textAlign: "center",
-    padding: 3,
     borderRightWidth: 0.5,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#CBD5E1",
   },
-  colDesc: {
-    width: "32%",
-    padding: 3,
-    paddingLeft: 5,
+  payColItem: {
+    width: "20%",
+    padding: 2.5,
+    paddingLeft: 4,
     borderRightWidth: 0.5,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#CBD5E1",
   },
-  colReceipt: {
-    width: "14%",
+  payColDueDate: {
+    width: "9.5%",
+    padding: 2.5,
     textAlign: "center",
-    padding: 3,
     borderRightWidth: 0.5,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#CBD5E1",
   },
-  colDebit: {
-    width: "13%",
+  payColDueAmt: {
+    width: "11%",
+    padding: 2.5,
+    paddingRight: 4,
     textAlign: "right",
-    padding: 3,
-    paddingRight: 5,
     borderRightWidth: 0.5,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#CBD5E1",
   },
-  colCredit: {
-    width: "13%",
-    textAlign: "right",
-    padding: 3,
-    paddingRight: 5,
+  payColPaidDate: {
+    width: "9.5%",
+    padding: 2.5,
+    textAlign: "center",
     borderRightWidth: 0.5,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#CBD5E1",
   },
-  colBalance: {
-    width: "14%",
+  payColPaidAmt: {
+    width: "11%",
+    padding: 2.5,
+    paddingRight: 4,
     textAlign: "right",
-    padding: 3,
-    paddingRight: 5,
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColReceipt: {
+    width: "14.5%",
+    padding: 2.5,
+    textAlign: "center",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColSurcharge: {
+    width: "9.5%",
+    padding: 2.5,
+    paddingRight: 4,
+    textAlign: "right",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColStatus: {
+    width: "11%",
+    padding: 2.5,
+    textAlign: "center",
   },
   bold: {
     fontFamily: "Helvetica-Bold",
   },
   footer: {
     position: "absolute",
-    bottom: 24,
+    bottom: 18,
     left: 36,
     right: 36,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: "#E2E8F0",
-    paddingTop: 6,
-    fontSize: 7.5,
+    borderTopColor: "#CBD5E1",
+    paddingTop: 4,
+    fontSize: 6.8,
     color: "#64748B",
   },
-  signatureBlock: {
+  signatureSection: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: 14,
+    marginBottom: 6,
+    paddingHorizontal: 20,
+  },
+  sigBox: {
+    alignItems: "center",
+    width: 140,
   },
   sigLine: {
-    width: 150,
-    borderTopWidth: 1,
-    borderTopColor: "#94A3B8",
-    paddingTop: 4,
-    textAlign: "center",
-    fontSize: 7.5,
-    color: "#475569",
+    width: "100%",
+    borderTopWidth: 0.8,
+    borderTopColor: "#475569",
+    marginBottom: 3,
+  },
+  sigLabel: {
+    fontSize: 7.2,
+    fontFamily: "Helvetica-Bold",
+    color: "#334155",
+  },
+  printedByText: {
+    fontSize: 6.8,
+    color: "#64748B",
+    fontFamily: "Helvetica-Oblique",
+    marginTop: 4,
   },
 });
 
-function formatDate(date: Date | string) {
+function formatDate(date: Date | string | null | undefined) {
+  if (!date) return "—";
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d.getTime())) return String(date);
   return d.toLocaleDateString("en-GB", {
@@ -259,281 +263,373 @@ function formatDate(date: Date | string) {
   });
 }
 
+function formatDateTime(date: Date) {
+  const d = date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const t = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${d} ${t}`;
+}
+
 export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
-  const { client, nextOfKin, units, statement } = data;
+  const { client, nextOfKin, selectedUnitDetails, financials, scheduleRows, statement } =
+    data;
+  const now = new Date();
+
+  const titlePrefix = client.title ? `${client.title} ` : "";
+  const clientDisplayName = `${titlePrefix}${client.fullName}`.trim();
+  const soDoWoName =
+    client.relationPrefix && client.relationName
+      ? `${client.relationPrefix} ${client.relationName}`
+      : client.relationName || "N/A";
+
+  const unitCodeDisplay =
+    selectedUnitDetails?.unitCode || (data.units[0]?.unitCode ?? "All Units");
+  const formNoDisplay =
+    selectedUnitDetails?.applicationFormNo || selectedUnitDetails?.bookingNo || "N/A";
 
   return (
-    <Document title={`Client-Ledger-${client.fullName}-${statement.period.endDate}`}>
-      <Page size="A4" style={styles.page}>
-        {/* Top Brand Banner */}
+    <Document title={`Allotment-Details-${unitCodeDisplay}-${client.fullName}`}>
+      <Page size="A4" style={styles.page} wrap>
+        {/* Top Header matching reference document */}
         <View style={styles.headerBanner}>
           <View>
             <Text style={styles.brandTitle}>SARDAR&apos;S MALL</Text>
-            <Text style={styles.brandSub}>PROPERTY ERP • CLIENT ACCOUNT STATEMENT</Text>
+            <Text style={styles.brandAddress}>
+              Plot no. 13/N, 2nd Floor, F-7 Markaz, Islamabad
+            </Text>
+            <Text style={styles.allotmentTitle}>
+              Allotment Details ({unitCodeDisplay})
+            </Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.statementDate}>
-              Statement Date: {formatDate(new Date())}
-            </Text>
-            <Text style={styles.brandSub}>
-              Period: {statement.period.startDate} to {statement.period.endDate}
-            </Text>
+          <View style={styles.rightStampBox}>
+            <Text style={styles.statementDate}>Date: {formatDate(now)}</Text>
+            <Text style={styles.badgeText}>Form #: {formNoDisplay}</Text>
           </View>
         </View>
 
-        {/* Client & Next of Kin Information Cards */}
-        <View style={styles.infoGrid}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardHeader}>Client Credentials</Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Full Name:</Text>
-              <Text style={styles.infoValue}>{client.fullName}</Text>
+        {/* Customer Details Box matching reference image */}
+        <View style={styles.boxCard}>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            {/* Left Column */}
+            <View style={{ flex: 1 }}>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Name :</Text>
+                <Text style={styles.dataValue}>{clientDisplayName}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Phone No :</Text>
+                <Text style={styles.dataValue}>{client.phone}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Cnic :</Text>
+                <Text style={styles.dataValue}>{client.cnic}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Present Address :</Text>
+                <Text style={[styles.dataValue, { fontSize: 6.8 }]}>
+                  {client.homeAddress || "N/A"}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Nominee :</Text>
+                <Text style={styles.dataValue}>{nextOfKin?.name || "N/A"}</Text>
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>CNIC:</Text>
-              <Text style={styles.infoValue}>{client.cnic}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Phone:</Text>
-              <Text style={styles.infoValue}>{client.phone}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{client.email || "-"}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Address:</Text>
-              <Text style={[styles.infoValue, { maxWidth: 160 }]}>
-                {client.homeAddress || "-"}
-              </Text>
-            </View>
-          </View>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardHeader}>Next of Kin Details</Text>
-            {nextOfKin ? (
-              <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Name:</Text>
-                  <Text style={styles.infoValue}>{nextOfKin.name}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Relation:</Text>
-                  <Text style={styles.infoValue}>{nextOfKin.relation}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>CNIC:</Text>
-                  <Text style={styles.infoValue}>{nextOfKin.cnic || "-"}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Phone:</Text>
-                  <Text style={styles.infoValue}>{nextOfKin.phone || "-"}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Address:</Text>
-                  <Text style={[styles.infoValue, { maxWidth: 160 }]}>
-                    {nextOfKin.address || "-"}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <Text style={{ fontSize: 7, color: "#64748B", marginTop: 4 }}>
-                No next of kin recorded.
-              </Text>
-            )}
+            {/* Right Column */}
+            <View style={{ flex: 1 }}>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>So/Do/Wo Name :</Text>
+                <Text style={styles.dataValue}>{soDoWoName}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Email :</Text>
+                <Text style={styles.dataValue}>{client.email || "N/A"}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Year of Birth :</Text>
+                <Text style={styles.dataValue}>N/A</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Permanent Address :</Text>
+                <Text style={[styles.dataValue, { fontSize: 6.8 }]}>
+                  {client.postalAddress || client.homeAddress || "N/A"}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Nominee CNIC :</Text>
+                <Text style={styles.dataValue}>{nextOfKin?.cnic || "N/A"}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Associated Units */}
-        {units.length > 0 && (
-          <View style={styles.unitsSection}>
-            <Text style={styles.unitsHeader}>Associated Units ({units.length})</Text>
-            <View style={styles.unitsGrid}>
-              {units.map((u, i) => (
-                <View key={i} style={styles.unitChip}>
-                  <Text style={{ fontFamily: "Helvetica-Bold", color: "#0F172A" }}>
-                    {u.unitCode}
-                  </Text>
-                  <Text style={{ color: "#64748B" }}>({u.floorName})</Text>
-                  <Text style={{ color: "#0B558B", fontFamily: "Helvetica-Bold" }}>
-                    {formatPkr(u.amountPkr)}
-                  </Text>
-                  <Text style={{ color: "#475569" }}>[{u.relationType}]</Text>
-                </View>
-              ))}
+        {/* File Details & Financial Details (side-by-side) */}
+        <View style={styles.twoColGrid}>
+          {/* File Details */}
+          <View style={styles.detailsBox}>
+            <Text style={styles.sectionBanner}>File Details</Text>
+            <View style={styles.detailsBody}>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Project Name :</Text>
+                <Text style={styles.dataValue}>Sardar&apos;s Mall</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Provisional Sector :</Text>
+                <Text style={styles.dataValue}>Commercial</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Floor / Unit :</Text>
+                <Text style={styles.dataValue}>
+                  {selectedUnitDetails?.floorName
+                    ? `${selectedUnitDetails.floorName} (${selectedUnitDetails.unitCode})`
+                    : unitCodeDisplay}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Category :</Text>
+                <Text style={styles.dataValue}>
+                  {selectedUnitDetails?.categoryName || "Office / Retail"}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Size :</Text>
+                <Text style={styles.dataValue}>
+                  {selectedUnitDetails?.grossAreaSqft || "—"} Sq Ft
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Form No :</Text>
+                <Text style={styles.dataValue}>{formNoDisplay}</Text>
+              </View>
             </View>
           </View>
-        )}
 
-        {/* Financial Balance Summary Tiles */}
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiTile}>
-            <Text style={styles.kpiLabel}>Unit Value (Debits)</Text>
-            <Text style={[styles.kpiValue, { color: "#991B1B" }]}>
-              {formatPkr(statement.totalDebitsPkr)}
-            </Text>
-          </View>
-          <View style={styles.kpiTile}>
-            <Text style={styles.kpiLabel}>Amount Received (Credits)</Text>
-            <Text style={[styles.kpiValue, { color: "#166534" }]}>
-              {formatPkr(statement.totalCreditsPkr)}
-            </Text>
-          </View>
-          <View style={styles.kpiTile}>
-            <Text style={styles.kpiLabel}>Closing Balance</Text>
-            <Text style={[styles.kpiValue, { color: "#0B558B" }]}>
-              {formatPkr(statement.closingBalancePkr)}
-            </Text>
+          {/* Financial Details */}
+          <View style={styles.detailsBox}>
+            <Text style={styles.sectionBanner}>Financial Details</Text>
+            <View style={styles.detailsBody}>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Price :</Text>
+                <Text style={styles.dataValue}>
+                  {formatPkr(financials?.listPrice || statement.totalDebitsPkr)}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Discount :</Text>
+                <Text style={styles.dataValue}>
+                  {financials?.discountValue && Number(financials.discountValue) > 0
+                    ? formatPkr(financials.discountValue)
+                    : "0.00"}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Net Price :</Text>
+                <Text style={styles.dataValue}>
+                  {formatPkr(financials?.netPrice || statement.totalDebitsPkr)}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Paid Amount :</Text>
+                <Text style={[styles.dataValue, { color: "#166534" }]}>
+                  {formatPkr(financials?.paidTotal || statement.totalCreditsPkr)}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Outstanding Balance :</Text>
+                <Text style={[styles.dataValue, { color: "#0B558B" }]}>
+                  {formatPkr(financials?.remainingAmount || statement.closingBalancePkr)}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Running Ledger Statement Table */}
+        {/* Installment Details (Schedule B) Header */}
+        <View style={{ marginBottom: 4 }}>
+          <Text style={[styles.sectionBanner, { borderRadius: 3 }]}>
+            Installment Details (Payment Schedule - Schedule B)
+          </Text>
+        </View>
+
+        {/* Schedule B Table */}
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
-            <View style={[styles.colDate, styles.headerCell]}>
-              <Text>Date</Text>
+            <View style={[styles.payColSeq, styles.payHeaderCell]}>
+              <Text>Sr #</Text>
             </View>
-            <View style={[styles.colDesc, styles.headerCell]}>
-              <Text>Description</Text>
+            <View style={[styles.payColItem, styles.payHeaderCell]}>
+              <Text>Payment Milestone / Installment</Text>
             </View>
-            <View style={[styles.colReceipt, styles.headerCell]}>
-              <Text>Receipt #</Text>
+            <View style={[styles.payColDueDate, styles.payHeaderCell]}>
+              <Text>Due Date</Text>
             </View>
-            <View style={[styles.colDebit, styles.headerCell]}>
-              <Text>Debit (Amount Due)</Text>
+            <View style={[styles.payColDueAmt, styles.payHeaderCell]}>
+              <Text>Due Amount</Text>
             </View>
-            <View style={[styles.colCredit, styles.headerCell]}>
-              <Text>Credit (Payment)</Text>
+            <View style={[styles.payColPaidDate, styles.payHeaderCell]}>
+              <Text>Paid Date</Text>
             </View>
-            <View style={[styles.colBalance, styles.headerCell]}>
-              <Text>Running Balance</Text>
+            <View style={[styles.payColPaidAmt, styles.payHeaderCell]}>
+              <Text>Paid Amount</Text>
             </View>
-          </View>
-
-          {/* Opening Balance Row */}
-          <View style={[styles.tableRow, { backgroundColor: "#F8FAFC" }]} wrap={false}>
-            <View style={styles.colDate}>
-              <Text style={{ color: "#64748B" }}>{statement.period.startDate}</Text>
+            <View style={[styles.payColReceipt, styles.payHeaderCell]}>
+              <Text>Receipt No</Text>
             </View>
-            <View
-              style={[
-                styles.colDesc,
-                { width: "59%", borderRightWidth: 0.5, borderRightColor: "#E2E8F0" },
-              ]}
-            >
-              <Text style={{ fontStyle: "italic", color: "#64748B" }}>
-                Opening Balance Brought Forward
-              </Text>
+            <View style={[styles.payColSurcharge, styles.payHeaderCell]}>
+              <Text>Surcharge</Text>
             </View>
-            <View style={styles.colBalance}>
-              <Text style={styles.bold}>{formatPkr(statement.openingBalancePkr)}</Text>
+            <View style={[styles.payColStatus, styles.payHeaderCell]}>
+              <Text>Status</Text>
             </View>
           </View>
 
-          {/* Statement Entries */}
-          {statement.entries.length === 0 ? (
-            <View style={[styles.tableRow, { justifyContent: "center", minHeight: 28 }]}>
-              <Text style={{ color: "#64748B", fontStyle: "italic" }}>
-                No transactions recorded in this period.
-              </Text>
-            </View>
-          ) : (
-            statement.entries.map((entry, idx) => {
-              const debitNum = Number(entry.debitPkr) || 0;
-              const creditNum = Number(entry.creditPkr) || 0;
+          {/* Rows */}
+          {scheduleRows && scheduleRows.length > 0
+            ? scheduleRows.map((row) => {
+                const isPaid = row.status?.toUpperCase() === "PAID";
+                const isOverdue = row.status?.toUpperCase() === "OVERDUE";
+                const hasPaidAmt = row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
+                const paidAmtStr = hasPaidAmt
+                  ? formatPkr(row.paidAmountPkr!)
+                  : isPaid
+                    ? formatPkr(row.amountPkr)
+                    : "—";
+                const paidDateStr = row.paidDate ? formatDate(row.paidDate) : "—";
+                const hasSurcharge =
+                  row.surchargePkr &&
+                  row.surchargePkr !== "—" &&
+                  Number(row.surchargePkr) > 0;
+                const surchargeStr = hasSurcharge ? formatPkr(row.surchargePkr!) : "—";
 
-              return (
-                <View key={idx} style={styles.tableRow} wrap={false}>
-                  <View style={styles.colDate}>
-                    <Text>{formatDate(entry.date)}</Text>
+                return (
+                  <View
+                    key={row.seq}
+                    style={[
+                      styles.tableRow,
+                      { fontSize: 6.5 },
+                      row.seq === 0 ? { backgroundColor: "#F8FAFC" } : {},
+                    ]}
+                    wrap={false}
+                  >
+                    <View style={styles.payColSeq}>
+                      <Text>{row.seq}</Text>
+                    </View>
+                    <View style={styles.payColItem}>
+                      <Text style={row.seq === 0 ? styles.bold : undefined}>
+                        {row.label}
+                      </Text>
+                    </View>
+                    <View style={styles.payColDueDate}>
+                      <Text>{formatDate(row.dueDate)}</Text>
+                    </View>
+                    <View style={styles.payColDueAmt}>
+                      <Text style={styles.bold}>{formatPkr(row.amountPkr)}</Text>
+                    </View>
+                    <View style={styles.payColPaidDate}>
+                      <Text>{paidDateStr}</Text>
+                    </View>
+                    <View style={styles.payColPaidAmt}>
+                      <Text style={hasPaidAmt || isPaid ? styles.bold : undefined}>
+                        {paidAmtStr}
+                      </Text>
+                    </View>
+                    <View style={styles.payColReceipt}>
+                      <Text style={{ fontSize: 6.2 }}>{row.receiptNo || "—"}</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.payColSurcharge,
+                        !hasSurcharge
+                          ? { textAlign: "center", paddingRight: 0 }
+                          : undefined,
+                      ]}
+                    >
+                      <Text>{surchargeStr}</Text>
+                    </View>
+                    <View style={styles.payColStatus}>
+                      <Text
+                        style={[
+                          styles.bold,
+                          {
+                            color: isPaid ? "#166534" : isOverdue ? "#991B1B" : "#475569",
+                          },
+                        ]}
+                      >
+                        {row.status?.toUpperCase() || "PENDING"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.colDesc}>
+                );
+              })
+            : /* Fallback to statement entries if scheduleRows is empty */
+              statement.entries.map((entry, idx) => (
+                <View key={idx} style={[styles.tableRow, { fontSize: 6.5 }]} wrap={false}>
+                  <View style={styles.payColSeq}>
+                    <Text>{idx + 1}</Text>
+                  </View>
+                  <View style={styles.payColItem}>
                     <Text>{entry.description}</Text>
                   </View>
-                  <View style={styles.colReceipt}>
-                    <Text style={{ fontSize: 6.8 }}>{entry.receiptNo || "—"}</Text>
+                  <View style={styles.payColDueDate}>
+                    <Text>{formatDate(entry.date)}</Text>
+                  </View>
+                  <View style={styles.payColDueAmt}>
+                    <Text>{formatPkr(entry.debitPkr)}</Text>
+                  </View>
+                  <View style={styles.payColPaidDate}>
+                    <Text>{formatDate(entry.date)}</Text>
+                  </View>
+                  <View style={styles.payColPaidAmt}>
+                    <Text>{formatPkr(entry.creditPkr)}</Text>
+                  </View>
+                  <View style={styles.payColReceipt}>
+                    <Text>{entry.receiptNo || "—"}</Text>
                   </View>
                   <View
                     style={[
-                      styles.colDebit,
-                      debitNum === 0
-                        ? { textAlign: "center", paddingRight: 0 }
-                        : { color: "#991B1B" },
+                      styles.payColSurcharge,
+                      { textAlign: "center", paddingRight: 0 },
                     ]}
                   >
-                    <Text>{debitNum > 0 ? formatPkr(entry.debitPkr) : "—"}</Text>
+                    <Text>—</Text>
                   </View>
-                  <View
-                    style={[
-                      styles.colCredit,
-                      creditNum === 0
-                        ? { textAlign: "center", paddingRight: 0 }
-                        : { color: "#166534" },
-                    ]}
-                  >
-                    <Text>{creditNum > 0 ? formatPkr(entry.creditPkr) : "—"}</Text>
-                  </View>
-                  <View style={styles.colBalance}>
-                    <Text style={styles.bold}>{formatPkr(entry.runningBalancePkr)}</Text>
+                  <View style={styles.payColStatus}>
+                    <Text style={[styles.bold, { color: "#166534" }]}>RECORDED</Text>
                   </View>
                 </View>
-              );
-            })
-          )}
-
-          {/* Closing Balance Row */}
-          <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
-            <View style={styles.colDate}>
-              <Text>{statement.period.endDate}</Text>
-            </View>
-            <View
-              style={[
-                styles.colDesc,
-                { width: "46%", borderRightWidth: 0.5, borderRightColor: "#E2E8F0" },
-              ]}
-            >
-              <Text style={styles.bold}>Closing Balance Carried Forward</Text>
-            </View>
-            <View style={styles.colDebit}>
-              <Text style={[styles.bold, { color: "#991B1B" }]}>
-                {formatPkr(statement.totalDebitsPkr)}
-              </Text>
-            </View>
-            <View style={styles.colCredit}>
-              <Text style={[styles.bold, { color: "#166534" }]}>
-                {formatPkr(statement.totalCreditsPkr)}
-              </Text>
-            </View>
-            <View style={styles.colBalance}>
-              <Text style={[styles.bold, { color: "#0B558B" }]}>
-                {formatPkr(statement.closingBalancePkr)}
-              </Text>
-            </View>
-          </View>
+              ))}
         </View>
 
-        {/* Signatures */}
-        <View style={styles.signatureBlock} wrap={false}>
-          <View>
-            <View style={styles.sigLine}>
-              <Text>Prepared By</Text>
-            </View>
+        {/* Printed By Info */}
+        <Text style={styles.printedByText}>
+          Printed By: Administrator || Date: {formatDateTime(now)}
+        </Text>
+
+        {/* Signatures matching reference image */}
+        <View style={styles.signatureSection} wrap={false}>
+          <View style={styles.sigBox}>
+            <View style={styles.sigLine} />
+            <Text style={styles.sigLabel}>Prepared By</Text>
           </View>
-          <View>
-            <View style={styles.sigLine}>
-              <Text>Accounts Officer</Text>
-            </View>
-          </View>
-          <View>
-            <View style={styles.sigLine}>
-              <Text>Client Acceptance</Text>
-            </View>
+          <View style={styles.sigBox}>
+            <View style={styles.sigLine} />
+            <Text style={styles.sigLabel}>Checked By</Text>
           </View>
         </View>
 
         {/* Page Footer */}
         <View style={styles.footer} fixed>
-          <Text>Sardar&apos;s Mall ERP • Official Client Statement of Account</Text>
+          <Text>
+            Sardar&apos;s Mall ERP • Official Client Statement &amp; Allotment Schedule
+          </Text>
           <Text
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
           />

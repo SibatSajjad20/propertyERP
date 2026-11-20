@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { DotsThreeVertical, DownloadSimple, Printer } from "@phosphor-icons/react";
+import { DotsThreeVertical, Printer } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -211,11 +211,7 @@ export function CollectionsReportScreen({
 
   const activeTabMeta = tabs.find((t) => t.key === activeTab) || tabs[0];
 
-  function handlePrint() {
-    window.print();
-  }
-
-  function handleDownloadPdf() {
+  function handleOpenPdf() {
     const url = `/api/documents/reports/collections/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
   }
@@ -323,20 +319,11 @@ export function CollectionsReportScreen({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={handlePrint}
+                onClick={handleOpenPdf}
                 className="hidden gap-1.5 sm:inline-flex"
               >
                 <Printer weight="light" className="size-4" />
-                <span>Print PDF</span>
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleDownloadPdf}
-                className="hidden gap-1.5 sm:inline-flex"
-              >
-                <DownloadSimple weight="light" className="size-4" />
-                <span>Download PDF</span>
+                <span>Print / PDF</span>
               </Button>
 
               <DropdownMenu>
@@ -353,18 +340,11 @@ export function CollectionsReportScreen({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem
-                    onClick={handlePrint}
+                    onClick={handleOpenPdf}
                     className="cursor-pointer gap-2"
                   >
                     <Printer weight="light" className="size-4 text-ink-muted" />
-                    <span>Print PDF</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={handleDownloadPdf}
-                    className="cursor-pointer gap-2"
-                  >
-                    <DownloadSimple weight="light" className="size-4 text-ink-muted" />
-                    <span>Download PDF</span>
+                    <span>Print / PDF</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

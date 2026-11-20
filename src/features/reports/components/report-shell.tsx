@@ -4,12 +4,7 @@ import * as React from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  DownloadSimple,
-  Printer,
-  MagnifyingGlass,
-  ArrowClockwise,
-} from "@phosphor-icons/react";
+import { Printer, MagnifyingGlass, ArrowClockwise } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -208,35 +203,17 @@ function ReportHeaderActions({
   exportType: ReportShellProps["exportType"];
 }) {
   const searchParams = useSearchParams();
-  const [isExporting, setIsExporting] = React.useState(false);
 
-  function handlePrint() {
-    window.print();
-  }
-
-  function handleDownloadPdf() {
-    setIsExporting(true);
+  function handleOpenPdf() {
     const url = `/api/documents/reports/${exportType}/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
-    window.setTimeout(() => setIsExporting(false), 1000);
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="secondary" size="md" onClick={handlePrint}>
-        <Printer weight="light" className="size-4" />
-        <span>Print PDF</span>
-      </Button>
-      <Button
-        variant="primary"
-        size="md"
-        onClick={handleDownloadPdf}
-        disabled={isExporting}
-      >
-        <DownloadSimple weight="light" className="size-4" />
-        <span>{isExporting ? "Downloading..." : "Download PDF"}</span>
-      </Button>
-    </div>
+    <Button variant="secondary" size="md" onClick={handleOpenPdf} className="gap-1.5">
+      <Printer weight="light" className="size-4" />
+      <span>Print / PDF</span>
+    </Button>
   );
 }
 

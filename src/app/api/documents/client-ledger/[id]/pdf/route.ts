@@ -25,22 +25,36 @@ export async function GET(
     });
 
     const parsedFilters: ReportFilters = reportFiltersSchema.parse(raw);
-    const data = await getClientLedgerReport(id, parsedFilters);
+    let data = await getClientLedgerReport(id, parsedFilters);
 
     if (!data) {
       return new NextResponse("Client statement data not found", { status: 404 });
     }
 
+    // If client has multiple units but no unit was specified, default to first unit for PDF rendering
+    if (data.requiresUnitSelection && data.units.length > 0) {
+      const resolved = await getClientLedgerReport(id, {
+        ...parsedFilters,
+        unitId: data.units[0]!.unitId,
+      });
+      if (resolved) {
+        data = resolved;
+      }
+    }
+
     const pdfBuffer = await renderToBuffer(ClientLedgerPdf({ data }));
     const stamp = new Date().toISOString().slice(0, 10);
     const sanitizedName = data.client.fullName.replace(/[^a-zA-Z0-9_-]/g, "_");
-    const filename = `sardars-mall-statement-${sanitizedName}-${stamp}.pdf`;
+    const unitTag = data.selectedUnitDetails?.unitCode
+      ? `-${data.selectedUnitDetails.unitCode}`
+      : "";
+    const filename = `sardars-mall-statement-${sanitizedName}${unitTag}-${stamp}.pdf`;
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `inline; filename="${filename}"`,
       },
     });
   } catch (error) {

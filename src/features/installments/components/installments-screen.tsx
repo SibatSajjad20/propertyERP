@@ -10,7 +10,6 @@ import {
   PencilSimple,
   Prohibit,
   Printer,
-  DownloadSimple,
   User,
   ArrowRight,
 } from "@phosphor-icons/react";
@@ -146,11 +145,7 @@ export function InstallmentsScreen({
     refetchProfile();
   }
 
-  function handlePrintInstallments() {
-    window.print();
-  }
-
-  function handleDownloadPdf() {
+  function handleOpenPdf() {
     if (!currentBooking) return;
     const url = `/api/documents/installments/booking/${currentBooking.id}/pdf`;
     window.open(url, "_blank");
@@ -474,21 +469,11 @@ export function InstallmentsScreen({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={handlePrintInstallments}
+                        onClick={handleOpenPdf}
                         className="gap-1.5"
                       >
                         <Printer weight="light" className="size-4" />
-                        <span>Print PDF</span>
-                      </Button>
-
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleDownloadPdf}
-                        className="gap-1.5"
-                      >
-                        <DownloadSimple weight="light" className="size-4" />
-                        <span>Download PDF</span>
+                        <span>Print / PDF</span>
                       </Button>
                     </div>
 

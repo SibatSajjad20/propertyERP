@@ -5,12 +5,14 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  DownloadSimple,
   Printer,
   MagnifyingGlass,
   User,
   UsersThree,
   Buildings,
+  FileText,
+  CurrencyDollar,
+  ArrowRight,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,17 @@ const PRESET_LABELS: Record<ReportPreset, string> = {
   all: "All Time",
 };
 
+function formatDate(date: Date | string | null | undefined) {
+  if (!date) return "—";
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function ClientLedgerScreen(props: ClientLedgerScreenProps) {
   return (
     <React.Suspense
@@ -58,7 +71,6 @@ function ClientLedgerScreenInner({
 
   const currentPreset = (searchParams.get("preset") as ReportPreset) || "all";
   const [searchVal, setSearchVal] = React.useState(searchParams.get("q") || "");
-  const [isExporting, setIsExporting] = React.useState(false);
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +86,13 @@ function ClientLedgerScreenInner({
   function handleSelectClient(id: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("clientId", id);
+    params.delete("unitId");
+    router.push(`/reports/client-ledger?${params.toString()}` as never);
+  }
+
+  function handleSelectUnit(unitId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("unitId", unitId);
     router.push(`/reports/client-ledger?${params.toString()}` as never);
   }
 
@@ -83,69 +102,34 @@ function ClientLedgerScreenInner({
     router.push(`/reports/client-ledger?${params.toString()}` as never);
   }
 
-  function handlePrint() {
-    window.print();
-  }
-
-  function handleDownloadPdf() {
+  function handleOpenPdf() {
     if (!currentClientId) return;
-    setIsExporting(true);
     const url = `/api/documents/client-ledger/${currentClientId}/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
-    setTimeout(() => setIsExporting(false), 1000);
   }
+
+  const selectedUnitDetails = ledgerData?.selectedUnitDetails;
+  const financials = ledgerData?.financials;
+  const scheduleRows = ledgerData?.scheduleRows || [];
 
   return (
     <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
-      {/* Printable Mall Header (Visible ONLY during Print) */}
-      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#0B558B] print:pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
-            <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
-          </div>
-          <span className="font-sans text-xs text-[#64748B] tabular-nums">
-            Statement Date:{" "}
-            {new Date().toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <div className="mt-2 text-sm font-semibold text-[#0F172A]">
-          Client Statement of Account
-        </div>
-        {ledgerData && (
-          <div className="mt-1 text-xs text-[#64748B]">
-            Client: {ledgerData.client.fullName} (CNIC: {ledgerData.client.cnic}) | Phone:{" "}
-            {ledgerData.client.phone}
-          </div>
-        )}
-      </div>
-
       {/* Screen Page Header */}
       <div className="space-y-4 print:hidden">
         <PageHeader
           title="Client Ledger &amp; Statement"
-          description="Customer debtor statement with running balance, booking debits, payment receipts, and reversal credits."
+          description="Customer debtor statement with running balance, allotment details, and Schedule-B payment plan."
           actions={
             ledgerData ? (
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="md" onClick={handlePrint}>
-                  <Printer weight="light" className="size-4" />
-                  <span>Print PDF</span>
-                </Button>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleDownloadPdf}
-                  disabled={isExporting}
-                >
-                  <DownloadSimple weight="light" className="size-4" />
-                  <span>{isExporting ? "Downloading..." : "Download PDF"}</span>
-                </Button>
-              </div>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleOpenPdf}
+                className="gap-1.5"
+              >
+                <Printer weight="light" className="size-4" />
+                <span>Print / PDF</span>
+              </Button>
             ) : null
           }
         />
@@ -181,7 +165,7 @@ function ClientLedgerScreenInner({
         </div>
       </div>
 
-      {/* Search client input (screen only) */}
+      {/* Search client input */}
       <div className="card rounded-[12px] p-4 print:hidden">
         <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -278,7 +262,18 @@ function ClientLedgerScreenInner({
               <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
                 <div>
                   <span className="text-ink-muted">Full Name:</span>
-                  <p className="font-medium text-ink">{ledgerData.client.fullName}</p>
+                  <p className="font-medium text-ink">
+                    {ledgerData.client.title ? `${ledgerData.client.title} ` : ""}
+                    {ledgerData.client.fullName}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-ink-muted">So/Do/Wo Name:</span>
+                  <p className="font-medium text-ink">
+                    {ledgerData.client.relationPrefix && ledgerData.client.relationName
+                      ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
+                      : ledgerData.client.relationName || "—"}
+                  </p>
                 </div>
                 <div>
                   <span className="text-ink-muted">CNIC:</span>
@@ -294,11 +289,17 @@ function ClientLedgerScreenInner({
                 </div>
                 <div>
                   <span className="text-ink-muted">Email:</span>
-                  <p className="text-ink">{ledgerData.client.email || "-"}</p>
+                  <p className="text-ink">{ledgerData.client.email || "—"}</p>
+                </div>
+                <div>
+                  <span className="text-ink-muted">Present Address:</span>
+                  <p className="truncate text-ink">{ledgerData.client.homeAddress}</p>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-ink-muted">Address:</span>
-                  <p className="text-ink">{ledgerData.client.homeAddress}</p>
+                  <span className="text-ink-muted">Permanent Address:</span>
+                  <p className="truncate text-ink">
+                    {ledgerData.client.postalAddress || ledgerData.client.homeAddress}
+                  </p>
                 </div>
               </div>
             </div>
@@ -308,13 +309,13 @@ function ClientLedgerScreenInner({
               <div className="flex items-center gap-2">
                 <UsersThree weight="light" className="size-4 text-primary" />
                 <h4 className="text-[13px] font-semibold text-ink">
-                  Next of Kin Details
+                  Nominee / Next of Kin Details
                 </h4>
               </div>
               {ledgerData.nextOfKin ? (
                 <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
                   <div>
-                    <span className="text-ink-muted">Name:</span>
+                    <span className="text-ink-muted">Nominee Name:</span>
                     <p className="font-medium text-ink">{ledgerData.nextOfKin.name}</p>
                   </div>
                   <div>
@@ -324,37 +325,46 @@ function ClientLedgerScreenInner({
                     </p>
                   </div>
                   <div>
+                    <span className="text-ink-muted">Nominee CNIC:</span>
+                    <p className="font-sans text-[11px] text-ink tabular-nums">
+                      {ledgerData.nextOfKin.cnic || "—"}
+                    </p>
+                  </div>
+                  <div>
                     <span className="text-ink-muted">Phone:</span>
                     <p className="font-sans text-ink tabular-nums">
                       {ledgerData.nextOfKin.phone}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-ink-muted">CNIC:</span>
-                    <p className="font-sans text-[11px] text-ink tabular-nums">
-                      {ledgerData.nextOfKin.cnic || "-"}
-                    </p>
-                  </div>
                   <div className="col-span-2">
                     <span className="text-ink-muted">Address:</span>
-                    <p className="text-ink">{ledgerData.nextOfKin.address || "-"}</p>
+                    <p className="truncate text-ink">
+                      {ledgerData.nextOfKin.address || "—"}
+                    </p>
                   </div>
                 </div>
               ) : (
                 <p className="mt-3 text-[12px] text-ink-muted">
-                  No next of kin recorded for this client.
+                  No nominee / next of kin recorded for this client.
                 </p>
               )}
             </div>
           </div>
 
-          {/* Associated Units */}
+          {/* Associated Units Header / Switcher */}
           <div className="card rounded-[12px] p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Buildings weight="light" className="size-4 text-primary" />
-              <h4 className="text-[13px] font-semibold text-ink">
-                Associated Units ({ledgerData.units.length})
-              </h4>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Buildings weight="light" className="size-4 text-primary" />
+                <h4 className="text-[13px] font-semibold text-ink">
+                  Associated Units ({ledgerData.units.length})
+                </h4>
+              </div>
+              {ledgerData.units.length > 1 && (
+                <span className="text-[11px] font-medium text-primary">
+                  Click a unit below to switch schedule
+                </span>
+              )}
             </div>
             {ledgerData.units.length === 0 ? (
               <p className="text-[12px] text-ink-muted">
@@ -362,169 +372,371 @@ function ClientLedgerScreenInner({
               </p>
             ) : (
               <div className="flex flex-wrap gap-2.5">
-                {ledgerData.units.map((u, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2.5 rounded-[8px] border border-line bg-subtle/50 px-3 py-1.5"
-                  >
-                    <span className="unit-code text-[12px] font-semibold text-ink">
-                      {u.unitCode}
-                    </span>
-                    <span className="text-[11px] text-ink-muted">{u.floorName}</span>
-                    <span className="text-[11px] font-semibold text-ink tabular-nums">
-                      {formatPkr(u.amountPkr)}
-                    </span>
-                    <Badge
-                      tone={
-                        u.relationType === "SOLD"
-                          ? "sold"
-                          : u.relationType === "BOOKED"
-                            ? "primary"
-                            : u.relationType === "RESERVED"
-                              ? "accent"
-                              : "muted"
-                      }
+                {ledgerData.units.map((u) => {
+                  const isSelected = u.unitId === ledgerData.selectedUnitId;
+                  return (
+                    <button
+                      key={u.unitId}
+                      type="button"
+                      onClick={() => handleSelectUnit(u.unitId)}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2.5 rounded-[8px] border px-3 py-1.5 text-left transition-all",
+                        isSelected
+                          ? "border-primary bg-primary-soft shadow-xs ring-2 ring-primary/30"
+                          : "border-line bg-subtle/50 hover:border-primary/40 hover:bg-subtle/80",
+                      )}
                     >
-                      {u.relationType}
-                    </Badge>
-                  </div>
-                ))}
+                      <span className="unit-code text-[12px] font-semibold text-ink">
+                        {u.unitCode}
+                      </span>
+                      <span className="text-[11px] text-ink-muted">{u.floorName}</span>
+                      <span className="text-[11px] font-semibold text-ink tabular-nums">
+                        {formatPkr(u.amountPkr)}
+                      </span>
+                      <Badge
+                        tone={
+                          u.relationType === "SOLD"
+                            ? "sold"
+                            : u.relationType === "BOOKED"
+                              ? "primary"
+                              : u.relationType === "RESERVED"
+                                ? "accent"
+                                : "muted"
+                        }
+                      >
+                        {u.relationType}
+                      </Badge>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Statement Balance Summary */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="card rounded-[12px] border-l-4 border-l-sold p-3.5">
-              <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                Unit Value
-              </span>
-              <p className="mt-1 font-sans text-[20px] font-semibold text-sold tabular-nums">
-                {formatPkr(ledgerData.statement.totalDebitsPkr)}
+          {/* If Unit Selection is Mandatory and Not Yet Picked */}
+          {ledgerData.requiresUnitSelection ? (
+            <div className="card rounded-[12px] border-2 border-primary/40 bg-primary/5 p-6 text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Buildings weight="light" className="size-6" />
+              </div>
+              <h3 className="mt-3 text-[16px] font-semibold text-ink">
+                Unit Selection Required
+              </h3>
+              <p className="mx-auto mt-1 max-w-lg text-[13px] text-ink-muted">
+                This client owns {ledgerData.units.length} booked / sold units. Please
+                select a unit below to generate its official allotment ledger statement
+                and Schedule-B payment plan.
               </p>
-              <span className="text-[10px] text-ink-muted">
-                Contracts &amp; amounts due
-              </span>
-            </div>
-
-            <div className="card rounded-[12px] border-l-4 border-l-available p-3.5">
-              <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                Amount Received
-              </span>
-              <p className="mt-1 font-sans text-[20px] font-semibold text-available tabular-nums">
-                {formatPkr(ledgerData.statement.totalCreditsPkr)}
-              </p>
-              <span className="text-[10px] text-ink-muted">
-                Payments &amp; refund credits
-              </span>
-            </div>
-
-            <div className="card rounded-[12px] border-l-4 border-l-primary p-3.5">
-              <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                Closing Balance
-              </span>
-              <p className="mt-1 font-sans text-[20px] font-semibold text-primary tabular-nums">
-                {formatPkr(ledgerData.statement.closingBalancePkr)}
-              </p>
-              <span className="text-[10px] text-ink-muted">
-                Current outstanding balance
-              </span>
-            </div>
-          </div>
-
-          {/* Running Ledger Statement Table */}
-          <div className="card overflow-hidden rounded-[12px]">
-            <div className="flex items-center justify-between border-b border-line bg-subtle/30 px-4 py-3">
-              <div>
-                <h4 className="text-[13px] font-semibold text-ink">
-                  Running Financial Ledger
-                </h4>
-                <p className="text-[11px] text-ink-muted">
-                  Chronological entries from {ledgerData.statement.period.startDate} to{" "}
-                  {ledgerData.statement.period.endDate}
-                </p>
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {ledgerData.units.map((u) => (
+                  <button
+                    key={u.unitId}
+                    type="button"
+                    onClick={() => handleSelectUnit(u.unitId)}
+                    className="group flex cursor-pointer flex-col rounded-[10px] border border-line bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="unit-code text-[14px] font-bold text-ink group-hover:text-primary">
+                        {u.unitCode}
+                      </span>
+                      <Badge
+                        tone={
+                          u.relationType === "SOLD"
+                            ? "sold"
+                            : u.relationType === "BOOKED"
+                              ? "primary"
+                              : u.relationType === "RESERVED"
+                                ? "accent"
+                                : "muted"
+                        }
+                      >
+                        {u.relationType}
+                      </Badge>
+                    </div>
+                    <span className="mt-1 text-[12px] text-ink-muted">
+                      {u.floorName} {u.categoryName ? `• ${u.categoryName}` : ""}
+                    </span>
+                    <span className="mt-2 text-[14px] font-semibold text-ink tabular-nums">
+                      {formatPkr(u.amountPkr)}
+                    </span>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary group-hover:underline">
+                      <span>Select Unit &amp; View Schedule</span>
+                      <ArrowRight weight="bold" className="size-3" />
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-sans text-[12px]">
-                <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                  <tr>
-                    <th className="px-4 py-2.5">Date</th>
-                    <th className="px-3 py-2.5">Description</th>
-                    <th className="px-3 py-2.5">Receipt #</th>
-                    <th className="px-3 py-2.5 text-right">Debit (Amount Due)</th>
-                    <th className="px-3 py-2.5 text-right">Credit (Payment)</th>
-                    <th className="px-4 py-2.5 text-right">Running Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line/60">
-                  {/* Opening Balance Row */}
-                  <tr className="bg-subtle/20 font-medium italic">
-                    <td className="px-4 py-2.5 text-ink-muted tabular-nums">
-                      {ledgerData.statement.period.startDate}
-                    </td>
-                    <td colSpan={4} className="px-3 py-2.5 text-ink-muted">
-                      Opening Balance Brought Forward
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
-                      {formatPkr(ledgerData.statement.openingBalancePkr)}
-                    </td>
-                  </tr>
+          ) : (
+            <>
+              {/* File Details & Financial Details Side-by-Side (matching reference image) */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* File Details */}
+                <div className="card overflow-hidden rounded-[12px]">
+                  <div className="flex items-center gap-2 bg-[#1E293B] px-4 py-2.5 text-white">
+                    <FileText weight="light" className="size-4 text-white" />
+                    <h4 className="text-[13px] font-semibold tracking-wide uppercase">
+                      File Details
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-4 text-[12px]">
+                    <div>
+                      <span className="text-ink-muted">Project Name:</span>
+                      <p className="font-semibold text-ink">Sardar&apos;s Mall</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Provisional Sector:</span>
+                      <p className="font-semibold text-ink">Commercial</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Floor / Unit:</span>
+                      <p className="font-semibold text-ink">
+                        {selectedUnitDetails?.floorName} ({selectedUnitDetails?.unitCode})
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Category:</span>
+                      <p className="font-semibold text-ink">
+                        {selectedUnitDetails?.categoryName || "Office / Retail"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Size:</span>
+                      <p className="font-semibold text-ink tabular-nums">
+                        {selectedUnitDetails?.grossAreaSqft || "—"} Sq Ft
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Form No:</span>
+                      <p className="font-semibold text-primary tabular-nums">
+                        {selectedUnitDetails?.applicationFormNo ||
+                          selectedUnitDetails?.bookingNo ||
+                          "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                  {/* Transactions */}
-                  {ledgerData.statement.entries.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
-                        No transactions recorded in this period.
-                      </td>
-                    </tr>
-                  ) : (
-                    ledgerData.statement.entries.map((entry, idx) => (
-                      <tr key={idx} className="transition-colors hover:bg-subtle/40">
-                        <td className="px-4 py-2.5 text-ink tabular-nums">
-                          {new Date(entry.date).toISOString().split("T")[0]}
-                        </td>
-                        <td className="px-3 py-2.5 font-medium text-ink">
-                          {entry.description}
-                        </td>
-                        <td className="px-3 py-2.5 font-sans text-[11px] text-primary tabular-nums">
-                          {entry.receiptNo || "-"}
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-sold tabular-nums">
-                          {entry.debitPkr !== "0.00" ? formatPkr(entry.debitPkr) : "-"}
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-available tabular-nums">
-                          {entry.creditPkr !== "0.00" ? formatPkr(entry.creditPkr) : "-"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
-                          {formatPkr(entry.runningBalancePkr)}
-                        </td>
+                {/* Financial Details */}
+                <div className="card overflow-hidden rounded-[12px]">
+                  <div className="flex items-center gap-2 bg-[#1E293B] px-4 py-2.5 text-white">
+                    <CurrencyDollar weight="light" className="size-4 text-white" />
+                    <h4 className="text-[13px] font-semibold tracking-wide uppercase">
+                      Financial Details
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-4 text-[12px]">
+                    <div>
+                      <span className="text-ink-muted">Price:</span>
+                      <p className="font-semibold text-ink tabular-nums">
+                        {formatPkr(
+                          financials?.listPrice || ledgerData.statement.totalDebitsPkr,
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Discount:</span>
+                      <p className="font-semibold text-ink tabular-nums">
+                        {financials?.discountValue && Number(financials.discountValue) > 0
+                          ? formatPkr(financials.discountValue)
+                          : "0.00"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Net Price:</span>
+                      <p className="font-semibold text-ink tabular-nums">
+                        {formatPkr(
+                          financials?.netPrice || ledgerData.statement.totalDebitsPkr,
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Paid Amount:</span>
+                      <p className="font-semibold text-available tabular-nums">
+                        {formatPkr(
+                          financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
+                        )}
+                      </p>
+                    </div>
+                    <div className="col-span-2 border-t border-line/60 pt-2">
+                      <span className="text-ink-muted">Outstanding Balance:</span>
+                      <p className="font-sans text-[18px] font-bold text-primary tabular-nums">
+                        {formatPkr(
+                          financials?.remainingAmount ||
+                            ledgerData.statement.closingBalancePkr,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statement Balance Summary */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="card rounded-[12px] border-l-4 border-l-sold p-3.5">
+                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                    Unit Value
+                  </span>
+                  <p className="mt-1 font-sans text-[20px] font-semibold text-sold tabular-nums">
+                    {formatPkr(
+                      financials?.netPrice || ledgerData.statement.totalDebitsPkr,
+                    )}
+                  </p>
+                  <span className="text-[10px] text-ink-muted">
+                    Contract value &amp; amounts due
+                  </span>
+                </div>
+
+                <div className="card rounded-[12px] border-l-4 border-l-available p-3.5">
+                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                    Amount Received
+                  </span>
+                  <p className="mt-1 font-sans text-[20px] font-semibold text-available tabular-nums">
+                    {formatPkr(
+                      financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
+                    )}
+                  </p>
+                  <span className="text-[10px] text-ink-muted">
+                    Payments received to date
+                  </span>
+                </div>
+
+                <div className="card rounded-[12px] border-l-4 border-l-primary p-3.5">
+                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                    Outstanding Balance
+                  </span>
+                  <p className="mt-1 font-sans text-[20px] font-semibold text-primary tabular-nums">
+                    {formatPkr(
+                      financials?.remainingAmount ||
+                        ledgerData.statement.closingBalancePkr,
+                    )}
+                  </p>
+                  <span className="text-[10px] text-ink-muted">
+                    Current outstanding amount
+                  </span>
+                </div>
+              </div>
+
+              {/* Schedule-B Payment Schedule Table */}
+              <div className="card overflow-hidden rounded-[12px]">
+                <div className="flex items-center justify-between border-b border-line bg-subtle/30 px-4 py-3">
+                  <div>
+                    <h4 className="text-[13px] font-semibold text-ink">
+                      Installment Details (Payment Schedule - Schedule B)
+                    </h4>
+                    <p className="text-[11px] text-ink-muted">
+                      Official payment schedule for unit{" "}
+                      {selectedUnitDetails?.unitCode || "contract"} • Form #
+                      {selectedUnitDetails?.applicationFormNo ||
+                        selectedUnitDetails?.bookingNo ||
+                        "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-sans text-[12px]">
+                    <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                      <tr>
+                        <th className="w-12 px-3 py-2.5 text-center">Sr #</th>
+                        <th className="px-4 py-2.5">Payment Milestone / Installment</th>
+                        <th className="px-3 py-2.5 text-center">Due Date</th>
+                        <th className="px-3 py-2.5 text-right">Due Amount</th>
+                        <th className="px-3 py-2.5 text-center">Paid Date</th>
+                        <th className="px-3 py-2.5 text-right">Paid Amount</th>
+                        <th className="px-3 py-2.5 text-center">Receipt No</th>
+                        <th className="px-3 py-2.5 text-right">Surcharge</th>
+                        <th className="px-3 py-2.5 text-center">Status</th>
                       </tr>
-                    ))
-                  )}
+                    </thead>
+                    <tbody className="divide-y divide-line/60">
+                      {scheduleRows.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-4 py-6 text-center text-ink-muted"
+                          >
+                            No installment schedule found for this unit.
+                          </td>
+                        </tr>
+                      ) : (
+                        scheduleRows.map((row) => {
+                          const isPaid = row.status?.toUpperCase() === "PAID";
+                          const isOverdue = row.status?.toUpperCase() === "OVERDUE";
+                          const hasPaidAmt =
+                            row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
+                          const paidAmtStr = hasPaidAmt
+                            ? formatPkr(row.paidAmountPkr!)
+                            : isPaid
+                              ? formatPkr(row.amountPkr)
+                              : "—";
+                          const paidDateStr = row.paidDate
+                            ? formatDate(row.paidDate)
+                            : "—";
+                          const hasSurcharge =
+                            row.surchargePkr &&
+                            row.surchargePkr !== "—" &&
+                            Number(row.surchargePkr) > 0;
+                          const surchargeStr = hasSurcharge
+                            ? formatPkr(row.surchargePkr!)
+                            : "—";
 
-                  {/* Closing Balance Row */}
-                  <tr className="border-t-2 border-line bg-subtle/30 font-bold">
-                    <td className="px-4 py-2.5 text-ink tabular-nums">
-                      {ledgerData.statement.period.endDate}
-                    </td>
-                    <td colSpan={2} className="px-3 py-2.5 text-ink">
-                      Closing Balance Carried Forward
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-sold tabular-nums">
-                      {formatPkr(ledgerData.statement.totalDebitsPkr)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-available tabular-nums">
-                      {formatPkr(ledgerData.statement.totalCreditsPkr)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-bold text-primary tabular-nums">
-                      {formatPkr(ledgerData.statement.closingBalancePkr)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                          return (
+                            <tr
+                              key={row.seq}
+                              className={cn(
+                                "transition-colors hover:bg-subtle/40",
+                                row.seq === 0 && "bg-subtle/20 font-medium",
+                              )}
+                            >
+                              <td className="px-3 py-2.5 text-center font-sans text-ink-muted tabular-nums">
+                                {row.seq}
+                              </td>
+                              <td className="px-4 py-2.5 font-medium text-ink">
+                                {row.label}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-ink-muted tabular-nums">
+                                {formatDate(row.dueDate)}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-ink tabular-nums">
+                                {formatPkr(row.amountPkr)}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-ink-muted tabular-nums">
+                                {paidDateStr}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-medium text-available tabular-nums">
+                                {paidAmtStr}
+                              </td>
+                              <td className="px-3 py-2.5 text-center font-sans text-[11px] text-primary tabular-nums">
+                                {row.receiptNo || "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-sold tabular-nums">
+                                {surchargeStr}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <Badge
+                                  tone={
+                                    isPaid
+                                      ? "available"
+                                      : isOverdue
+                                        ? "sold"
+                                        : row.status === "PARTIAL"
+                                          ? "primary"
+                                          : "muted"
+                                  }
+                                >
+                                  {row.status?.toUpperCase() || "PENDING"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

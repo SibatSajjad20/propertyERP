@@ -21,6 +21,7 @@ export const reportFiltersSchema = z.object({
   status: z.string().optional(),
   quickFilter: z.enum(["all", "due_this_week", "due_this_month", "overdue"]).optional(),
   clientId: z.string().optional(),
+  unitId: z.string().optional(),
   q: z.string().optional(),
 });
 

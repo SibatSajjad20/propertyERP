@@ -1036,10 +1036,26 @@ export async function getInstallmentsReport(
 // F) CLIENT LEDGER REPORT
 // -------------------------------------------------------------
 
+export interface ClientLedgerScheduleRow {
+  seq: number;
+  label: string;
+  type?: string;
+  dueDate: Date | string;
+  amountPkr: string;
+  paidDate?: Date | string | null;
+  paidAmountPkr?: string | null;
+  receiptNo?: string | null;
+  surchargePkr?: string | null;
+  status: string;
+}
+
 export interface ClientLedgerReportData {
   client: {
     id: string;
+    title?: string;
     fullName: string;
+    relationPrefix?: string;
+    relationName?: string;
     cnic: string;
     phone: string;
     email: string | null;
@@ -1057,10 +1073,38 @@ export interface ClientLedgerReportData {
     unitId: string;
     unitCode: string;
     floorName: string;
+    categoryName?: string;
+    grossAreaSqft?: string | null;
+    netAreaSqft?: string | null;
     relationType: "RESERVED" | "BOOKED" | "SOLD" | "RETURNED" | "BOUGHT_BACK";
+    bookingId?: string | null;
+    saleId?: string | null;
     date: Date;
     amountPkr: string;
   }>;
+  selectedUnitId?: string | null;
+  requiresUnitSelection?: boolean;
+  selectedUnitDetails?: {
+    unitId: string;
+    unitCode: string;
+    floorName: string;
+    categoryName: string;
+    grossAreaSqft: string;
+    netAreaSqft: string;
+    bookingNo: string | null;
+    applicationFormNo: string | null;
+    plan: string | null;
+    status: string;
+  } | null;
+  financials?: {
+    listPrice: string;
+    discountValue: string;
+    netPrice: string;
+    downPayment: string;
+    paidTotal: string;
+    remainingAmount: string;
+  } | null;
+  scheduleRows?: ClientLedgerScheduleRow[];
   statement: {
     period: {
       startDate: string;
@@ -1116,8 +1160,16 @@ export async function getClientLedgerReport(
       .select({
         id: bookings.id,
         bookingNo: bookings.bookingNo,
+        applicationFormNo: bookings.applicationFormNo,
+        plan: bookings.plan,
+        listPrice: bookings.listPrice,
+        discountValue: bookings.discountValue,
+        downPayment: bookings.downPayment,
+        paidTotal: bookings.paidTotal,
         unitId: units.id,
         unitCode: units.unitCode,
+        grossAreaSqft: units.grossAreaSqft,
+        netAreaSqft: units.netAreaSqft,
         categoryName: categories.name,
         floorName: floors.name,
         netPrice: bookings.netPrice,
@@ -1136,6 +1188,8 @@ export async function getClientLedgerReport(
         bookingId: sales.bookingId,
         unitId: units.id,
         unitCode: units.unitCode,
+        grossAreaSqft: units.grossAreaSqft,
+        netAreaSqft: units.netAreaSqft,
         categoryName: categories.name,
         floorName: floors.name,
         salePrice: sales.salePrice,
@@ -1152,6 +1206,8 @@ export async function getClientLedgerReport(
         id: reservations.id,
         unitId: units.id,
         unitCode: units.unitCode,
+        grossAreaSqft: units.grossAreaSqft,
+        netAreaSqft: units.netAreaSqft,
         categoryName: categories.name,
         floorName: floors.name,
         status: reservations.status,
@@ -1168,11 +1224,13 @@ export async function getClientLedgerReport(
     db
       .select({
         id: payments.id,
+        bookingId: payments.bookingId,
         receiptNo: payments.receiptNo,
         category: payments.category,
         amount: payments.amount,
         surchargeAmount: payments.surchargeAmount,
         paidAt: payments.paidAt,
+        method: payments.method,
         notes: payments.notes,
         isVoided: payments.isVoided,
         bookingNo: bookings.bookingNo,
@@ -1187,12 +1245,16 @@ export async function getClientLedgerReport(
     db
       .select({
         id: installments.id,
+        bookingId: installments.bookingId,
         seq: installments.seq,
         label: installments.label,
+        type: installments.type,
         dueDate: installments.dueDate,
         amount: installments.amount,
         paidAmount: installments.paidAmount,
         status: installments.status,
+        paidAt: installments.paidAt,
+        receiptNos: installments.receiptNos,
         surchargeWaived: installments.surchargeWaived,
         surchargeWaivedAmount: installments.surchargeWaivedAmount,
         surchargePaidAmount: installments.surchargePaidAmount,
@@ -1227,41 +1289,196 @@ export async function getClientLedgerReport(
       .where(eq(buybacks.clientId, client.id)),
   ]);
 
-  // 1. Fetch client units
+  // 1. Fetch distinct client units
   const associatedUnits: ClientLedgerReportData["units"] = [];
+  const seenUnits = new Set<string>();
 
   for (const b of clientBookings) {
-    associatedUnits.push({
-      unitId: b.unitId,
-      unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
-      floorName: b.floorName,
-      relationType: b.status === "RETURNED" ? "RETURNED" : "BOOKED",
-      date: b.createdAt,
-      amountPkr: b.netPrice,
-    });
+    if (!seenUnits.has(b.unitId)) {
+      seenUnits.add(b.unitId);
+      associatedUnits.push({
+        unitId: b.unitId,
+        unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
+        floorName: b.floorName,
+        categoryName: b.categoryName,
+        grossAreaSqft: b.grossAreaSqft,
+        netAreaSqft: b.netAreaSqft,
+        relationType: b.status === "RETURNED" ? "RETURNED" : "BOOKED",
+        bookingId: b.id,
+        date: b.createdAt,
+        amountPkr: b.netPrice,
+      });
+    }
   }
 
   for (const s of clientSales) {
-    associatedUnits.push({
-      unitId: s.unitId,
-      unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
-      floorName: s.floorName,
-      relationType: s.status === "BOUGHT_BACK" ? "BOUGHT_BACK" : "SOLD",
-      date: s.soldAt,
-      amountPkr: s.salePrice,
-    });
+    if (!seenUnits.has(s.unitId)) {
+      seenUnits.add(s.unitId);
+      associatedUnits.push({
+        unitId: s.unitId,
+        unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
+        floorName: s.floorName,
+        categoryName: s.categoryName,
+        grossAreaSqft: s.grossAreaSqft,
+        netAreaSqft: s.netAreaSqft,
+        relationType: s.status === "BOUGHT_BACK" ? "BOUGHT_BACK" : "SOLD",
+        bookingId: s.bookingId,
+        saleId: s.id,
+        date: s.soldAt,
+        amountPkr: s.salePrice,
+      });
+    }
   }
 
   for (const r of clientReservations) {
-    if (r.status === "ACTIVE") {
+    if (r.status === "ACTIVE" && !seenUnits.has(r.unitId)) {
+      seenUnits.add(r.unitId);
       associatedUnits.push({
         unitId: r.unitId,
         unitCode: formatUnitDisplayCode(r.unitCode, r.categoryName),
         floorName: r.floorName,
+        categoryName: r.categoryName,
+        grossAreaSqft: r.grossAreaSqft,
+        netAreaSqft: r.netAreaSqft,
         relationType: "RESERVED",
         date: r.startAt,
         amountPkr: r.tokenAmount || "0.00",
       });
+    }
+  }
+
+  // Determine Unit Selection (Mandatory if > 1 unit)
+  let selectedUnitId: string | null = null;
+  let requiresUnitSelection = false;
+
+  if (associatedUnits.length === 0) {
+    selectedUnitId = null;
+    requiresUnitSelection = false;
+  } else if (associatedUnits.length === 1) {
+    selectedUnitId = associatedUnits[0]!.unitId;
+    requiresUnitSelection = false;
+  } else {
+    // Client has > 1 unit
+    if (filters.unitId && associatedUnits.some((u) => u.unitId === filters.unitId)) {
+      selectedUnitId = filters.unitId;
+      requiresUnitSelection = false;
+    } else {
+      selectedUnitId = null;
+      requiresUnitSelection = true;
+    }
+  }
+
+  let selectedUnitDetails: ClientLedgerReportData["selectedUnitDetails"] = null;
+  let financials: ClientLedgerReportData["financials"] = null;
+  let scheduleRows: ClientLedgerScheduleRow[] = [];
+
+  if (selectedUnitId) {
+    const b = clientBookings.find((item) => item.unitId === selectedUnitId);
+    if (b) {
+      const netNum = Number(b.netPrice) || 0;
+      const paidNum = Number(b.paidTotal) || 0;
+      const balanceNum = Math.max(0, netNum - paidNum);
+
+      financials = {
+        listPrice: b.listPrice,
+        discountValue: b.discountValue || "0.00",
+        netPrice: b.netPrice,
+        downPayment: b.downPayment,
+        paidTotal: b.paidTotal,
+        remainingAmount: balanceNum.toFixed(2),
+      };
+
+      selectedUnitDetails = {
+        unitId: b.unitId,
+        unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
+        floorName: b.floorName,
+        categoryName: b.categoryName,
+        grossAreaSqft: b.grossAreaSqft || "—",
+        netAreaSqft: b.netAreaSqft || "—",
+        bookingNo: b.bookingNo,
+        applicationFormNo: b.applicationFormNo || b.bookingNo,
+        plan: b.plan,
+        status: b.status,
+      };
+
+      const bInstallments = clientInstallments
+        .filter((i) => i.bookingId === b.id)
+        .sort((x, y) => x.seq - y.seq);
+
+      const downPaymentPayment = clientPayments.find(
+        (p) => p.bookingId === b.id && p.category === "DOWN_PAYMENT",
+      );
+
+      scheduleRows = [
+        {
+          seq: 0,
+          label: "Down Payment / Booking Amount",
+          type: "DOWN_PAYMENT",
+          dueDate: b.createdAt,
+          amountPkr: b.downPayment,
+          paidDate: downPaymentPayment?.paidAt ?? b.createdAt,
+          paidAmountPkr: downPaymentPayment?.amount ?? b.downPayment,
+          receiptNo: downPaymentPayment?.receiptNo ?? "—",
+          surchargePkr: "—",
+          status: "PAID",
+        },
+        ...bInstallments.map((inst) => {
+          const hasSurcharge =
+            inst.surchargePaidAmount && Number(inst.surchargePaidAmount) > 0;
+          return {
+            seq: inst.seq,
+            label: inst.label || `Installment #${inst.seq}`,
+            type: inst.type,
+            dueDate: inst.dueDate,
+            amountPkr: inst.amount,
+            paidDate: inst.paidAt ?? null,
+            paidAmountPkr: inst.paidAmount,
+            receiptNo: inst.receiptNos || "—",
+            surchargePkr: hasSurcharge ? inst.surchargePaidAmount! : "—",
+            status: inst.status,
+          };
+        }),
+      ];
+    } else {
+      const s = clientSales.find((item) => item.unitId === selectedUnitId);
+      if (s) {
+        financials = {
+          listPrice: s.salePrice,
+          discountValue: "0.00",
+          netPrice: s.salePrice,
+          downPayment: s.salePrice,
+          paidTotal: s.salePrice,
+          remainingAmount: "0.00",
+        };
+
+        selectedUnitDetails = {
+          unitId: s.unitId,
+          unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
+          floorName: s.floorName,
+          categoryName: s.categoryName,
+          grossAreaSqft: s.grossAreaSqft || "—",
+          netAreaSqft: s.netAreaSqft || "—",
+          bookingNo: "DIRECT-SALE",
+          applicationFormNo: "—",
+          plan: "FULL_PAYMENT",
+          status: s.status,
+        };
+
+        scheduleRows = [
+          {
+            seq: 0,
+            label: "Direct Sale Full Payment",
+            type: "FULL_PAYMENT",
+            dueDate: s.soldAt,
+            amountPkr: s.salePrice,
+            paidDate: s.soldAt,
+            paidAmountPkr: s.salePrice,
+            receiptNo: "—",
+            surchargePkr: "—",
+            status: "PAID",
+          },
+        ];
+      }
     }
   }
 
@@ -1374,7 +1591,10 @@ export async function getClientLedgerReport(
   return {
     client: {
       id: client.id,
+      title: client.title,
       fullName: client.fullName,
+      relationPrefix: client.relationPrefix,
+      relationName: client.relationName,
       cnic: client.cnic,
       phone: client.phone,
       email: client.email,
@@ -1391,15 +1611,22 @@ export async function getClientLedgerReport(
         }
       : null,
     units: associatedUnits,
+    selectedUnitId,
+    requiresUnitSelection,
+    selectedUnitDetails,
+    financials,
+    scheduleRows,
     statement: {
       period: {
         startDate: startDate.toISOString().split("T")[0]!,
         endDate: endDate.toISOString().split("T")[0]!,
       },
       openingBalancePkr: statement.openingBalancePkr,
-      closingBalancePkr: statement.closingBalancePkr,
-      totalDebitsPkr: statement.totalDebitsPkr,
-      totalCreditsPkr: statement.totalCreditsPkr,
+      closingBalancePkr: financials
+        ? financials.remainingAmount
+        : statement.closingBalancePkr,
+      totalDebitsPkr: financials ? financials.netPrice : statement.totalDebitsPkr,
+      totalCreditsPkr: financials ? financials.paidTotal : statement.totalCreditsPkr,
       entries: statement.entries,
     },
   };
