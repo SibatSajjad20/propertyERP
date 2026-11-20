@@ -23,7 +23,8 @@ function createClient() {
     prepare: false,
     fetch_types: false,
     max,
-    idle_timeout: 300,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
     keep_alive: 30,
     connect_timeout: 30,
     ...(lacksSslMode ? { ssl: "require" as const } : {}),
@@ -61,7 +62,10 @@ export function isTransientDbError(err: unknown): boolean {
       (rec.message.includes("CONNECT_TIMEOUT") ||
         rec.message.includes("ECONNRESET") ||
         rec.message.includes("ETIMEDOUT") ||
-        rec.message.includes("Client network socket disconnected"))
+        rec.message.includes("Client network socket disconnected") ||
+        rec.message.includes("Connection terminated") ||
+        rec.message.includes("socket hang up") ||
+        rec.message.includes("connection closed"))
     ) {
       return true;
     }

@@ -28,82 +28,85 @@ export async function getSelectableUnits(params: {
   unitId?: string;
   search?: string;
 }) {
-  const search = params.search?.trim() ?? "";
-  const now = new Date();
-  const conditions = [isNull(units.archivedAt), eq(units.isSellable, true)];
+  return withTransientDbRetry(async () => {
+    const search = params.search?.trim() ?? "";
+    const now = new Date();
+    const conditions = [isNull(units.archivedAt), eq(units.isSellable, true)];
 
-  if (params.floorId) {
-    conditions.push(eq(units.floorId, params.floorId));
-  }
-  if (params.categoryId) {
-    conditions.push(eq(units.categoryId, params.categoryId));
-  }
-  if (params.unitId) {
-    conditions.push(eq(units.id, params.unitId));
-  }
-  if (search.length >= 2) {
-    const term = `%${search}%`;
-    conditions.push(or(ilike(units.unitCode, term), ilike(units.unitNumber, term))!);
-  }
+    if (params.floorId) {
+      conditions.push(eq(units.floorId, params.floorId));
+    }
+    if (params.categoryId) {
+      conditions.push(eq(units.categoryId, params.categoryId));
+    }
+    if (params.unitId) {
+      conditions.push(eq(units.id, params.unitId));
+    }
+    if (search.length >= 2) {
+      const term = `%${search}%`;
+      conditions.push(or(ilike(units.unitCode, term), ilike(units.unitNumber, term))!);
+    }
 
-  // Get active reservations that have not expired
-  const activeReservations = await db
-    .select({
-      unitId: reservations.unitId,
-      clientId: reservations.clientId,
-      expiresAt: reservations.expiresAt,
-    })
-    .from(reservations)
-    .where(eq(reservations.status, "ACTIVE"));
+    // Get active reservations that have not expired
+    const activeReservations = await db
+      .select({
+        unitId: reservations.unitId,
+        clientId: reservations.clientId,
+        expiresAt: reservations.expiresAt,
+      })
+      .from(reservations)
+      .where(eq(reservations.status, "ACTIVE"));
 
-  const validReservedUnitIds = new Set(
-    activeReservations
-      .filter(
-        (r) => r.expiresAt > now && (!params.clientId || r.clientId !== params.clientId),
-      )
-      .map((r) => r.unitId),
-  );
+    const validReservedUnitIds = new Set(
+      activeReservations
+        .filter(
+          (r) =>
+            r.expiresAt > now && (!params.clientId || r.clientId !== params.clientId),
+        )
+        .map((r) => r.unitId),
+    );
 
-  const rows = await db
-    .select({
-      id: units.id,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      floorId: units.floorId,
-      floorName: floors.name,
-      floorLevel: floors.level,
-      blockId: blocks.id,
-      blockName: blocks.name,
-      categoryId: units.categoryId,
-      categoryName: categories.name,
-      netAreaSqft: units.netAreaSqft,
-      grossAreaSqft: units.grossAreaSqft,
-      ratePerSqftPkr: units.ratePerSqftPkr,
-      priceAdjustmentPkr: units.priceAdjustmentPkr,
-      computedPricePkr: sql<string>`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`,
-      status: units.status,
-      version: units.version,
-    })
-    .from(units)
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .where(and(...conditions))
-    .orderBy(asc(floors.level), asc(units.unitNumber));
+    const rows = await db
+      .select({
+        id: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        floorId: units.floorId,
+        floorName: floors.name,
+        floorLevel: floors.level,
+        blockId: blocks.id,
+        blockName: blocks.name,
+        categoryId: units.categoryId,
+        categoryName: categories.name,
+        netAreaSqft: units.netAreaSqft,
+        grossAreaSqft: units.grossAreaSqft,
+        ratePerSqftPkr: units.ratePerSqftPkr,
+        priceAdjustmentPkr: units.priceAdjustmentPkr,
+        computedPricePkr: sql<string>`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`,
+        status: units.status,
+        version: units.version,
+      })
+      .from(units)
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .where(and(...conditions))
+      .orderBy(asc(floors.level), asc(units.unitNumber));
 
-  // Filter: either AVAILABLE or RESERVED by current client (and not actively reserved by someone else)
-  return rows.filter((r) => {
-    if (validReservedUnitIds.has(r.id)) {
+    // Filter: either AVAILABLE or RESERVED by current client (and not actively reserved by someone else)
+    return rows.filter((r) => {
+      if (validReservedUnitIds.has(r.id)) {
+        return false;
+      }
+      if (r.status === "AVAILABLE") {
+        return true;
+      }
+      if (r.status === "RESERVED" && params.clientId) {
+        const match = activeReservations.find((res) => res.unitId === r.id);
+        return match && match.clientId === params.clientId;
+      }
       return false;
-    }
-    if (r.status === "AVAILABLE") {
-      return true;
-    }
-    if (r.status === "RESERVED" && params.clientId) {
-      const match = activeReservations.find((res) => res.unitId === r.id);
-      return match && match.clientId === params.clientId;
-    }
-    return false;
+    });
   });
 }
 
@@ -210,193 +213,204 @@ export async function listBookings(filters?: { status?: string; q?: string }) {
 }
 
 export const getBookingDetail = cache(async function getBookingDetail(id: string) {
-  const [booking] = await db
-    .select({
-      id: bookings.id,
-      bookingNo: bookings.bookingNo,
-      serialNo: bookings.serialNo,
-      applicationFormNo: bookings.applicationFormNo,
-      registrationNo: bookings.registrationNo,
-      status: bookings.status,
-      listPrice: bookings.listPrice,
-      discountType: bookings.discountType,
-      discountValue: bookings.discountValue,
-      discountReason: bookings.discountReason,
-      netPrice: bookings.netPrice,
-      downPaymentType: bookings.downPaymentType,
-      downPaymentInputValue: bookings.downPaymentInputValue,
-      downPayment: bookings.downPayment,
-      possessionType: bookings.possessionType,
-      possessionInputValue: bookings.possessionInputValue,
-      possessionAmount: bookings.possessionAmount,
-      balloonType: bookings.balloonType,
-      balloonInputValue: bookings.balloonInputValue,
-      balloonAmountPerYear: bookings.balloonAmountPerYear,
-      balloonTotalAmount: bookings.balloonTotalAmount,
-      tokenAdjustedAmount: bookings.tokenAdjustedAmount,
-      reservationId: bookings.reservationId,
-      plan: bookings.plan,
-      installmentCount: bookings.installmentCount,
-      startDate: bookings.startDate,
-      paidTotal: bookings.paidTotal,
-      surchargeExempt: bookings.surchargeExempt,
-      surchargeExemptReason: bookings.surchargeExemptReason,
-      salesAgent: bookings.salesAgent,
-      bookingOffice: bookings.bookingOffice,
-      createdAt: bookings.createdAt,
-      updatedAt: bookings.updatedAt,
-      createdByName: user.name,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      unitStatus: units.status,
-      unitVersion: units.version,
-      netAreaSqft: units.netAreaSqft,
-      grossAreaSqft: units.grossAreaSqft,
-      ratePerSqftPkr: units.ratePerSqftPkr,
-      priceAdjustmentPkr: units.priceAdjustmentPkr,
-      floorName: floors.name,
-      floorLevel: floors.level,
-      blockName: blocks.name,
-      categoryName: categories.name,
-      clientId: clients.id,
-      clientTitle: clients.title,
-      clientName: clients.fullName,
-      clientRelationPrefix: clients.relationPrefix,
-      clientRelationName: clients.relationName,
-      clientCnic: clients.cnic,
-      clientPhone: clients.phone,
-      clientPhoneOffice: clients.phoneOffice,
-      clientPhoneRes: clients.phoneRes,
-      clientMobile2: clients.mobile2,
-      clientEmail: clients.email,
-      homeAddress: clients.homeAddress,
-      postalAddress: clients.postalAddress,
-    })
-    .from(bookings)
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .innerJoin(clients, eq(bookings.clientId, clients.id))
-    .leftJoin(user, eq(bookings.createdBy, user.id))
-    .where(eq(bookings.id, id))
-    .limit(1);
-
-  if (!booking) return null;
-
-  const [[kin], installmentRows, paymentRows, refundRows, documents] = await Promise.all([
-    db.select().from(nextOfKin).where(eq(nextOfKin.clientId, booking.clientId)).limit(1),
-    db
-      .select()
-      .from(installments)
-      .where(eq(installments.bookingId, booking.id))
-      .orderBy(asc(installments.seq)),
-    db
+  return withTransientDbRetry(async () => {
+    const [booking] = await db
       .select({
-        id: payments.id,
-        receiptNo: payments.receiptNo,
-        category: payments.category,
-        amount: payments.amount,
-        surchargeAmount: payments.surchargeAmount,
-        method: payments.method,
-        chequeNo: payments.chequeNo,
-        bank: payments.bank,
-        reference: payments.reference,
-        paidAt: payments.paidAt,
-        isVoided: payments.isVoided,
-        notes: payments.notes,
-        receivedByName: user.name,
-        createdAt: payments.createdAt,
+        id: bookings.id,
+        bookingNo: bookings.bookingNo,
+        serialNo: bookings.serialNo,
+        applicationFormNo: bookings.applicationFormNo,
+        registrationNo: bookings.registrationNo,
+        status: bookings.status,
+        listPrice: bookings.listPrice,
+        discountType: bookings.discountType,
+        discountValue: bookings.discountValue,
+        discountReason: bookings.discountReason,
+        netPrice: bookings.netPrice,
+        downPaymentType: bookings.downPaymentType,
+        downPaymentInputValue: bookings.downPaymentInputValue,
+        downPayment: bookings.downPayment,
+        possessionType: bookings.possessionType,
+        possessionInputValue: bookings.possessionInputValue,
+        possessionAmount: bookings.possessionAmount,
+        balloonType: bookings.balloonType,
+        balloonInputValue: bookings.balloonInputValue,
+        balloonAmountPerYear: bookings.balloonAmountPerYear,
+        balloonTotalAmount: bookings.balloonTotalAmount,
+        tokenAdjustedAmount: bookings.tokenAdjustedAmount,
+        reservationId: bookings.reservationId,
+        plan: bookings.plan,
+        installmentCount: bookings.installmentCount,
+        startDate: bookings.startDate,
+        paidTotal: bookings.paidTotal,
+        surchargeExempt: bookings.surchargeExempt,
+        surchargeExemptReason: bookings.surchargeExemptReason,
+        salesAgent: bookings.salesAgent,
+        bookingOffice: bookings.bookingOffice,
+        createdAt: bookings.createdAt,
+        updatedAt: bookings.updatedAt,
+        createdByName: user.name,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        unitStatus: units.status,
+        unitVersion: units.version,
+        netAreaSqft: units.netAreaSqft,
+        grossAreaSqft: units.grossAreaSqft,
+        ratePerSqftPkr: units.ratePerSqftPkr,
+        priceAdjustmentPkr: units.priceAdjustmentPkr,
+        floorName: floors.name,
+        floorLevel: floors.level,
+        blockName: blocks.name,
+        categoryName: categories.name,
+        clientId: clients.id,
+        clientTitle: clients.title,
+        clientName: clients.fullName,
+        clientRelationPrefix: clients.relationPrefix,
+        clientRelationName: clients.relationName,
+        clientCnic: clients.cnic,
+        clientPhone: clients.phone,
+        clientPhoneOffice: clients.phoneOffice,
+        clientPhoneRes: clients.phoneRes,
+        clientMobile2: clients.mobile2,
+        clientEmail: clients.email,
+        homeAddress: clients.homeAddress,
+        postalAddress: clients.postalAddress,
       })
-      .from(payments)
-      .leftJoin(user, eq(payments.receivedBy, user.id))
-      .where(eq(payments.bookingId, booking.id))
-      .orderBy(desc(payments.paidAt)),
-    db
-      .select({
-        id: refunds.id,
-        paidTotal: refunds.paidTotal,
-        deduction: refunds.deduction,
-        refundAmount: refunds.refundAmount,
-        method: refunds.method,
-        chequeNo: refunds.chequeNo,
-        bank: refunds.bank,
-        reason: refunds.reason,
-        paidAt: refunds.paidAt,
-        approvedByName: user.name,
-        createdAt: refunds.createdAt,
-      })
-      .from(refunds)
-      .leftJoin(user, eq(refunds.approvedBy, user.id))
-      .where(eq(refunds.bookingId, booking.id))
-      .orderBy(desc(refunds.createdAt)),
-    listCurrentDocumentsForClient(booking.clientId),
-  ]);
+      .from(bookings)
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(bookings.clientId, clients.id))
+      .leftJoin(user, eq(bookings.createdBy, user.id))
+      .where(eq(bookings.id, id))
+      .limit(1);
 
-  const now = new Date();
-  const schedule = installmentRows.map((inst) => {
-    const isPastDue = inst.dueDate < now;
-    const isUnpaid = parseDecimal(inst.paidAmount) < parseDecimal(inst.amount);
-    const computedStatus =
-      inst.status === "PENDING" && isPastDue && isUnpaid ? "OVERDUE" : inst.status;
+    if (!booking) return null;
+
+    const [[kin], installmentRows, paymentRows, refundRows, documents] =
+      await Promise.all([
+        db
+          .select()
+          .from(nextOfKin)
+          .where(eq(nextOfKin.clientId, booking.clientId))
+          .limit(1),
+        db
+          .select()
+          .from(installments)
+          .where(eq(installments.bookingId, booking.id))
+          .orderBy(asc(installments.seq)),
+        db
+          .select({
+            id: payments.id,
+            receiptNo: payments.receiptNo,
+            category: payments.category,
+            amount: payments.amount,
+            surchargeAmount: payments.surchargeAmount,
+            method: payments.method,
+            chequeNo: payments.chequeNo,
+            bank: payments.bank,
+            reference: payments.reference,
+            paidAt: payments.paidAt,
+            isVoided: payments.isVoided,
+            notes: payments.notes,
+            receivedByName: user.name,
+            createdAt: payments.createdAt,
+          })
+          .from(payments)
+          .leftJoin(user, eq(payments.receivedBy, user.id))
+          .where(eq(payments.bookingId, booking.id))
+          .orderBy(desc(payments.paidAt)),
+        db
+          .select({
+            id: refunds.id,
+            paidTotal: refunds.paidTotal,
+            deduction: refunds.deduction,
+            refundAmount: refunds.refundAmount,
+            method: refunds.method,
+            chequeNo: refunds.chequeNo,
+            bank: refunds.bank,
+            reason: refunds.reason,
+            paidAt: refunds.paidAt,
+            approvedByName: user.name,
+            createdAt: refunds.createdAt,
+          })
+          .from(refunds)
+          .leftJoin(user, eq(refunds.approvedBy, user.id))
+          .where(eq(refunds.bookingId, booking.id))
+          .orderBy(desc(refunds.createdAt)),
+        listCurrentDocumentsForClient(booking.clientId),
+      ]);
+
+    const now = new Date();
+    const schedule = installmentRows.map((inst) => {
+      const isPastDue = inst.dueDate < now;
+      const isUnpaid = parseDecimal(inst.paidAmount) < parseDecimal(inst.amount);
+      const computedStatus =
+        inst.status === "PENDING" && isPastDue && isUnpaid ? "OVERDUE" : inst.status;
+
+      return {
+        ...inst,
+        status: computedStatus,
+      };
+    });
+
+    const netP = parseDecimal(booking.netPrice);
+    const paidP = parseDecimal(booking.paidTotal);
+    const paidPercent =
+      netP > 0n ? Math.min(100, Math.round(Number((paidP * 10_000n) / netP) / 100)) : 0;
+    const remainingPaisa = netP - paidP;
 
     return {
-      ...inst,
-      status: computedStatus,
+      booking: {
+        ...booking,
+        paidPercent,
+        remainingBalancePkr: formatDecimal(remainingPaisa > 0n ? remainingPaisa : 0n),
+      },
+      nextOfKin: kin ?? null,
+      documents,
+      signedUrls: [] as {
+        id: string;
+        previewUrl: string | null;
+        fullUrl: string | null;
+        mimeType: string;
+      }[],
+      installments: schedule,
+      payments: paymentRows,
+      refunds: refundRows,
     };
   });
-
-  const netP = parseDecimal(booking.netPrice);
-  const paidP = parseDecimal(booking.paidTotal);
-  const paidPercent =
-    netP > 0n ? Math.min(100, Math.round(Number((paidP * 10_000n) / netP) / 100)) : 0;
-  const remainingPaisa = netP - paidP;
-
-  return {
-    booking: {
-      ...booking,
-      paidPercent,
-      remainingBalancePkr: formatDecimal(remainingPaisa > 0n ? remainingPaisa : 0n),
-    },
-    nextOfKin: kin ?? null,
-    documents,
-    signedUrls: [] as {
-      id: string;
-      previewUrl: string | null;
-      fullUrl: string | null;
-      mimeType: string;
-    }[],
-    installments: schedule,
-    payments: paymentRows,
-    refunds: refundRows,
-  };
 });
 
 export const getBookingTitle = cache(async function getBookingTitle(id: string) {
-  const [row] = await db
-    .select({ bookingNo: bookings.bookingNo })
-    .from(bookings)
-    .where(eq(bookings.id, id))
-    .limit(1);
-  return row?.bookingNo ?? null;
+  return withTransientDbRetry(async () => {
+    const [row] = await db
+      .select({ bookingNo: bookings.bookingNo })
+      .from(bookings)
+      .where(eq(bookings.id, id))
+      .limit(1);
+    return row?.bookingNo ?? null;
+  });
 });
 
 export const getSoldTitle = cache(async function getSoldTitle(id: string) {
-  const [sale] = await db
-    .select({ unitCode: units.unitCode })
-    .from(sales)
-    .innerJoin(units, eq(sales.unitId, units.id))
-    .where(eq(sales.id, id))
-    .limit(1);
-  if (sale) return sale.unitCode;
-  const [booking] = await db
-    .select({ unitCode: units.unitCode })
-    .from(bookings)
-    .innerJoin(units, eq(bookings.unitId, units.id))
-    .where(eq(bookings.id, id))
-    .limit(1);
-  return booking?.unitCode ?? null;
+  return withTransientDbRetry(async () => {
+    const [sale] = await db
+      .select({ unitCode: units.unitCode })
+      .from(sales)
+      .innerJoin(units, eq(sales.unitId, units.id))
+      .where(eq(sales.id, id))
+      .limit(1);
+    if (sale) return sale.unitCode;
+    const [booking] = await db
+      .select({ unitCode: units.unitCode })
+      .from(bookings)
+      .innerJoin(units, eq(bookings.unitId, units.id))
+      .where(eq(bookings.id, id))
+      .limit(1);
+    return booking?.unitCode ?? null;
+  });
 });
 
 export async function listReservations(filters?: { status?: string; q?: string }) {
@@ -482,75 +496,77 @@ export async function listReservations(filters?: { status?: string; q?: string }
 export const getReservationDetail = cache(async function getReservationDetail(
   id: string,
 ) {
-  const [res] = await db
-    .select({
-      id: reservations.id,
-      status: reservations.status,
-      startAt: reservations.startAt,
-      expiresAt: reservations.expiresAt,
-      durationDays: reservations.durationDays,
-      tokenAmount: reservations.tokenAmount,
-      tokenPaymentMethod: reservations.tokenPaymentMethod,
-      tokenChequeNo: reservations.tokenChequeNo,
-      tokenBank: reservations.tokenBank,
-      tokenReference: reservations.tokenReference,
-      tokenReceiptNo: reservations.tokenReceiptNo,
-      tokenPaidAt: reservations.tokenPaidAt,
-      tokenAdjustedToBookingId: reservations.tokenAdjustedToBookingId,
-      notes: reservations.notes,
-      cancelledAt: reservations.cancelledAt,
-      cancelledReason: reservations.cancelledReason,
-      createdAt: reservations.createdAt,
-      createdByName: user.name,
-      unitId: units.id,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      unitStatus: units.status,
-      unitVersion: units.version,
-      netAreaSqft: units.netAreaSqft,
-      grossAreaSqft: units.grossAreaSqft,
-      ratePerSqftPkr: units.ratePerSqftPkr,
-      computedPricePkr: sql<string>`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`,
-      floorName: floors.name,
-      floorLevel: floors.level,
-      blockName: blocks.name,
-      categoryName: categories.name,
-      clientId: clients.id,
-      clientTitle: clients.title,
-      clientName: clients.fullName,
-      clientRelationPrefix: clients.relationPrefix,
-      clientRelationName: clients.relationName,
-      clientCnic: clients.cnic,
-      clientPhone: clients.phone,
-      clientPhoneOffice: clients.phoneOffice,
-      clientPhoneRes: clients.phoneRes,
-      clientMobile2: clients.mobile2,
-      clientEmail: clients.email,
-      homeAddress: clients.homeAddress,
-      postalAddress: clients.postalAddress,
-    })
-    .from(reservations)
-    .innerJoin(units, eq(reservations.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .innerJoin(clients, eq(reservations.clientId, clients.id))
-    .leftJoin(user, eq(reservations.createdBy, user.id))
-    .where(eq(reservations.id, id))
-    .limit(1);
+  return withTransientDbRetry(async () => {
+    const [res] = await db
+      .select({
+        id: reservations.id,
+        status: reservations.status,
+        startAt: reservations.startAt,
+        expiresAt: reservations.expiresAt,
+        durationDays: reservations.durationDays,
+        tokenAmount: reservations.tokenAmount,
+        tokenPaymentMethod: reservations.tokenPaymentMethod,
+        tokenChequeNo: reservations.tokenChequeNo,
+        tokenBank: reservations.tokenBank,
+        tokenReference: reservations.tokenReference,
+        tokenReceiptNo: reservations.tokenReceiptNo,
+        tokenPaidAt: reservations.tokenPaidAt,
+        tokenAdjustedToBookingId: reservations.tokenAdjustedToBookingId,
+        notes: reservations.notes,
+        cancelledAt: reservations.cancelledAt,
+        cancelledReason: reservations.cancelledReason,
+        createdAt: reservations.createdAt,
+        createdByName: user.name,
+        unitId: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        unitStatus: units.status,
+        unitVersion: units.version,
+        netAreaSqft: units.netAreaSqft,
+        grossAreaSqft: units.grossAreaSqft,
+        ratePerSqftPkr: units.ratePerSqftPkr,
+        computedPricePkr: sql<string>`round((${units.ratePerSqftPkr} * coalesce(${units.grossAreaSqft}, ${units.netAreaSqft})) + coalesce(${units.priceAdjustmentPkr}, 0), 0)::numeric(14, 2)`,
+        floorName: floors.name,
+        floorLevel: floors.level,
+        blockName: blocks.name,
+        categoryName: categories.name,
+        clientId: clients.id,
+        clientTitle: clients.title,
+        clientName: clients.fullName,
+        clientRelationPrefix: clients.relationPrefix,
+        clientRelationName: clients.relationName,
+        clientCnic: clients.cnic,
+        clientPhone: clients.phone,
+        clientPhoneOffice: clients.phoneOffice,
+        clientPhoneRes: clients.phoneRes,
+        clientMobile2: clients.mobile2,
+        clientEmail: clients.email,
+        homeAddress: clients.homeAddress,
+        postalAddress: clients.postalAddress,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(reservations.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(reservations.clientId, clients.id))
+      .leftJoin(user, eq(reservations.createdBy, user.id))
+      .where(eq(reservations.id, id))
+      .limit(1);
 
-  if (!res) return null;
+    if (!res) return null;
 
-  const [kin] = await db
-    .select()
-    .from(nextOfKin)
-    .where(eq(nextOfKin.clientId, res.clientId))
-    .limit(1);
+    const [kin] = await db
+      .select()
+      .from(nextOfKin)
+      .where(eq(nextOfKin.clientId, res.clientId))
+      .limit(1);
 
-  return {
-    reservation: res,
-    nextOfKin: kin ?? null,
-  };
+    return {
+      reservation: res,
+      nextOfKin: kin ?? null,
+    };
+  });
 });
 
 export async function listSoldUnits(filters?: { q?: string }) {
@@ -677,66 +693,108 @@ export async function listSoldUnits(filters?: { q?: string }) {
 }
 
 export const getSoldDetail = cache(async function getSoldDetail(id: string) {
-  // Check if direct sale first
-  const [sale] = await db
-    .select({
-      id: sales.id,
-      unitId: sales.unitId,
-      clientId: sales.clientId,
-      bookingId: sales.bookingId,
-      serialNo: sales.serialNo,
-      applicationFormNo: sales.applicationFormNo,
-      registrationNo: sales.registrationNo,
-      salePrice: sales.salePrice,
-      soldAt: sales.soldAt,
-      notes: sales.notes,
-      paymentMethod: sales.paymentMethod,
-      chequeNo: sales.chequeNo,
-      bank: sales.bank,
-      reference: sales.reference,
-      salesAgent: sales.salesAgent,
-      bookingOffice: sales.bookingOffice,
-      status: sales.status,
-      createdByName: user.name,
-      createdAt: sales.createdAt,
-      unitCode: units.unitCode,
-      unitNumber: units.unitNumber,
-      unitStatus: units.status,
-      unitVersion: units.version,
-      netAreaSqft: units.netAreaSqft,
-      grossAreaSqft: units.grossAreaSqft,
-      ratePerSqftPkr: units.ratePerSqftPkr,
-      priceAdjustmentPkr: units.priceAdjustmentPkr,
-      floorName: floors.name,
-      floorLevel: floors.level,
-      blockName: blocks.name,
-      categoryName: categories.name,
-      clientTitle: clients.title,
-      clientName: clients.fullName,
-      clientRelationPrefix: clients.relationPrefix,
-      clientRelationName: clients.relationName,
-      clientCnic: clients.cnic,
-      clientPhone: clients.phone,
-      clientPhoneOffice: clients.phoneOffice,
-      clientPhoneRes: clients.phoneRes,
-      clientMobile2: clients.mobile2,
-      clientEmail: clients.email,
-      homeAddress: clients.homeAddress,
-      postalAddress: clients.postalAddress,
-    })
-    .from(sales)
-    .innerJoin(units, eq(sales.unitId, units.id))
-    .innerJoin(floors, eq(units.floorId, floors.id))
-    .innerJoin(blocks, eq(floors.blockId, blocks.id))
-    .innerJoin(categories, eq(units.categoryId, categories.id))
-    .innerJoin(clients, eq(sales.clientId, clients.id))
-    .leftJoin(user, eq(sales.createdBy, user.id))
-    .where(eq(sales.id, id))
-    .limit(1);
+  return withTransientDbRetry(async () => {
+    // Check if direct sale first
+    const [sale] = await db
+      .select({
+        id: sales.id,
+        unitId: sales.unitId,
+        clientId: sales.clientId,
+        bookingId: sales.bookingId,
+        serialNo: sales.serialNo,
+        applicationFormNo: sales.applicationFormNo,
+        registrationNo: sales.registrationNo,
+        salePrice: sales.salePrice,
+        soldAt: sales.soldAt,
+        notes: sales.notes,
+        paymentMethod: sales.paymentMethod,
+        chequeNo: sales.chequeNo,
+        bank: sales.bank,
+        reference: sales.reference,
+        salesAgent: sales.salesAgent,
+        bookingOffice: sales.bookingOffice,
+        status: sales.status,
+        createdByName: user.name,
+        createdAt: sales.createdAt,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        unitStatus: units.status,
+        unitVersion: units.version,
+        netAreaSqft: units.netAreaSqft,
+        grossAreaSqft: units.grossAreaSqft,
+        ratePerSqftPkr: units.ratePerSqftPkr,
+        priceAdjustmentPkr: units.priceAdjustmentPkr,
+        floorName: floors.name,
+        floorLevel: floors.level,
+        blockName: blocks.name,
+        categoryName: categories.name,
+        clientTitle: clients.title,
+        clientName: clients.fullName,
+        clientRelationPrefix: clients.relationPrefix,
+        clientRelationName: clients.relationName,
+        clientCnic: clients.cnic,
+        clientPhone: clients.phone,
+        clientPhoneOffice: clients.phoneOffice,
+        clientPhoneRes: clients.phoneRes,
+        clientMobile2: clients.mobile2,
+        clientEmail: clients.email,
+        homeAddress: clients.homeAddress,
+        postalAddress: clients.postalAddress,
+      })
+      .from(sales)
+      .innerJoin(units, eq(sales.unitId, units.id))
+      .innerJoin(floors, eq(units.floorId, floors.id))
+      .innerJoin(blocks, eq(floors.blockId, blocks.id))
+      .innerJoin(categories, eq(units.categoryId, categories.id))
+      .innerJoin(clients, eq(sales.clientId, clients.id))
+      .leftJoin(user, eq(sales.createdBy, user.id))
+      .where(eq(sales.id, id))
+      .limit(1);
 
-  if (sale) {
-    const [[buyback], [kin], documents] = await Promise.all([
-      db
+    if (sale) {
+      const [[buyback], [kin], documents] = await Promise.all([
+        db
+          .select({
+            id: buybacks.id,
+            buybackAmount: buybacks.buybackAmount,
+            originalPrice: buybacks.originalPrice,
+            method: buybacks.method,
+            chequeNo: buybacks.chequeNo,
+            bank: buybacks.bank,
+            reason: buybacks.reason,
+            paidAt: buybacks.paidAt,
+            approvedByName: user.name,
+            createdAt: buybacks.createdAt,
+          })
+          .from(buybacks)
+          .leftJoin(user, eq(buybacks.approvedBy, user.id))
+          .where(eq(buybacks.saleId, sale.id))
+          .limit(1),
+        db.select().from(nextOfKin).where(eq(nextOfKin.clientId, sale.clientId)).limit(1),
+        listCurrentDocumentsForClient(sale.clientId),
+      ]);
+
+      return {
+        type: "DIRECT_SALE" as const,
+        data: {
+          ...sale,
+          nextOfKin: kin ?? null,
+          documents,
+          signedUrls: [] as {
+            id: string;
+            previewUrl: string | null;
+            fullUrl: string | null;
+            mimeType: string;
+          }[],
+        },
+        buyback: buyback ?? null,
+      };
+    }
+
+    // Otherwise check completed booking
+    const bookingDetail = await getBookingDetail(id);
+    if (bookingDetail) {
+      const [buyback] = await db
         .select({
           id: buybacks.id,
           buybackAmount: buybacks.buybackAmount,
@@ -751,58 +809,18 @@ export const getSoldDetail = cache(async function getSoldDetail(id: string) {
         })
         .from(buybacks)
         .leftJoin(user, eq(buybacks.approvedBy, user.id))
-        .where(eq(buybacks.saleId, sale.id))
-        .limit(1),
-      db.select().from(nextOfKin).where(eq(nextOfKin.clientId, sale.clientId)).limit(1),
-      listCurrentDocumentsForClient(sale.clientId),
-    ]);
+        .where(eq(buybacks.bookingId, bookingDetail.booking.id))
+        .limit(1);
 
-    return {
-      type: "DIRECT_SALE" as const,
-      data: {
-        ...sale,
-        nextOfKin: kin ?? null,
-        documents,
-        signedUrls: [] as {
-          id: string;
-          previewUrl: string | null;
-          fullUrl: string | null;
-          mimeType: string;
-        }[],
-      },
-      buyback: buyback ?? null,
-    };
-  }
+      return {
+        type: "COMPLETED_BOOKING" as const,
+        data: bookingDetail,
+        buyback: buyback ?? null,
+      };
+    }
 
-  // Otherwise check completed booking
-  const bookingDetail = await getBookingDetail(id);
-  if (bookingDetail) {
-    const [buyback] = await db
-      .select({
-        id: buybacks.id,
-        buybackAmount: buybacks.buybackAmount,
-        originalPrice: buybacks.originalPrice,
-        method: buybacks.method,
-        chequeNo: buybacks.chequeNo,
-        bank: buybacks.bank,
-        reason: buybacks.reason,
-        paidAt: buybacks.paidAt,
-        approvedByName: user.name,
-        createdAt: buybacks.createdAt,
-      })
-      .from(buybacks)
-      .leftJoin(user, eq(buybacks.approvedBy, user.id))
-      .where(eq(buybacks.bookingId, bookingDetail.booking.id))
-      .limit(1);
-
-    return {
-      type: "COMPLETED_BOOKING" as const,
-      data: bookingDetail,
-      buyback: buyback ?? null,
-    };
-  }
-
-  return null;
+    return null;
+  });
 });
 
 export interface UnitTimelineEvent {
@@ -826,241 +844,245 @@ export interface UnitTimelineEvent {
 export async function getUnitOwnershipTimeline(
   unitId: string,
 ): Promise<UnitTimelineEvent[]> {
-  const events: UnitTimelineEvent[] = [];
+  return withTransientDbRetry(async () => {
+    const events: UnitTimelineEvent[] = [];
 
-  const [resRows, bRows, sRows, bbRows] = await Promise.all([
-    // Reservations
-    db
-      .select({
-        id: reservations.id,
-        status: reservations.status,
-        startAt: reservations.startAt,
-        expiresAt: reservations.expiresAt,
-        clientName: clients.fullName,
-        actorName: user.name,
-      })
-      .from(reservations)
-      .innerJoin(clients, eq(reservations.clientId, clients.id))
-      .leftJoin(user, eq(reservations.createdBy, user.id))
-      .where(eq(reservations.unitId, unitId)),
+    const [resRows, bRows, sRows, bbRows] = await Promise.all([
+      // Reservations
+      db
+        .select({
+          id: reservations.id,
+          status: reservations.status,
+          startAt: reservations.startAt,
+          expiresAt: reservations.expiresAt,
+          clientName: clients.fullName,
+          actorName: user.name,
+        })
+        .from(reservations)
+        .innerJoin(clients, eq(reservations.clientId, clients.id))
+        .leftJoin(user, eq(reservations.createdBy, user.id))
+        .where(eq(reservations.unitId, unitId)),
 
-    // Bookings
-    db
-      .select({
-        id: bookings.id,
-        bookingNo: bookings.bookingNo,
-        netPrice: bookings.netPrice,
-        status: bookings.status,
-        createdAt: bookings.createdAt,
-        clientName: clients.fullName,
-        actorName: user.name,
-      })
-      .from(bookings)
-      .innerJoin(clients, eq(bookings.clientId, clients.id))
-      .leftJoin(user, eq(bookings.createdBy, user.id))
-      .where(eq(bookings.unitId, unitId)),
+      // Bookings
+      db
+        .select({
+          id: bookings.id,
+          bookingNo: bookings.bookingNo,
+          netPrice: bookings.netPrice,
+          status: bookings.status,
+          createdAt: bookings.createdAt,
+          clientName: clients.fullName,
+          actorName: user.name,
+        })
+        .from(bookings)
+        .innerJoin(clients, eq(bookings.clientId, clients.id))
+        .leftJoin(user, eq(bookings.createdBy, user.id))
+        .where(eq(bookings.unitId, unitId)),
 
-    // Direct sales
-    db
-      .select({
-        id: sales.id,
-        salePrice: sales.salePrice,
-        soldAt: sales.soldAt,
-        status: sales.status,
-        clientName: clients.fullName,
-        actorName: user.name,
-      })
-      .from(sales)
-      .innerJoin(clients, eq(sales.clientId, clients.id))
-      .leftJoin(user, eq(sales.createdBy, user.id))
-      .where(eq(sales.unitId, unitId)),
+      // Direct sales
+      db
+        .select({
+          id: sales.id,
+          salePrice: sales.salePrice,
+          soldAt: sales.soldAt,
+          status: sales.status,
+          clientName: clients.fullName,
+          actorName: user.name,
+        })
+        .from(sales)
+        .innerJoin(clients, eq(sales.clientId, clients.id))
+        .leftJoin(user, eq(sales.createdBy, user.id))
+        .where(eq(sales.unitId, unitId)),
 
-    // Buybacks
-    db
-      .select({
-        id: buybacks.id,
-        buybackAmount: buybacks.buybackAmount,
-        originalPrice: buybacks.originalPrice,
-        reason: buybacks.reason,
-        paidAt: buybacks.paidAt,
-        clientName: clients.fullName,
-        actorName: user.name,
-      })
-      .from(buybacks)
-      .innerJoin(clients, eq(buybacks.clientId, clients.id))
-      .leftJoin(user, eq(buybacks.approvedBy, user.id))
-      .where(eq(buybacks.unitId, unitId)),
-  ]);
+      // Buybacks
+      db
+        .select({
+          id: buybacks.id,
+          buybackAmount: buybacks.buybackAmount,
+          originalPrice: buybacks.originalPrice,
+          reason: buybacks.reason,
+          paidAt: buybacks.paidAt,
+          clientName: clients.fullName,
+          actorName: user.name,
+        })
+        .from(buybacks)
+        .innerJoin(clients, eq(buybacks.clientId, clients.id))
+        .leftJoin(user, eq(buybacks.approvedBy, user.id))
+        .where(eq(buybacks.unitId, unitId)),
+    ]);
 
-  for (const r of resRows) {
-    events.push({
-      id: `res-${r.id}`,
-      type: "RESERVATION",
-      title: `Reserved by ${r.clientName} (${r.status})`,
-      date: r.startAt,
-      actorName: r.actorName ?? undefined,
-      badgeTone: "accent",
-      details: { status: r.status, expiresAt: r.expiresAt },
-    });
-  }
-
-  const bookingIds = bRows.map((b) => b.id);
-  const emptyPay: Array<{
-    id: string;
-    bookingId: string;
-    receiptNo: string;
-    amount: string;
-    method: string;
-    paidAt: Date;
-    actorName: string | null;
-  }> = [];
-  const emptyRef: Array<{
-    id: string;
-    bookingId: string;
-    refundAmount: string;
-    deduction: string;
-    reason: string;
-    paidAt: Date;
-    actorName: string | null;
-  }> = [];
-
-  const [pRowsAll, refRowsAll] =
-    bookingIds.length === 0
-      ? [emptyPay, emptyRef]
-      : await Promise.all([
-          db
-            .select({
-              id: payments.id,
-              bookingId: payments.bookingId,
-              receiptNo: payments.receiptNo,
-              amount: payments.amount,
-              method: payments.method,
-              paidAt: payments.paidAt,
-              actorName: user.name,
-            })
-            .from(payments)
-            .leftJoin(user, eq(payments.receivedBy, user.id))
-            .where(inArray(payments.bookingId, bookingIds)),
-          db
-            .select({
-              id: refunds.id,
-              bookingId: refunds.bookingId,
-              refundAmount: refunds.refundAmount,
-              deduction: refunds.deduction,
-              reason: refunds.reason,
-              paidAt: refunds.paidAt,
-              actorName: user.name,
-            })
-            .from(refunds)
-            .leftJoin(user, eq(refunds.approvedBy, user.id))
-            .where(inArray(refunds.bookingId, bookingIds)),
-        ]);
-
-  const paymentsByBooking = new Map<string, typeof pRowsAll>();
-  for (const p of pRowsAll) {
-    const list = paymentsByBooking.get(p.bookingId) ?? [];
-    list.push(p);
-    paymentsByBooking.set(p.bookingId, list);
-  }
-  const refundsByBooking = new Map<string, typeof refRowsAll>();
-  for (const ref of refRowsAll) {
-    const list = refundsByBooking.get(ref.bookingId) ?? [];
-    list.push(ref);
-    refundsByBooking.set(ref.bookingId, list);
-  }
-
-  for (const b of bRows) {
-    events.push({
-      id: `bk-${b.id}`,
-      type: "BOOKING",
-      title: `Booked by ${b.clientName} (${b.bookingNo})`,
-      date: b.createdAt,
-      amountPkr: b.netPrice,
-      actorName: b.actorName ?? undefined,
-      badgeTone: "primary",
-      details: { bookingNo: b.bookingNo, status: b.status },
-    });
-
-    for (const p of paymentsByBooking.get(b.id) ?? []) {
+    for (const r of resRows) {
       events.push({
-        id: `pay-${p.id}`,
-        type: "PAYMENT",
-        title: `Payment ${p.receiptNo} (${p.method})`,
-        date: p.paidAt,
-        amountPkr: p.amount,
-        actorName: p.actorName ?? undefined,
+        id: `res-${r.id}`,
+        type: "RESERVATION",
+        title: `Reserved by ${r.clientName} (${r.status})`,
+        date: r.startAt,
+        actorName: r.actorName ?? undefined,
+        badgeTone: "accent",
+        details: { status: r.status, expiresAt: r.expiresAt },
+      });
+    }
+
+    const bookingIds = bRows.map((b) => b.id);
+    const emptyPay: Array<{
+      id: string;
+      bookingId: string;
+      receiptNo: string;
+      amount: string;
+      method: string;
+      paidAt: Date;
+      actorName: string | null;
+    }> = [];
+    const emptyRef: Array<{
+      id: string;
+      bookingId: string;
+      refundAmount: string;
+      deduction: string;
+      reason: string;
+      paidAt: Date;
+      actorName: string | null;
+    }> = [];
+
+    const [pRowsAll, refRowsAll] =
+      bookingIds.length === 0
+        ? [emptyPay, emptyRef]
+        : await Promise.all([
+            db
+              .select({
+                id: payments.id,
+                bookingId: payments.bookingId,
+                receiptNo: payments.receiptNo,
+                amount: payments.amount,
+                method: payments.method,
+                paidAt: payments.paidAt,
+                actorName: user.name,
+              })
+              .from(payments)
+              .leftJoin(user, eq(payments.receivedBy, user.id))
+              .where(inArray(payments.bookingId, bookingIds)),
+            db
+              .select({
+                id: refunds.id,
+                bookingId: refunds.bookingId,
+                refundAmount: refunds.refundAmount,
+                deduction: refunds.deduction,
+                reason: refunds.reason,
+                paidAt: refunds.paidAt,
+                actorName: user.name,
+              })
+              .from(refunds)
+              .leftJoin(user, eq(refunds.approvedBy, user.id))
+              .where(inArray(refunds.bookingId, bookingIds)),
+          ]);
+
+    const paymentsByBooking = new Map<string, typeof pRowsAll>();
+    for (const p of pRowsAll) {
+      const list = paymentsByBooking.get(p.bookingId) ?? [];
+      list.push(p);
+      paymentsByBooking.set(p.bookingId, list);
+    }
+    const refundsByBooking = new Map<string, typeof refRowsAll>();
+    for (const ref of refRowsAll) {
+      const list = refundsByBooking.get(ref.bookingId) ?? [];
+      list.push(ref);
+      refundsByBooking.set(ref.bookingId, list);
+    }
+
+    for (const b of bRows) {
+      events.push({
+        id: `bk-${b.id}`,
+        type: "BOOKING",
+        title: `Booked by ${b.clientName} (${b.bookingNo})`,
+        date: b.createdAt,
+        amountPkr: b.netPrice,
+        actorName: b.actorName ?? undefined,
         badgeTone: "primary",
+        details: { bookingNo: b.bookingNo, status: b.status },
       });
+
+      for (const p of paymentsByBooking.get(b.id) ?? []) {
+        events.push({
+          id: `pay-${p.id}`,
+          type: "PAYMENT",
+          title: `Payment ${p.receiptNo} (${p.method})`,
+          date: p.paidAt,
+          amountPkr: p.amount,
+          actorName: p.actorName ?? undefined,
+          badgeTone: "primary",
+        });
+      }
+
+      for (const ref of refundsByBooking.get(b.id) ?? []) {
+        events.push({
+          id: `ref-${ref.id}`,
+          type: "REFUND",
+          title: `Booking Return Refund (Deduction: Rs ${ref.deduction})`,
+          date: ref.paidAt,
+          amountPkr: ref.refundAmount,
+          actorName: ref.actorName ?? undefined,
+          badgeTone: "muted",
+          details: { reason: ref.reason },
+        });
+      }
     }
 
-    for (const ref of refundsByBooking.get(b.id) ?? []) {
+    for (const s of sRows) {
       events.push({
-        id: `ref-${ref.id}`,
-        type: "REFUND",
-        title: `Booking Return Refund (Deduction: Rs ${ref.deduction})`,
-        date: ref.paidAt,
-        amountPkr: ref.refundAmount,
-        actorName: ref.actorName ?? undefined,
-        badgeTone: "muted",
-        details: { reason: ref.reason },
+        id: `sale-${s.id}`,
+        type: "SALE",
+        title: `Direct Sale to ${s.clientName}`,
+        date: s.soldAt,
+        amountPkr: s.salePrice,
+        actorName: s.actorName ?? undefined,
+        badgeTone: "sold",
+        details: { status: s.status },
       });
     }
-  }
 
-  for (const s of sRows) {
-    events.push({
-      id: `sale-${s.id}`,
-      type: "SALE",
-      title: `Direct Sale to ${s.clientName}`,
-      date: s.soldAt,
-      amountPkr: s.salePrice,
-      actorName: s.actorName ?? undefined,
-      badgeTone: "sold",
-      details: { status: s.status },
-    });
-  }
+    for (const bb of bbRows) {
+      events.push({
+        id: `bb-${bb.id}`,
+        type: "BUYBACK",
+        title: `Buyback from ${bb.clientName} (Orig: Rs ${bb.originalPrice})`,
+        date: bb.paidAt,
+        amountPkr: bb.buybackAmount,
+        actorName: bb.actorName ?? undefined,
+        badgeTone: "available",
+        details: { reason: bb.reason },
+      });
+    }
 
-  for (const bb of bbRows) {
-    events.push({
-      id: `bb-${bb.id}`,
-      type: "BUYBACK",
-      title: `Buyback from ${bb.clientName} (Orig: Rs ${bb.originalPrice})`,
-      date: bb.paidAt,
-      amountPkr: bb.buybackAmount,
-      actorName: bb.actorName ?? undefined,
-      badgeTone: "available",
-      details: { reason: bb.reason },
-    });
-  }
-
-  return events.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return events.sort((a, b) => b.date.getTime() - a.date.getTime());
+  });
 }
 
 export async function getMonthlyRefundsAndBuybacks() {
-  const now = new Date();
-  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  return withTransientDbRetry(async () => {
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-  const [refundSum] = await db
-    .select({
-      total: sql<string>`coalesce(sum(${refunds.refundAmount}), 0)::text`,
-    })
-    .from(refunds)
-    .where(sql`${refunds.paidAt} >= ${startOfMonth.toISOString()}`);
+    const [refundSum] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${refunds.refundAmount}), 0)::text`,
+      })
+      .from(refunds)
+      .where(sql`${refunds.paidAt} >= ${startOfMonth.toISOString()}`);
 
-  const [buybackSum] = await db
-    .select({
-      total: sql<string>`coalesce(sum(${buybacks.buybackAmount}), 0)::text`,
-    })
-    .from(buybacks)
-    .where(sql`${buybacks.paidAt} >= ${startOfMonth.toISOString()}`);
+    const [buybackSum] = await db
+      .select({
+        total: sql<string>`coalesce(sum(${buybacks.buybackAmount}), 0)::text`,
+      })
+      .from(buybacks)
+      .where(sql`${buybacks.paidAt} >= ${startOfMonth.toISOString()}`);
 
-  const refundPaisa = parseDecimal(refundSum?.total ?? "0");
-  const buybackPaisa = parseDecimal(buybackSum?.total ?? "0");
-  const totalMonthReversalsPaisa = refundPaisa + buybackPaisa;
+    const refundPaisa = parseDecimal(refundSum?.total ?? "0");
+    const buybackPaisa = parseDecimal(buybackSum?.total ?? "0");
+    const totalMonthReversalsPaisa = refundPaisa + buybackPaisa;
 
-  return {
-    refundsMonthPkr: formatDecimal(refundPaisa),
-    buybacksMonthPkr: formatDecimal(buybackPaisa),
-    totalMonthReversalsPkr: formatDecimal(totalMonthReversalsPaisa),
-  };
+    return {
+      refundsMonthPkr: formatDecimal(refundPaisa),
+      buybacksMonthPkr: formatDecimal(buybackPaisa),
+      totalMonthReversalsPkr: formatDecimal(totalMonthReversalsPaisa),
+    };
+  });
 }

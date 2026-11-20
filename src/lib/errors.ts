@@ -1,6 +1,8 @@
 import { ZodError } from "zod";
+import { isTransientDbError } from "@/db";
 
-const LEAKY_PATTERN = /password|secret|DATABASE_URL|ECONN|postgres:\/\//i;
+const LEAKY_PATTERN =
+  /password|secret|DATABASE_URL|ECONN|postgres:\/\/|failed query|drizzlequeryerror|syntax error/i;
 const FORBIDDEN_PATTERN = /forbidden|not allowed|permission/i;
 const UNAUTHORIZED_PATTERN = /unauthorized|sign in required|unauthenticated/i;
 
@@ -79,6 +81,9 @@ export function errorMessage(error: unknown): string {
   }
   if (error instanceof ZodError) {
     return error.issues[0]?.message ?? "Invalid input";
+  }
+  if (isTransientDbError(error)) {
+    return "A temporary database connection error occurred. Please try again.";
   }
   if (typeof error === "object" && error && "message" in error) {
     const message = String((error as { message: unknown }).message);
