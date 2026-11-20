@@ -98,30 +98,28 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   paragraph: {
-    marginBottom: 6,
-    textAlign: "justify",
+    marginBottom: 5,
+    textAlign: "left",
   },
   bold: {
     fontFamily: "Helvetica-Bold",
   },
   table: {
     marginTop: 6,
-    marginBottom: 10,
+    marginBottom: 8,
+    borderWidth: 0.5,
+    borderColor: "#CBD5E1",
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: "#CBD5E1",
-    borderLeftWidth: 0.5,
-    borderLeftColor: "#CBD5E1",
-    borderRightWidth: 0.5,
-    borderRightColor: "#CBD5E1",
   },
   tableHeader: {
     backgroundColor: "#F1F5F9",
     fontFamily: "Helvetica-Bold",
-    borderTopWidth: 0.5,
-    borderTopColor: "#CBD5E1",
+    borderBottomWidth: 1,
+    borderBottomColor: "#CBD5E1",
   },
   defTermCell: {
     width: "26%",
@@ -197,7 +195,7 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "20%",
+    width: "22%",
     padding: 3,
     paddingLeft: 4,
     borderRightWidth: 0.5,
@@ -234,7 +232,7 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColReceipt: {
-    width: "14.5%",
+    width: "12.5%",
     padding: 3,
     textAlign: "center",
     borderRightWidth: 0.5,
@@ -642,11 +640,11 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
           </View>
           <View style={styles.tableRow} wrap={false}>
             <View style={styles.schedLabelCell}>
-              <Text>BOOKING / DOWN PAYMENT</Text>
+              <Text>DOWN PAYMENT</Text>
             </View>
             <View style={styles.schedValCell}>
               <Text style={styles.bold}>
-                {formatPkr(props.financials.bookingAmountPkr)}/- Booking Amount
+                {formatPkr(props.financials.bookingAmountPkr)}/- Down Payment
               </Text>
             </View>
           </View>
@@ -721,7 +719,7 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
               <Text>0</Text>
             </View>
             <View style={styles.payColItem}>
-              <Text style={styles.bold}>Down Payment / Booking Amount</Text>
+              <Text style={styles.bold}>Down Payment</Text>
             </View>
             <View style={styles.payColDueDate}>
               <Text>{dt.short}</Text>

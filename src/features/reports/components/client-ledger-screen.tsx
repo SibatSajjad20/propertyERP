@@ -638,7 +638,9 @@ function ClientLedgerScreenInner({
                     <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
                       <tr>
                         <th className="w-12 px-3 py-2.5 text-center">Sr #</th>
-                        <th className="px-4 py-2.5">Payment Milestone / Installment</th>
+                        <th className="px-4 py-2.5 whitespace-nowrap">
+                          Payment Milestone / Installment
+                        </th>
                         <th className="px-3 py-2.5 text-center">Due Date</th>
                         <th className="px-3 py-2.5 text-right">Due Amount</th>
                         <th className="px-3 py-2.5 text-center">Paid Date</th>
@@ -691,8 +693,10 @@ function ClientLedgerScreenInner({
                               <td className="px-3 py-2.5 text-center font-sans text-ink-muted tabular-nums">
                                 {row.seq}
                               </td>
-                              <td className="px-4 py-2.5 font-medium text-ink">
-                                {row.label}
+                              <td className="px-4 py-2.5 font-medium whitespace-nowrap text-ink">
+                                {row.label === "Down Payment / Booking Amount"
+                                  ? "Down Payment"
+                                  : row.label}
                               </td>
                               <td className="px-3 py-2.5 text-center text-ink-muted tabular-nums">
                                 {formatDate(row.dueDate)}

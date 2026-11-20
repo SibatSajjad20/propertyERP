@@ -61,13 +61,11 @@ const styles = StyleSheet.create({
     borderColor: "#BAE6FD",
     paddingHorizontal: 5,
     paddingVertical: 1.5,
-    borderRadius: 2,
     marginTop: 3,
   },
   boxCard: {
     borderWidth: 0.8,
     borderColor: "#CBD5E1",
-    borderRadius: 3,
     padding: 6,
     marginBottom: 7,
     backgroundColor: "#FFFFFF",
@@ -91,8 +89,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0.8,
     borderColor: "#CBD5E1",
-    borderRadius: 3,
-    overflow: "hidden",
   },
   detailsBody: {
     padding: 5,
@@ -118,8 +114,6 @@ const styles = StyleSheet.create({
   table: {
     borderWidth: 0.8,
     borderColor: "#CBD5E1",
-    borderRadius: 3,
-    overflow: "hidden",
     marginBottom: 8,
   },
   tableRow: {
@@ -134,7 +128,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     borderBottomWidth: 1,
     borderBottomColor: "#94A3B8",
-    fontSize: 6.8,
+    fontSize: 6.5,
   },
   payHeaderCell: {
     fontFamily: "Helvetica-Bold",
@@ -149,7 +143,7 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "20%",
+    width: "22%",
     padding: 2.5,
     paddingLeft: 4,
     borderRightWidth: 0.5,
@@ -186,7 +180,7 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColReceipt: {
-    width: "14.5%",
+    width: "12.5%",
     padding: 2.5,
     textAlign: "center",
     borderRightWidth: 0.5,
@@ -524,7 +518,7 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
                     </View>
                     <View style={styles.payColItem}>
                       <Text style={row.seq === 0 ? styles.bold : undefined}>
-                        {row.label}
+                        {row.seq === 0 ? "Down Payment" : row.label}
                       </Text>
                     </View>
                     <View style={styles.payColDueDate}>

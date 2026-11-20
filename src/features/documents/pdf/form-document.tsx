@@ -324,10 +324,15 @@ export function FormalFormPdf(props: FormPdfProps) {
               <GridField label="Floor Level" value={props.unit.floorName} />
               <GridField label="Property Category" value={props.unit.categoryName} />
             </View>
-            <View style={[pdfStyles.fieldRow, { marginBottom: 0 }]}>
+            <View style={pdfStyles.fieldRow}>
               <GridField
                 label="Gross Area (Sq Ft)"
                 value={`${props.unit.grossAreaSqft || props.unit.netAreaSqft || "—"} sft`}
+              />
+              <GridField
+                label="Total Unit Price (PKR)"
+                value={formatPkr(props.payment.netPrice)}
+                isPrice
               />
               <GridField
                 label="Down Payment Amount"
@@ -336,35 +341,46 @@ export function FormalFormPdf(props: FormPdfProps) {
                 }
                 isPrice
               />
+            </View>
+            <View style={[pdfStyles.fieldRow, { marginBottom: 0 }]}>
               <GridField
-                label="Total Unit Price (PKR)"
-                value={formatPkr(props.payment.netPrice)}
+                label="Annual Balloon Payments"
+                value={
+                  props.payment.balloonTotalAmount &&
+                  Number(props.payment.balloonTotalAmount) > 0
+                    ? formatPkr(props.payment.balloonTotalAmount)
+                    : "None"
+                }
                 isPrice
+              />
+              <GridField
+                label="On Possession Amount"
+                value={
+                  props.payment.possessionAmount &&
+                  Number(props.payment.possessionAmount) > 0
+                    ? formatPkr(props.payment.possessionAmount)
+                    : "None"
+                }
+                isPrice
+              />
+              <GridField
+                label="Payment Plan Structure"
+                value={
+                  props.payment.plan
+                    ? props.payment.plan.replace(/_/g, " ")
+                    : "Standard Plan"
+                }
               />
             </View>
             {Boolean(
-              (props.payment.balloonTotalAmount &&
-                Number(props.payment.balloonTotalAmount) > 0) ||
-              (props.payment.surchargeAmount &&
-                Number(props.payment.surchargeAmount) > 0),
+              props.payment.surchargeAmount && Number(props.payment.surchargeAmount) > 0,
             ) && (
               <View style={[pdfStyles.fieldRow, { marginTop: 4, marginBottom: 0 }]}>
-                {props.payment.balloonTotalAmount &&
-                Number(props.payment.balloonTotalAmount) > 0 ? (
-                  <GridField
-                    label="Annual Balloon Payments"
-                    value={formatPkr(props.payment.balloonTotalAmount)}
-                    isPrice
-                  />
-                ) : null}
-                {props.payment.surchargeAmount &&
-                Number(props.payment.surchargeAmount) > 0 ? (
-                  <GridField
-                    label="Overdue Surcharge"
-                    value={formatPkr(props.payment.surchargeAmount)}
-                    isPrice
-                  />
-                ) : null}
+                <GridField
+                  label="Overdue Surcharge"
+                  value={formatPkr(props.payment.surchargeAmount!)}
+                  isPrice
+                />
               </View>
             )}
           </View>
@@ -609,15 +625,24 @@ export function FormalFormPdf(props: FormPdfProps) {
                 {props.payment.downPayment ? formatPkr(props.payment.downPayment) : "—"}
               </Text>
             </View>
-            {props.payment.balloonTotalAmount &&
-            Number(props.payment.balloonTotalAmount) > 0 ? (
-              <View style={pdfStyles.kpiCard}>
-                <Text style={pdfStyles.kpiLabel}>Annual Balloons</Text>
-                <Text style={pdfStyles.kpiValue}>
-                  {formatPkr(props.payment.balloonTotalAmount)}
-                </Text>
-              </View>
-            ) : null}
+            <View style={pdfStyles.kpiCard}>
+              <Text style={pdfStyles.kpiLabel}>Annual Balloons</Text>
+              <Text style={pdfStyles.kpiValue}>
+                {props.payment.balloonTotalAmount &&
+                Number(props.payment.balloonTotalAmount) > 0
+                  ? formatPkr(props.payment.balloonTotalAmount)
+                  : "None"}
+              </Text>
+            </View>
+            <View style={pdfStyles.kpiCard}>
+              <Text style={pdfStyles.kpiLabel}>On Possession</Text>
+              <Text style={pdfStyles.kpiValue}>
+                {props.payment.possessionAmount &&
+                Number(props.payment.possessionAmount) > 0
+                  ? formatPkr(props.payment.possessionAmount)
+                  : "None"}
+              </Text>
+            </View>
             <View style={pdfStyles.kpiCard}>
               <Text style={pdfStyles.kpiLabel}>Scheduled Balance</Text>
               <Text style={pdfStyles.kpiValue}>{formatPkr(balanceNum.toFixed(2))}</Text>

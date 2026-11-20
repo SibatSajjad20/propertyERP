@@ -146,6 +146,9 @@ export async function GET(
       downPayment: booking.downPayment,
       plan: booking.plan,
       installmentCount: booking.installmentCount,
+      balloonTotalAmount: booking.balloonTotalAmount,
+      balloonAmountPerYear: booking.balloonAmountPerYear,
+      possessionAmount: booking.possessionAmount,
     },
     enclosure: enclosureFromDownPayment(downPayment),
     installments: data.data.installments.map((inst) => ({

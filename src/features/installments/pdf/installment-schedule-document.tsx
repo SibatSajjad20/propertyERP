@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0.5,
     borderColor: "#CBD5E1",
-    borderRadius: 4,
     padding: 8,
     backgroundColor: "#F8FAFC",
   },
@@ -137,7 +136,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 0.5,
     borderColor: "#E2E8F0",
-    borderRadius: 4,
     padding: 6,
     backgroundColor: "#FFFFFF",
   },
@@ -157,8 +155,6 @@ const styles = StyleSheet.create({
   table: {
     borderWidth: 0.5,
     borderColor: "#CBD5E1",
-    borderRadius: 3,
-    overflow: "hidden",
     marginBottom: 12,
   },
   tableRow: {

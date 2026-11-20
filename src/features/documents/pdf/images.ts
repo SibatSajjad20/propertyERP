@@ -18,7 +18,13 @@ async function downscale(
     const meta = await image.metadata();
     const width = meta.width ?? 0;
     const height = meta.height ?? 0;
-    if (width === 0 || height === 0 || Math.max(width, height) <= MAX_EDGE) {
+    const needsResize = Math.max(width, height) > MAX_EDGE;
+    const isJpeg = mime === "image/jpeg";
+    if (
+      width === 0 ||
+      height === 0 ||
+      (!needsResize && isJpeg && buffer.length <= 250_000)
+    ) {
       return { buffer, mime };
     }
     const resized = await image

@@ -1412,7 +1412,7 @@ export async function getClientLedgerReport(
       scheduleRows = [
         {
           seq: 0,
-          label: "Down Payment / Booking Amount",
+          label: "Down Payment",
           type: "DOWN_PAYMENT",
           dueDate: b.createdAt,
           amountPkr: b.downPayment,
