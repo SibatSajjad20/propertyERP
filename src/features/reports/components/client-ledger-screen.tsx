@@ -87,10 +87,10 @@ function ClientLedgerScreenInner({
     window.print();
   }
 
-  function handleExportExcel() {
+  function handleDownloadPdf() {
     if (!currentClientId) return;
     setIsExporting(true);
-    const url = `/api/export/reports/client-ledger?${searchParams.toString()}`;
+    const url = `/api/documents/client-ledger/${currentClientId}/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
     setTimeout(() => setIsExporting(false), 1000);
   }
@@ -134,16 +134,16 @@ function ClientLedgerScreenInner({
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="md" onClick={handlePrint}>
                   <Printer weight="light" className="size-4" />
-                  <span>Print Statement</span>
+                  <span>Print PDF</span>
                 </Button>
                 <Button
                   variant="primary"
                   size="md"
-                  onClick={handleExportExcel}
+                  onClick={handleDownloadPdf}
                   disabled={isExporting}
                 >
                   <DownloadSimple weight="light" className="size-4" />
-                  <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+                  <span>{isExporting ? "Downloading..." : "Download PDF"}</span>
                 </Button>
               </div>
             ) : null

@@ -215,8 +215,8 @@ export function CollectionsReportScreen({
     window.print();
   }
 
-  function handleExportExcel() {
-    const url = `/api/export/reports/collections?${searchParams.toString()}`;
+  function handleDownloadPdf() {
+    const url = `/api/documents/reports/collections/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
   }
 
@@ -327,16 +327,16 @@ export function CollectionsReportScreen({
                 className="hidden gap-1.5 sm:inline-flex"
               >
                 <Printer weight="light" className="size-4" />
-                <span>Print</span>
+                <span>Print PDF</span>
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={handleExportExcel}
+                onClick={handleDownloadPdf}
                 className="hidden gap-1.5 sm:inline-flex"
               >
                 <DownloadSimple weight="light" className="size-4" />
-                <span>Download</span>
+                <span>Download PDF</span>
               </Button>
 
               <DropdownMenu>
@@ -357,14 +357,14 @@ export function CollectionsReportScreen({
                     className="cursor-pointer gap-2"
                   >
                     <Printer weight="light" className="size-4 text-ink-muted" />
-                    <span>Print Report</span>
+                    <span>Print PDF</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={handleExportExcel}
+                    onClick={handleDownloadPdf}
                     className="cursor-pointer gap-2"
                   >
                     <DownloadSimple weight="light" className="size-4 text-ink-muted" />
-                    <span>Download Excel</span>
+                    <span>Download PDF</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

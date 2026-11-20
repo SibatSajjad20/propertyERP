@@ -150,9 +150,9 @@ export function InstallmentsScreen({
     window.print();
   }
 
-  function handleExportInstallments() {
+  function handleDownloadPdf() {
     if (!currentBooking) return;
-    const url = `/api/export/installments/booking/${currentBooking.id}`;
+    const url = `/api/documents/installments/booking/${currentBooking.id}/pdf`;
     window.open(url, "_blank");
   }
 
@@ -478,17 +478,17 @@ export function InstallmentsScreen({
                         className="gap-1.5"
                       >
                         <Printer weight="light" className="size-4" />
-                        <span>Print Schedule</span>
+                        <span>Print PDF</span>
                       </Button>
 
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={handleExportInstallments}
+                        onClick={handleDownloadPdf}
                         className="gap-1.5"
                       >
                         <DownloadSimple weight="light" className="size-4" />
-                        <span>Download Excel</span>
+                        <span>Download PDF</span>
                       </Button>
                     </div>
 

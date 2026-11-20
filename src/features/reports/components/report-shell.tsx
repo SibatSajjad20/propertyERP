@@ -214,9 +214,9 @@ function ReportHeaderActions({
     window.print();
   }
 
-  function handleExportExcel() {
+  function handleDownloadPdf() {
     setIsExporting(true);
-    const url = `/api/export/reports/${exportType}?${searchParams.toString()}`;
+    const url = `/api/documents/reports/${exportType}/pdf?${searchParams.toString()}`;
     window.open(url, "_blank");
     window.setTimeout(() => setIsExporting(false), 1000);
   }
@@ -225,16 +225,16 @@ function ReportHeaderActions({
     <div className="flex items-center gap-2">
       <Button variant="secondary" size="md" onClick={handlePrint}>
         <Printer weight="light" className="size-4" />
-        <span>Print / PDF</span>
+        <span>Print PDF</span>
       </Button>
       <Button
         variant="primary"
         size="md"
-        onClick={handleExportExcel}
+        onClick={handleDownloadPdf}
         disabled={isExporting}
       >
         <DownloadSimple weight="light" className="size-4" />
-        <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+        <span>{isExporting ? "Downloading..." : "Download PDF"}</span>
       </Button>
     </div>
   );
@@ -312,7 +312,7 @@ function ReportFilterBar({
             <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
-          <span className="font-sans tabular-nums text-xs text-[#64748B]">
+          <span className="font-sans text-xs text-[#64748B] tabular-nums">
             Report Generated: {new Date().toLocaleDateString("en-US")}
           </span>
         </div>
