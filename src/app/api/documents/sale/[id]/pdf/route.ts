@@ -38,6 +38,7 @@ export async function GET(
       registrationNo: sale.registrationNo,
       documentNo: sale.applicationFormNo,
       date: sale.soldAt,
+      printDate: new Date(),
       clientId: sale.clientId,
       includeAppendix,
       unit: {
@@ -102,6 +103,7 @@ export async function GET(
     registrationNo: booking.registrationNo,
     documentNo: booking.bookingNo,
     date: booking.createdAt,
+    printDate: new Date(),
     clientId: booking.clientId,
     includeAppendix,
     unit: {

@@ -133,7 +133,7 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-sans tabular-nums text-[18px] font-bold text-primary">
+              <span className="font-sans text-[18px] font-bold text-primary tabular-nums">
                 {agreement.agreementNo}
               </span>
               {agreement.status === "SIGNED_UPLOADED" ? (
@@ -143,6 +143,7 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
               )}
             </div>
             <p className="text-[12px] text-ink-muted">
+              {buyer.title ? `${buyer.title}. ` : ""}
               {buyer.fullName} · {unit.unitDisplay} ({unit.floorName})
             </p>
           </div>
@@ -171,7 +172,7 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
             <h4 className="text-[13px] font-semibold text-ink">Linked Unit</h4>
             <Link
               href={`/units/${unit.id}` as never}
-              className="unit-code font-sans tabular-nums font-bold text-primary hover:underline"
+              className="unit-code font-sans font-bold text-primary tabular-nums hover:underline"
             >
               {unit.unitDisplay}
             </Link>
@@ -191,7 +192,7 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
               <span className="text-ink-muted">Booking Ref:</span>{" "}
               <Link
                 href={`/bookings/${agreement.bookingId}` as never}
-                className="font-sans tabular-nums font-medium text-primary hover:underline"
+                className="font-sans font-medium text-primary tabular-nums hover:underline"
               >
                 {financials.bookingNo}
               </Link>
@@ -202,11 +203,14 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
         <div className="card space-y-2 p-4 text-[12px]">
           <div className="flex items-center justify-between border-b border-line pb-1.5">
             <h4 className="text-[13px] font-semibold text-ink">Buyer &amp; Nominee</h4>
-            <span className="font-sans tabular-nums text-[11px] text-ink-muted">{buyer.cnic}</span>
+            <span className="font-sans text-[11px] text-ink-muted tabular-nums">
+              {buyer.cnic}
+            </span>
           </div>
           <p>
             <span className="text-ink-muted">Buyer:</span>{" "}
             <strong>
+              {buyer.title ? `${buyer.title}. ` : ""}
               {buyer.fullName} ({buyer.relationPrefix} {buyer.relationName})
             </strong>
           </p>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { formatPkr, formatPkrCompact } from "@/lib/money";
 import { ReportShell, type ReportStatCard } from "./report-shell";
 import type { FilterOptions, ReservedUnitsReportData } from "../queries";
 
@@ -18,6 +19,12 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
     {
       label: "Total Reservations",
       value: data.kpi.totalReserved.toString(),
+      tone: "accent",
+    },
+    {
+      label: "Tokens Collected",
+      value: formatPkrCompact(data.kpi.totalTokenAmountPkr),
+      subValue: `${data.kpi.tokenCount} tokens (${formatPkr(data.kpi.totalTokenAmountPkr)})`,
       tone: "accent",
     },
     {
@@ -71,6 +78,7 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
                 <th className="px-3 py-2.5">Floor</th>
                 <th className="px-4 py-2.5">Client</th>
                 <th className="px-3 py-2.5">Phone</th>
+                <th className="px-3 py-2.5 text-right">Token (PKR)</th>
                 <th className="px-3 py-2.5">Reserved On</th>
                 <th className="px-3 py-2.5">Expires At</th>
                 <th className="px-3 py-2.5">Time Left</th>
@@ -80,7 +88,7 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
             <tbody className="divide-y divide-line/60">
               {data.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-ink-muted">
+                  <td colSpan={9} className="px-4 py-8 text-center text-ink-muted">
                     No reservations found for the selected filters.
                   </td>
                 </tr>
@@ -98,6 +106,9 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
                     <td className="px-4 py-2.5 font-medium text-ink">{row.clientName}</td>
                     <td className="px-3 py-2.5 font-sans text-ink-muted tabular-nums">
                       {row.clientPhone}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-medium text-ink tabular-nums">
+                      {formatPkr(row.tokenAmountPkr)}
                     </td>
                     <td className="px-3 py-2.5 text-ink-muted tabular-nums">
                       {new Date(row.reservedOn).toISOString().split("T")[0]}

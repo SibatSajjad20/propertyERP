@@ -10,6 +10,7 @@ import {
   PencilSimple,
   Prohibit,
   Printer,
+  DownloadSimple,
   User,
   ArrowRight,
 } from "@phosphor-icons/react";
@@ -145,15 +146,66 @@ export function InstallmentsScreen({
     refetchProfile();
   }
 
+  function handlePrintInstallments() {
+    window.print();
+  }
+
+  function handleExportInstallments() {
+    if (!currentBooking) return;
+    const url = `/api/export/installments/booking/${currentBooking.id}`;
+    window.open(url, "_blank");
+  }
+
   return (
-    <div className="flex flex-col gap-6 p-4 select-none sm:p-6">
-      <PageHeader
-        title="Installments &amp; Collections"
-        description="Search clients by name, CNIC, or booking number to manage payment schedules, waterfall receipts, and debt rescheduling."
-      />
+    <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
+      {/* Printable Mall Header (Visible ONLY during Print) */}
+      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#0B558B] print:pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
+            <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
+          </div>
+          <span className="font-sans text-xs text-[#64748B] tabular-nums">
+            Statement Date:{" "}
+            {new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+        <div className="mt-2 text-sm font-semibold text-[#0F172A]">
+          Customer Installment Schedule &amp; Collection Statement
+        </div>
+        {clientProfile && currentBooking && (
+          <div className="mt-1 flex flex-wrap gap-4 text-xs text-[#64748B]">
+            <span>
+              <strong>Client:</strong> {clientProfile.client.fullName} (CNIC:{" "}
+              {clientProfile.client.cnic})
+            </span>
+            <span>
+              <strong>Phone:</strong> {clientProfile.client.phone}
+            </span>
+            <span>
+              <strong>Unit:</strong> {currentBooking.unit.unitCode} (
+              {currentBooking.unit.floorName})
+            </span>
+            <span>
+              <strong>Booking #:</strong> {currentBooking.bookingNo}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="print:hidden">
+        <PageHeader
+          title="Installments &amp; Collections"
+          description="Search clients by name, CNIC, or booking number to manage payment schedules, waterfall receipts, and debt rescheduling."
+        />
+      </div>
 
       {/* Big Search Bar */}
-      <div className="card relative rounded-[12px] p-4">
+      <div className="card relative rounded-[12px] p-4 print:hidden">
         <label className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
           Customer &amp; Booking Lookup
         </label>
@@ -200,7 +252,11 @@ export function InstallmentsScreen({
                   </div>
                   <div className="flex items-center gap-2">
                     {result.bookings.map((b) => (
-                      <Badge key={b.id} tone="muted" className="font-sans text-[10px] tabular-nums">
+                      <Badge
+                        key={b.id}
+                        tone="muted"
+                        className="font-sans text-[10px] tabular-nums"
+                      >
                         {b.unitCode} ({b.bookingNo})
                       </Badge>
                     ))}
@@ -301,7 +357,9 @@ export function InstallmentsScreen({
                             : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
                         )}
                       >
-                        <span className="unit-code font-sans tabular-nums">{b.unit.unitCode}</span>
+                        <span className="unit-code font-sans tabular-nums">
+                          {b.unit.unitCode}
+                        </span>
                         <span className="font-sans tabular-nums">({b.bookingNo})</span>
                       </button>
                     );
@@ -389,8 +447,8 @@ export function InstallmentsScreen({
                   </div>
 
                   {/* Action Buttons Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line bg-subtle/40 p-3">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line bg-subtle/40 p-3 print:hidden">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="primary"
                         size="sm"
@@ -412,9 +470,29 @@ export function InstallmentsScreen({
                           <span>Reschedule Installments</span>
                         </Button>
                       )}
+
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handlePrintInstallments}
+                        className="gap-1.5"
+                      >
+                        <Printer weight="light" className="size-4" />
+                        <span>Print Schedule</span>
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleExportInstallments}
+                        className="gap-1.5"
+                      >
+                        <DownloadSimple weight="light" className="size-4" />
+                        <span>Download Excel</span>
+                      </Button>
                     </div>
 
-                    <span className="font-sans tabular-nums text-[11px] text-ink-muted">
+                    <span className="font-sans text-[11px] text-ink-muted tabular-nums">
                       Booking #{currentBooking.bookingNo}
                     </span>
                   </div>
@@ -457,7 +535,7 @@ export function InstallmentsScreen({
                                       isOverdue && "bg-sold/5",
                                     )}
                                   >
-                                    <td className="px-3 py-2.5 text-center font-sans tabular-nums text-[11px] text-ink-muted">
+                                    <td className="px-3 py-2.5 text-center font-sans text-[11px] text-ink-muted tabular-nums">
                                       #{inst.seq}
                                     </td>
                                     <td className="px-4 py-2.5 tabular-nums">

@@ -30,6 +30,8 @@ export default async function NewBookingPage({
 
   const initialClient = resData?.reservation
     ? {
+        title:
+          (resData.reservation.clientTitle as "Mr" | "Mrs" | "Ms" | undefined) ?? "Mr",
         fullName: resData.reservation.clientName,
         relationPrefix:
           resData.reservation.clientRelationPrefix === "W/O"

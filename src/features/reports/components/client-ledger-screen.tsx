@@ -105,7 +105,12 @@ function ClientLedgerScreenInner({
             <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
           </div>
           <span className="font-sans text-xs text-[#64748B] tabular-nums">
-            Statement Date: {new Date().toLocaleDateString("en-US")}
+            Statement Date:{" "}
+            {new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
           </span>
         </div>
         <div className="mt-2 text-sm font-semibold text-[#0F172A]">
@@ -212,7 +217,9 @@ function ClientLedgerScreenInner({
                   className="flex cursor-pointer flex-col rounded-[8px] border border-line bg-subtle/40 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft"
                 >
                   <span className="text-[13px] font-medium text-ink">{c.fullName}</span>
-                  <span className="font-sans text-[11px] text-ink-muted tabular-nums">{c.cnic}</span>
+                  <span className="font-sans text-[11px] text-ink-muted tabular-nums">
+                    {c.cnic}
+                  </span>
                   <span className="font-sans text-[11px] text-ink-muted tabular-nums">
                     {c.phone}
                   </span>

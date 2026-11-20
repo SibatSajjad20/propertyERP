@@ -37,6 +37,9 @@ export type PdfInstallment = {
   dueDate: Date | string;
   amount: string;
   status: string;
+  type?: string;
+  label?: string;
+  surchargeAmount?: string;
 };
 
 export type PdfEnclosure = {
@@ -54,6 +57,7 @@ export type FormPdfProps = {
   registrationNo: string;
   documentNo?: string;
   date: Date | string;
+  printDate?: Date | string;
   generatedOn: string;
   unit: PdfUnit;
   client: PdfParty;
@@ -67,6 +71,10 @@ export type FormPdfProps = {
     downPayment?: string;
     plan?: string;
     installmentCount?: number;
+    balloonAmountPerYear?: string;
+    balloonTotalAmount?: string;
+    possessionAmount?: string;
+    surchargeAmount?: string;
   };
   installments?: PdfInstallment[];
   enclosure?: PdfEnclosure;
@@ -277,8 +285,14 @@ export function FormalFormPdf(props: FormPdfProps) {
               <Text style={pdfStyles.metaValue}>{props.applicationFormNo}</Text>
               <Text style={pdfStyles.metaLabel}>Registration No</Text>
               <Text style={pdfStyles.metaValue}>{props.registrationNo}</Text>
-              <Text style={pdfStyles.metaLabel}>Print Date</Text>
+              <Text style={pdfStyles.metaLabel}>
+                {props.kind === "sale" ? "Sale Date" : "Booking Date"}
+              </Text>
               <Text style={pdfStyles.metaValue}>{dateLabel(props.date)}</Text>
+              <Text style={pdfStyles.metaLabel}>Print Date</Text>
+              <Text style={pdfStyles.metaValue}>
+                {dateLabel(props.printDate || new Date())}
+              </Text>
             </View>
             <PhotoBox
               image={props.photo}
@@ -328,6 +342,31 @@ export function FormalFormPdf(props: FormPdfProps) {
                 isPrice
               />
             </View>
+            {Boolean(
+              (props.payment.balloonTotalAmount &&
+                Number(props.payment.balloonTotalAmount) > 0) ||
+              (props.payment.surchargeAmount &&
+                Number(props.payment.surchargeAmount) > 0),
+            ) && (
+              <View style={[pdfStyles.fieldRow, { marginTop: 4, marginBottom: 0 }]}>
+                {props.payment.balloonTotalAmount &&
+                Number(props.payment.balloonTotalAmount) > 0 ? (
+                  <GridField
+                    label="Annual Balloon Payments"
+                    value={formatPkr(props.payment.balloonTotalAmount)}
+                    isPrice
+                  />
+                ) : null}
+                {props.payment.surchargeAmount &&
+                Number(props.payment.surchargeAmount) > 0 ? (
+                  <GridField
+                    label="Overdue Surcharge"
+                    value={formatPkr(props.payment.surchargeAmount)}
+                    isPrice
+                  />
+                ) : null}
+              </View>
+            )}
           </View>
         </View>
 
@@ -551,6 +590,10 @@ export function FormalFormPdf(props: FormPdfProps) {
               <Text style={pdfStyles.metaValue}>{props.unit.unitCode}</Text>
               <Text style={pdfStyles.metaLabel}>Client Name</Text>
               <Text style={pdfStyles.metaValue}>{props.client.name}</Text>
+              <Text style={pdfStyles.metaLabel}>Print Date</Text>
+              <Text style={pdfStyles.metaValue}>
+                {dateLabel(props.printDate || new Date())}
+              </Text>
             </View>
           </View>
 
@@ -566,6 +609,15 @@ export function FormalFormPdf(props: FormPdfProps) {
                 {props.payment.downPayment ? formatPkr(props.payment.downPayment) : "—"}
               </Text>
             </View>
+            {props.payment.balloonTotalAmount &&
+            Number(props.payment.balloonTotalAmount) > 0 ? (
+              <View style={pdfStyles.kpiCard}>
+                <Text style={pdfStyles.kpiLabel}>Annual Balloons</Text>
+                <Text style={pdfStyles.kpiValue}>
+                  {formatPkr(props.payment.balloonTotalAmount)}
+                </Text>
+              </View>
+            ) : null}
             <View style={pdfStyles.kpiCard}>
               <Text style={pdfStyles.kpiLabel}>Scheduled Balance</Text>
               <Text style={pdfStyles.kpiValue}>{formatPkr(balanceNum.toFixed(2))}</Text>
@@ -578,6 +630,15 @@ export function FormalFormPdf(props: FormPdfProps) {
                   : (props.payment.plan ?? "Standard Plan")}
               </Text>
             </View>
+            {props.payment.surchargeAmount &&
+            Number(props.payment.surchargeAmount) > 0 ? (
+              <View style={pdfStyles.kpiCard}>
+                <Text style={pdfStyles.kpiLabel}>Overdue Surcharge</Text>
+                <Text style={[pdfStyles.kpiValue, { color: "#991B1B" }]}>
+                  {formatPkr(props.payment.surchargeAmount)}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Installments Table */}
@@ -618,7 +679,12 @@ export function FormalFormPdf(props: FormPdfProps) {
                     {dateLabel(inst.dueDate)}
                   </Text>
                   <Text style={[pdfStyles.td, { width: "24%", color: MUTED }]}>
-                    Installment {String(inst.seq).padStart(2, "0")}
+                    {inst.label ||
+                      (inst.type === "BALLOON"
+                        ? `Balloon Payment #${inst.seq}`
+                        : inst.type === "POSSESSION"
+                          ? "Possession Payment"
+                          : `Installment ${String(inst.seq).padStart(2, "0")}`)}
                   </Text>
                   <Text
                     style={[

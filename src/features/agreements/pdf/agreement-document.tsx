@@ -10,6 +10,10 @@ export interface AgreementPdfScheduleRow {
   type: string;
   dueDate: Date | string;
   amountPkr: string;
+  paidDate?: Date | string | null;
+  paidAmountPkr?: string | null;
+  receiptNo?: string | null;
+  surchargePkr?: string | null;
   status: string;
 }
 
@@ -19,6 +23,7 @@ export interface AgreementPdfProps {
   sellerName: string;
   anticipatedCompletionDate: string;
   buyer: {
+    title?: string;
     fullName: string;
     relationPrefix: string;
     relationName: string;
@@ -51,6 +56,9 @@ export interface AgreementPdfProps {
     balloonTotalAmountPkr?: string;
     tokenAdjustedAmountPkr?: string;
     plan?: string;
+    downPaymentReceiptNo?: string | null;
+    downPaymentPaidAt?: Date | string | null;
+    downPaymentPaidAmountPkr?: string | null;
   };
   witness1Name?: string | null;
   witness2Name?: string | null;
@@ -182,24 +190,62 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   payColSeq: {
-    width: "10%",
-    padding: 4,
+    width: "5%",
+    padding: 3,
+    textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "42%",
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: "#CBD5E1",
-  },
-  payColDate: {
     width: "22%",
-    padding: 4,
+    padding: 3,
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
-  payColAmt: { width: "26%", padding: 4, textAlign: "right" },
+  payColDueDate: {
+    width: "11%",
+    padding: 3,
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColDueAmt: {
+    width: "12%",
+    padding: 3,
+    textAlign: "right",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColPaidDate: {
+    width: "11%",
+    padding: 3,
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColPaidAmt: {
+    width: "12%",
+    padding: 3,
+    textAlign: "right",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColReceipt: {
+    width: "12%",
+    padding: 3,
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColSurcharge: {
+    width: "8%",
+    padding: 3,
+    textAlign: "right",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColStatus: {
+    width: "7%",
+    padding: 3,
+    textAlign: "center",
+  },
 });
 
 function formatDateParts(date: Date | string) {
@@ -308,6 +354,15 @@ function AgreementFooter({
 export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
   const dt = formatDateParts(props.agreementDate);
   const unitDisplay = formatUnitDisplayCode(props.unit.unitCode, props.unit.categoryName);
+  const buyerTitle = props.buyer.title
+    ? `${props.buyer.title.replace(/\.?$/, "")}. `
+    : "";
+  const buyerDisplayName = `${buyerTitle}${props.buyer.fullName}`;
+  const isFemale =
+    props.buyer.title === "Mrs" ||
+    props.buyer.title === "Ms" ||
+    props.buyer.relationPrefix === "W/O" ||
+    props.buyer.relationPrefix === "D/O";
 
   return (
     <Document
@@ -340,14 +395,15 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
 
         <Text style={[styles.bold, { marginBottom: 4 }]}>AND</Text>
         <Text style={styles.paragraph}>
-          <Text style={styles.bold}>{props.buyer.fullName}</Text>{" "}
+          <Text style={styles.bold}>{buyerDisplayName}</Text>{" "}
           {relationLong(props.buyer.relationPrefix)}{" "}
           <Text style={styles.bold}>{props.buyer.relationName}</Text> having CNIC No.{" "}
           <Text style={styles.bold}>{props.buyer.cnic}</Text> Resident of{" "}
           <Text style={styles.bold}>{props.buyer.address}</Text> (hereinafter referred to
           as the "Buyer / Vendee" which expression shall, where the context so admits,
-          means and include his nominees, successors, successors-in-title) and further
-          detailed as mentioned in the Schedule-A. The party of the Second Part
+          means and include {isFemale ? "her" : "his"} nominees, successors,
+          successors-in-title) and further detailed as mentioned in the Schedule-A. The
+          party of the Second Part
         </Text>
 
         <Text style={[styles.bold, { marginTop: 6, marginBottom: 4 }]}>WHEREAS</Text>
@@ -462,7 +518,7 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
               <Text>NAME</Text>
             </View>
             <View style={styles.schedValCell}>
-              <Text>{props.buyer.fullName}</Text>
+              <Text>{buyerDisplayName}</Text>
             </View>
           </View>
           <View style={styles.tableRow} wrap={false}>
@@ -588,8 +644,7 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
         <Text style={[styles.paragraph, { marginTop: 10 }]}>
           That I{" "}
           <Text style={styles.bold}>
-            {props.buyer.fullName}, {props.buyer.relationPrefix}{" "}
-            {props.buyer.relationName}
+            {buyerDisplayName}, {props.buyer.relationPrefix} {props.buyer.relationName}
           </Text>{" "}
           have read and understood the terms contained herein, and my understanding as to
           the meaning and implication of the terms is clear and unambiguous, and that this
@@ -600,7 +655,7 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
 
         <SignatureBlock
           sellerName={props.sellerName}
-          buyerName={props.buyer.fullName}
+          buyerName={buyerDisplayName}
           witness1Name={props.witness1Name}
           witness2Name={props.witness2Name}
         />
@@ -612,79 +667,183 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
       <Page size="A4" style={styles.page} wrap>
         <Text style={styles.title}>SCHEDULE-B</Text>
         <Text style={styles.subtitle}>
-          PAYMENT PLAN SCHEDULE • {unitDisplay} • {props.buyer.fullName}
+          PAYMENT PLAN SCHEDULE • {unitDisplay} • {buyerDisplayName}
         </Text>
 
         <View style={styles.table}>
-          <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
+          <View
+            style={[styles.tableRow, styles.tableHeader, { fontSize: 7 }]}
+            wrap={false}
+          >
             <View style={styles.payColSeq}>
               <Text>Sr #</Text>
             </View>
             <View style={styles.payColItem}>
               <Text>Payment Milestone / Installment</Text>
             </View>
-            <View style={styles.payColDate}>
+            <View style={styles.payColDueDate}>
               <Text>Due Date</Text>
             </View>
-            <View style={styles.payColAmt}>
-              <Text>Amount (PKR)</Text>
+            <View style={styles.payColDueAmt}>
+              <Text>Due Amount</Text>
+            </View>
+            <View style={styles.payColPaidDate}>
+              <Text>Paid Date</Text>
+            </View>
+            <View style={styles.payColPaidAmt}>
+              <Text>Paid Amount</Text>
+            </View>
+            <View style={styles.payColReceipt}>
+              <Text>Receipt No</Text>
+            </View>
+            <View style={styles.payColSurcharge}>
+              <Text>Surcharge</Text>
+            </View>
+            <View style={styles.payColStatus}>
+              <Text>Status</Text>
             </View>
           </View>
 
           {/* Booking / Down Payment Row */}
-          <View style={styles.tableRow} wrap={false}>
+          <View style={[styles.tableRow, { fontSize: 6.8 }]} wrap={false}>
             <View style={styles.payColSeq}>
               <Text>0</Text>
             </View>
             <View style={styles.payColItem}>
               <Text style={styles.bold}>Down Payment / Booking Amount</Text>
             </View>
-            <View style={styles.payColDate}>
+            <View style={styles.payColDueDate}>
               <Text>{dt.short}</Text>
             </View>
-            <View style={styles.payColAmt}>
+            <View style={styles.payColDueAmt}>
               <Text style={styles.bold}>
                 {formatPkr(props.financials.bookingAmountPkr)}
               </Text>
             </View>
+            <View style={styles.payColPaidDate}>
+              <Text>
+                {props.financials.downPaymentPaidAt
+                  ? formatDateParts(props.financials.downPaymentPaidAt).short
+                  : dt.short}
+              </Text>
+            </View>
+            <View style={styles.payColPaidAmt}>
+              <Text style={styles.bold}>
+                {formatPkr(
+                  props.financials.downPaymentPaidAmountPkr ||
+                    props.financials.bookingAmountPkr,
+                )}
+              </Text>
+            </View>
+            <View style={styles.payColReceipt}>
+              <Text>{props.financials.downPaymentReceiptNo || "—"}</Text>
+            </View>
+            <View style={styles.payColSurcharge}>
+              <Text>—</Text>
+            </View>
+            <View style={styles.payColStatus}>
+              <Text style={[styles.bold, { color: "#166534" }]}>PAID</Text>
+            </View>
           </View>
 
-          {props.scheduleRows.map((row) => (
-            <View key={row.seq} style={styles.tableRow} wrap={false}>
-              <View style={styles.payColSeq}>
-                <Text>{row.seq}</Text>
-              </View>
-              <View style={styles.payColItem}>
-                <Text>{row.label}</Text>
-              </View>
-              <View style={styles.payColDate}>
-                <Text>{formatDateParts(row.dueDate).short}</Text>
-              </View>
-              <View style={styles.payColAmt}>
-                <Text>{formatPkr(row.amountPkr)}</Text>
-              </View>
-            </View>
-          ))}
+          {props.scheduleRows.map((row) => {
+            const isPaid = row.status?.toUpperCase() === "PAID";
+            const paidDateStr = row.paidDate ? formatDateParts(row.paidDate).short : "—";
+            const paidAmtStr =
+              row.paidAmountPkr && Number(row.paidAmountPkr) > 0
+                ? formatPkr(row.paidAmountPkr)
+                : isPaid
+                  ? formatPkr(row.amountPkr)
+                  : "—";
+            const surchargeStr =
+              row.surchargePkr && Number(row.surchargePkr) > 0
+                ? formatPkr(row.surchargePkr)
+                : "—";
 
-          <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
+            return (
+              <View
+                key={row.seq}
+                style={[styles.tableRow, { fontSize: 6.8 }]}
+                wrap={false}
+              >
+                <View style={styles.payColSeq}>
+                  <Text>{row.seq}</Text>
+                </View>
+                <View style={styles.payColItem}>
+                  <Text>{row.label}</Text>
+                </View>
+                <View style={styles.payColDueDate}>
+                  <Text>{formatDateParts(row.dueDate).short}</Text>
+                </View>
+                <View style={styles.payColDueAmt}>
+                  <Text>{formatPkr(row.amountPkr)}</Text>
+                </View>
+                <View style={styles.payColPaidDate}>
+                  <Text>{paidDateStr}</Text>
+                </View>
+                <View style={styles.payColPaidAmt}>
+                  <Text>{paidAmtStr}</Text>
+                </View>
+                <View style={styles.payColReceipt}>
+                  <Text>{row.receiptNo || "—"}</Text>
+                </View>
+                <View style={styles.payColSurcharge}>
+                  <Text>{surchargeStr}</Text>
+                </View>
+                <View style={styles.payColStatus}>
+                  <Text
+                    style={
+                      isPaid
+                        ? [styles.bold, { color: "#166534" }]
+                        : row.status?.toUpperCase() === "OVERDUE"
+                          ? [styles.bold, { color: "#991B1B" }]
+                          : undefined
+                    }
+                  >
+                    {row.status}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+
+          <View
+            style={[styles.tableRow, styles.tableHeader, { fontSize: 7 }]}
+            wrap={false}
+          >
             <View style={styles.payColSeq}>
               <Text>—</Text>
             </View>
             <View style={styles.payColItem}>
               <Text>TOTAL PURCHASE PRICE</Text>
             </View>
-            <View style={styles.payColDate}>
+            <View style={styles.payColDueDate}>
               <Text> </Text>
             </View>
-            <View style={styles.payColAmt}>
+            <View style={styles.payColDueAmt}>
               <Text>{formatPkr(props.financials.totalPricePkr)}</Text>
+            </View>
+            <View style={styles.payColPaidDate}>
+              <Text> </Text>
+            </View>
+            <View style={styles.payColPaidAmt}>
+              <Text> </Text>
+            </View>
+            <View style={styles.payColReceipt}>
+              <Text> </Text>
+            </View>
+            <View style={styles.payColSurcharge}>
+              <Text> </Text>
+            </View>
+            <View style={styles.payColStatus}>
+              <Text> </Text>
             </View>
           </View>
         </View>
 
         <SignatureBlock
           sellerName={props.sellerName}
-          buyerName={props.buyer.fullName}
+          buyerName={buyerDisplayName}
           witness1Name={props.witness1Name}
           witness2Name={props.witness2Name}
         />

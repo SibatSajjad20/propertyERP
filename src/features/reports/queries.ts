@@ -731,6 +731,8 @@ export interface ReservedUnitsReportRow {
   expiresAt: Date;
   timeLeft: string;
   isExpired: boolean;
+  tokenAmountPkr: string;
+  tokenReceiptNo?: string | null;
   status: string;
 }
 
@@ -742,6 +744,8 @@ export interface ReservedUnitsReportData {
     convertedCount: number;
     expiredCount: number;
     cancelledCount: number;
+    totalTokenAmountPkr: string;
+    tokenCount: number;
   };
 }
 
@@ -787,6 +791,8 @@ export async function getReservedUnitsReport(
       clientPhone: clients.phone,
       startAt: reservations.startAt,
       expiresAt: reservations.expiresAt,
+      tokenAmount: reservations.tokenAmount,
+      tokenReceiptNo: reservations.tokenReceiptNo,
       status: reservations.status,
     })
     .from(reservations)
@@ -800,6 +806,8 @@ export async function getReservedUnitsReport(
   let convertedCount = 0;
   let expiredCount = 0;
   let cancelledCount = 0;
+  let totalTokenPaisa = 0n;
+  let tokenCount = 0;
 
   const formattedRows: ReservedUnitsReportRow[] = rows.map((r) => {
     const isExpired = r.expiresAt.getTime() < now.getTime();
@@ -812,6 +820,12 @@ export async function getReservedUnitsReport(
       expiredCount++;
     } else if (r.status === "CANCELLED") {
       cancelledCount++;
+    }
+
+    const tPaisa = parseDecimal(r.tokenAmount || "0");
+    if (tPaisa > 0n) {
+      totalTokenPaisa += tPaisa;
+      tokenCount++;
     }
 
     let timeLeft = "";
@@ -839,6 +853,8 @@ export async function getReservedUnitsReport(
       expiresAt: r.expiresAt,
       timeLeft,
       isExpired,
+      tokenAmountPkr: r.tokenAmount || "0.00",
+      tokenReceiptNo: r.tokenReceiptNo || null,
       status: r.status,
     };
   });
@@ -851,6 +867,8 @@ export async function getReservedUnitsReport(
       convertedCount,
       expiredCount,
       cancelledCount,
+      totalTokenAmountPkr: formatDecimal(totalTokenPaisa),
+      tokenCount,
     },
   };
 }

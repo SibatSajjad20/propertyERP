@@ -26,9 +26,9 @@ export function AppShell({
 
   return (
     <BreadcrumbProvider>
-      <div className="flex min-h-screen bg-bg">
+      <div className="flex min-h-screen bg-bg print:bg-white">
         {/* Desktop Sidebar: sticky top-0 h-screen, user footer pinned at bottom, no blank strip */}
-        <div className="hidden shrink-0 lg:flex">
+        <div className="hidden shrink-0 lg:flex print:hidden">
           <Sidebar role={role} userName={userName} navLocked={navLocked} />
         </div>
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
@@ -36,7 +36,7 @@ export function AppShell({
             side="left"
             widthClass="w-[232px] max-w-[85vw]"
             hideCloseButton
-            className="border-[#E3E7EC] bg-surface p-0 lg:hidden"
+            className="border-[#E3E7EC] bg-surface p-0 lg:hidden print:hidden"
           >
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <Sidebar
@@ -47,17 +47,22 @@ export function AppShell({
             />
           </SheetContent>
         </Sheet>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar
-            title={title}
-            userName={userName}
-            role={role}
-            navLocked={navLocked}
-            onOpenNav={() => setNavOpen(true)}
-          />
+        <div className="flex min-w-0 flex-1 flex-col print:w-full print:min-w-full">
+          <div className="print:hidden">
+            <TopBar
+              title={title}
+              userName={userName}
+              role={role}
+              navLocked={navLocked}
+              onOpenNav={() => setNavOpen(true)}
+            />
+          </div>
           {/* Main Content: max-w-[1440px] mx-auto px-6 py-6 (page padding 24) */}
-          <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-6 py-6">
+          <main
+            id="main"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto print:overflow-visible print:p-0"
+          >
+            <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-6 py-6 print:max-w-none print:p-0">
               {children}
             </div>
           </main>

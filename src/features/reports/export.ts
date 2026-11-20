@@ -257,7 +257,7 @@ export async function generateReservedUnitsExcel(
     views: [{ state: "frozen", xSplit: 0, ySplit: 4, activeCell: "A5" }],
   });
 
-  applyBrandHeader(ws, "Reserved Units Report", filterDesc, 8);
+  applyBrandHeader(ws, "Reserved Units Report", filterDesc, 9);
 
   const headerRow = ws.getRow(4);
   headerRow.values = [
@@ -265,6 +265,7 @@ export async function generateReservedUnitsExcel(
     "Floor",
     "Client Name",
     "Phone",
+    "Token Amount",
     "Reserved On",
     "Expires At",
     "Time Left / Status",
@@ -277,6 +278,7 @@ export async function generateReservedUnitsExcel(
     { key: "floorName", width: 14 },
     { key: "clientName", width: 22 },
     { key: "clientPhone", width: 16 },
+    { key: "tokenAmount", width: 16 },
     { key: "reservedOn", width: 14 },
     { key: "expiresAt", width: 18 },
     { key: "timeLeft", width: 18 },
@@ -289,12 +291,14 @@ export async function generateReservedUnitsExcel(
       floorName: r.floorName,
       clientName: r.clientName,
       clientPhone: r.clientPhone,
+      tokenAmount: Number(parseDecimal(r.tokenAmountPkr || "0")) / 100,
       reservedOn: new Date(r.reservedOn).toISOString().split("T")[0],
       expiresAt: new Date(r.expiresAt).toLocaleString(),
       timeLeft: r.timeLeft,
       status: r.status,
     });
     applyDataRowStyles(row);
+    row.getCell(5).numFmt = PKR_NUMBER_FORMAT;
   }
 
   const buffer = await wb.xlsx.writeBuffer();

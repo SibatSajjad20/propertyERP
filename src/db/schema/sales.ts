@@ -31,6 +31,7 @@ export const clients = pgTable(
   "clients",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").default("Mr").notNull(),
     fullName: text("full_name").notNull(),
     relationPrefix: text("relation_prefix").notNull(),
     relationName: text("relation_name").notNull(),

@@ -41,6 +41,7 @@ export async function GET(
     registrationNo: data.booking.registrationNo,
     documentNo: data.booking.bookingNo,
     date: data.booking.createdAt,
+    printDate: new Date(),
     clientId: data.booking.clientId,
     includeAppendix,
     unit: {
@@ -84,13 +85,31 @@ export async function GET(
       downPayment: data.booking.downPayment,
       plan: data.booking.plan,
       installmentCount: data.booking.installmentCount,
+      balloonTotalAmount: data.booking.balloonTotalAmount,
+      balloonAmountPerYear: data.booking.balloonAmountPerYear,
+      possessionAmount: data.booking.possessionAmount,
+      surchargeAmount:
+        data.payments.reduce(
+          (sum, p) => sum + (p.isVoided ? 0 : Number(p.surchargeAmount || 0)),
+          0,
+        ) > 0
+          ? String(
+              data.payments.reduce(
+                (sum, p) => sum + (p.isVoided ? 0 : Number(p.surchargeAmount || 0)),
+                0,
+              ),
+            )
+          : undefined,
     },
     enclosure: enclosureFromDownPayment(downPayment),
     installments: data.installments.map((inst) => ({
       seq: inst.seq,
+      label: inst.label || undefined,
+      type: inst.type,
       dueDate: inst.dueDate,
       amount: inst.amount,
       status: String(inst.status),
+      surchargeAmount: inst.surchargePaidAmount || undefined,
     })),
   });
 

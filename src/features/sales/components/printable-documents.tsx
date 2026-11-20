@@ -95,7 +95,7 @@ export function PrintableReceiptDialog({
               </div>
             </div>
             <div className="text-right">
-              <span className="inline-block rounded border border-line bg-subtle px-2 py-0.5 font-sans tabular-nums text-[13px] font-bold text-primary">
+              <span className="inline-block rounded border border-line bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-primary tabular-nums">
                 {receipt.receiptNo}
               </span>
               <p className="mt-1 font-sans text-[11px] text-ink-muted tabular-nums">
@@ -109,7 +109,7 @@ export function PrintableReceiptDialog({
             <div>
               <span className="text-[11px] text-ink-muted uppercase">Received From:</span>
               <p className="text-[13px] font-semibold text-ink">{receipt.clientName}</p>
-              <p className="font-sans tabular-nums text-[12px] text-ink-muted">
+              <p className="font-sans text-[12px] text-ink-muted tabular-nums">
                 CNIC: {receipt.clientCnic}
               </p>
               <p className="font-sans text-[12px] text-ink-muted tabular-nums">
@@ -118,11 +118,11 @@ export function PrintableReceiptDialog({
             </div>
             <div className="text-right">
               <span className="text-[11px] text-ink-muted uppercase">Property Unit:</span>
-              <p className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary">
+              <p className="unit-code font-sans text-[14px] font-bold text-primary tabular-nums">
                 {receipt.unitCode}
               </p>
               {receipt.bookingNo && (
-                <p className="font-sans tabular-nums text-[12px] text-ink-muted">
+                <p className="font-sans text-[12px] text-ink-muted tabular-nums">
                   Booking: {receipt.bookingNo}
                 </p>
               )}
@@ -233,11 +233,24 @@ export function PrintableBookingFormDialog({
               </div>
             </div>
             <div className="text-right">
-              <span className="font-sans tabular-nums text-[14px] font-bold text-primary">
+              <span className="font-sans text-[14px] font-bold text-primary tabular-nums">
                 {booking.bookingNo}
               </span>
               <p className="text-[11px] text-ink-muted">
-                Dated: {new Date(booking.createdAt).toLocaleDateString()}
+                Booking Date:{" "}
+                {new Date(booking.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+              <p className="text-[11px] text-ink-muted">
+                Print Date:{" "}
+                {new Date().toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
               </p>
             </div>
           </div>
@@ -274,7 +287,7 @@ export function PrintableBookingFormDialog({
               </span>
               <p>
                 <span className="text-ink-muted">Unit Code:</span>{" "}
-                <span className="unit-code font-sans tabular-nums font-bold">
+                <span className="unit-code font-sans font-bold tabular-nums">
                   {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
                 </span>
               </p>
@@ -294,6 +307,23 @@ export function PrintableBookingFormDialog({
                 <span className="text-ink-muted">Down Payment:</span>{" "}
                 {formatPkr(booking.downPayment)}
               </p>
+              {booking.balloonTotalAmount && Number(booking.balloonTotalAmount) > 0 ? (
+                <p>
+                  <span className="text-ink-muted">Annual Balloons:</span>{" "}
+                  <span className="font-medium text-ink">
+                    {formatPkr(booking.balloonTotalAmount)}
+                  </span>
+                </p>
+              ) : null}
+              {booking.overdueSurchargeDuePkr &&
+              Number(booking.overdueSurchargeDuePkr) > 0 ? (
+                <p>
+                  <span className="text-ink-muted">Surcharge Due:</span>{" "}
+                  <span className="font-medium text-sold">
+                    {formatPkr(booking.overdueSurchargeDuePkr)}
+                  </span>
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -305,7 +335,9 @@ export function PrintableBookingFormDialog({
             <table className="w-full border-collapse border border-line text-[11px]">
               <thead className="bg-subtle font-semibold text-ink">
                 <tr>
-                  <th className="border border-line px-2 py-1 text-left">#</th>
+                  <th className="border border-line px-2 py-1 text-left">
+                    Milestone / Item
+                  </th>
                   <th className="border border-line px-2 py-1 text-left">Due Date</th>
                   <th className="border border-line px-2 py-1 text-right">
                     Amount (PKR)
@@ -316,14 +348,33 @@ export function PrintableBookingFormDialog({
               <tbody>
                 {installments.map((inst: any) => (
                   <tr key={inst.seq}>
-                    <td className="border border-line px-2 py-1">Inst. {inst.seq}</td>
-                    <td className="border border-line px-2 py-1">
-                      {new Date(inst.dueDate).toLocaleDateString()}
+                    <td className="border border-line px-2 py-1 font-medium">
+                      {inst.label ||
+                        (inst.type === "BALLOON"
+                          ? `Balloon ${inst.seq}`
+                          : inst.type === "POSSESSION"
+                            ? "Possession"
+                            : `Inst. ${inst.seq}`)}
                     </td>
-                    <td className="border border-line px-2 py-1 text-right font-sans tabular-nums">
+                    <td className="border border-line px-2 py-1">
+                      {new Date(inst.dueDate).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="border border-line px-2 py-1 text-right font-sans font-semibold tabular-nums">
                       {formatPkr(inst.amount)}
                     </td>
-                    <td className="border border-line px-2 py-1">{inst.status}</td>
+                    <td className="border border-line px-2 py-1">
+                      {inst.status}
+                      {inst.surchargePaidAmount &&
+                      Number(inst.surchargePaidAmount) > 0 ? (
+                        <span className="ml-1 text-[10px] text-sold">
+                          (+{formatPkr(inst.surchargePaidAmount)} surch.)
+                        </span>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -75,8 +75,16 @@ export function ClientForm({
       if (result?.client) {
         setFoundClient(true);
         onChangeClient({
+          title:
+            ((result.client as any).title as "Mr" | "Mrs" | "Ms") ||
+            (result.client.relationPrefix === "W/O" ? "Mrs" : "Mr"),
           fullName: result.client.fullName,
-          relationPrefix: result.client.relationPrefix === "W/O" ? "W/O" : "S/O",
+          relationPrefix:
+            result.client.relationPrefix === "W/O"
+              ? "W/O"
+              : result.client.relationPrefix === "D/O"
+                ? "D/O"
+                : "S/O",
           relationName: result.client.relationName,
           cnic: result.client.cnic,
           phone: result.client.phone,
@@ -174,7 +182,7 @@ export function ClientForm({
                 }}
                 maxLength={15}
                 placeholder="12345-1234567-1"
-                className="font-sans tabular-nums text-[13px]"
+                className="font-sans text-[13px] tabular-nums"
               />
               <Button
                 type="button"
@@ -207,6 +215,33 @@ export function ClientForm({
           </div>
 
           <div>
+            <Label className="mb-1 block text-[12px]">
+              Title / Salutation <span className="text-sold">*</span>
+            </Label>
+            <SegmentedControl
+              value={client.title || "Mr"}
+              onValueChange={(value) => {
+                const titleVal = value as "Mr" | "Mrs" | "Ms";
+                let rel = client.relationPrefix;
+                if (titleVal === "Mr" && rel === "W/O") rel = "S/O";
+                if (titleVal === "Mrs" && rel === "S/O") rel = "W/O";
+                if (titleVal === "Ms" && rel === "S/O") rel = "D/O";
+                onChangeClient({ ...client, title: titleVal, relationPrefix: rel });
+              }}
+              options={[
+                { value: "Mr", label: "Mr." },
+                { value: "Mrs", label: "Mrs." },
+                { value: "Ms", label: "Ms." },
+              ]}
+            />
+            <p className="mt-1 text-[11px] text-ink-muted">
+              Select title to establish gender and pronouns for agreement documents.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
             <Label htmlFor="client-name" className="mb-1 block text-[12px]">
               Full Name <span className="text-sold">*</span>
             </Label>
@@ -217,9 +252,7 @@ export function ClientForm({
               placeholder="e.g. Muhammad Tariq"
             />
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label className="mb-1 block text-[12px]">
               Relation <span className="text-sold">*</span>
@@ -232,6 +265,7 @@ export function ClientForm({
                 }
                 options={[
                   { value: "S/O", label: "S/O" },
+                  { value: "D/O", label: "D/O" },
                   { value: "W/O", label: "W/O" },
                 ]}
               />
@@ -453,7 +487,7 @@ export function ClientForm({
                 }}
                 maxLength={15}
                 placeholder="12345-1234567-2"
-                className="font-sans tabular-nums text-[13px]"
+                className="font-sans text-[13px] tabular-nums"
               />
               {nextOfKin.cnic?.trim() ? (
                 <p

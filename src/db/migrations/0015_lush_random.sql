@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "title" text DEFAULT 'Mr' NOT NULL;

@@ -6,8 +6,9 @@ import { ValidationError } from "@/lib/errors";
 export type SalesTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type ClientUpsertInput = {
+  title?: "Mr" | "Mrs" | "Ms" | null;
   fullName: string;
-  relationPrefix: "S/O" | "W/O";
+  relationPrefix: "S/O" | "D/O" | "W/O";
   relationName: string;
   cnic: string;
   phone: string;
@@ -44,6 +45,7 @@ export async function upsertClientAndKin(
     [client] = await tx
       .insert(clients)
       .values({
+        title: clientData.title || (clientData.relationPrefix === "W/O" ? "Mrs" : "Mr"),
         fullName: clientData.fullName.trim(),
         relationPrefix: clientData.relationPrefix,
         relationName: clientData.relationName.trim(),
@@ -61,6 +63,7 @@ export async function upsertClientAndKin(
     [client] = await tx
       .update(clients)
       .set({
+        title: clientData.title || client.title || "Mr",
         fullName: clientData.fullName.trim(),
         relationPrefix: clientData.relationPrefix,
         relationName: clientData.relationName.trim(),

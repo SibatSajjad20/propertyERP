@@ -11,6 +11,7 @@ import {
   clients,
   installments,
   nextOfKin,
+  payments,
   sales,
 } from "@/db/schema/sales";
 import { units } from "@/db/schema/units";
@@ -136,6 +137,7 @@ export async function getAgreementDetail(id: string) {
         floorName: floors.name,
         blockName: blocks.name,
         categoryName: categories.name,
+        clientTitle: clients.title,
         clientName: clients.fullName,
         clientRelationPrefix: clients.relationPrefix,
         clientRelationName: clients.relationName,
@@ -182,6 +184,24 @@ export async function getAgreementDetail(id: string) {
           .orderBy(asc(installments.seq))
       : [];
 
+    const [downPaymentPayment] = row.agreement.bookingId
+      ? await db
+          .select({
+            receiptNo: payments.receiptNo,
+            paidAt: payments.paidAt,
+            amount: payments.amount,
+          })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.bookingId, row.agreement.bookingId),
+              eq(payments.isVoided, false),
+              eq(payments.category, "DOWN_PAYMENT"),
+            ),
+          )
+          .limit(1)
+      : [];
+
     let signedDownloadUrl: string | null = null;
     if (row.agreement.signedStoragePath && isStorageConfigured()) {
       try {
@@ -216,6 +236,7 @@ export async function getAgreementDetail(id: string) {
       },
       buyer: {
         id: row.agreement.clientId,
+        title: row.clientTitle || (row.clientRelationPrefix === "W/O" ? "Mrs" : "Mr"),
         fullName: row.clientName,
         relationPrefix: row.clientRelationPrefix,
         relationName: row.clientRelationName,
@@ -246,6 +267,12 @@ export async function getAgreementDetail(id: string) {
         balloonTotalAmountPkr: row.bookingBalloonTotalAmount ?? "0.00",
         tokenAdjustedAmountPkr: row.bookingTokenAdjusted ?? "0.00",
         plan: row.bookingPlan ?? "FULL",
+        downPaymentReceiptNo: downPaymentPayment?.receiptNo ?? null,
+        downPaymentPaidAt: downPaymentPayment?.paidAt
+          ? downPaymentPayment.paidAt.toISOString()
+          : null,
+        downPaymentPaidAmountPkr:
+          downPaymentPayment?.amount ?? row.bookingDownPayment ?? row.salePrice ?? "0.00",
       },
       scheduleRows: scheduleRows.map((i) => ({
         seq: i.seq,
@@ -253,6 +280,10 @@ export async function getAgreementDetail(id: string) {
         label: i.label || `Installment #${i.seq}`,
         dueDate: i.dueDate.toISOString(),
         amountPkr: i.amount,
+        paidDate: i.paidAt ? i.paidAt.toISOString() : null,
+        paidAmountPkr: i.paidAmount,
+        receiptNo: i.receiptNos || "—",
+        surchargePkr: i.surchargePaidAmount || "0",
         status: i.status,
       })),
       createdByName: row.createdByName,

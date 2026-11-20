@@ -54,6 +54,7 @@ export function DirectSaleScreen({
   const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(null);
 
   const [client, setClient] = React.useState<ClientInput>({
+    title: "Mr",
     fullName: "",
     relationPrefix: "S/O",
     relationName: "",
@@ -587,7 +588,7 @@ export function DirectSaleScreen({
             <div className="grid grid-cols-2 gap-4 text-[12px] sm:grid-cols-4">
               <div>
                 <span className="text-ink-muted">Unit:</span>
-                <p className="unit-code font-sans tabular-nums font-bold text-primary">
+                <p className="unit-code font-sans font-bold text-primary tabular-nums">
                   {selectedUnit.unitCode}
                 </p>
               </div>
@@ -627,7 +628,7 @@ export function DirectSaleScreen({
               ) : selectedUnit ? (
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans tabular-nums text-[13px] font-bold text-ink">
+                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-ink tabular-nums">
                     {selectedUnit.unitCode}
                   </span>
                   <span className="hidden text-ink-muted sm:inline">

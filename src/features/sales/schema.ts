@@ -27,7 +27,11 @@ export function formatCnic(val: unknown): string {
   return trimmed;
 }
 
-export const clientRelationPrefixes = ["S/O", "W/O"] as const;
+export const clientTitles = ["Mr", "Mrs", "Ms"] as const;
+export type ClientTitle = (typeof clientTitles)[number];
+export const clientTitleSchema = z.enum(clientTitles).default("Mr");
+
+export const clientRelationPrefixes = ["S/O", "D/O", "W/O"] as const;
 export const kinRelationPrefixes = ["S/O", "D/O", "W/O"] as const;
 export const clientRelationPrefixSchema = z.enum(clientRelationPrefixes);
 export const kinRelationPrefixSchema = z.enum(kinRelationPrefixes);
@@ -42,6 +46,7 @@ const optionalPhone = z
   .optional();
 
 export const clientSchema = z.object({
+  title: clientTitleSchema,
   fullName: z.string().trim().min(2, "Full name is required").max(120),
   relationPrefix: clientRelationPrefixSchema,
   relationName: z.string().trim().min(2, "Father/husband name is required").max(120),
