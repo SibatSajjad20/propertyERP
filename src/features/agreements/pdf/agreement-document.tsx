@@ -190,61 +190,72 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   payColSeq: {
-    width: "5%",
+    width: "4%",
     padding: 3,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "22%",
+    width: "20%",
     padding: 3,
+    paddingLeft: 4,
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColDueDate: {
-    width: "11%",
+    width: "9.5%",
     padding: 3,
+    textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColDueAmt: {
-    width: "12%",
+    width: "11%",
     padding: 3,
+    paddingRight: 4,
     textAlign: "right",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColPaidDate: {
-    width: "11%",
+    width: "9.5%",
     padding: 3,
+    textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColPaidAmt: {
-    width: "12%",
+    width: "11%",
     padding: 3,
+    paddingRight: 4,
     textAlign: "right",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColReceipt: {
-    width: "12%",
+    width: "14.5%",
     padding: 3,
+    textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColSurcharge: {
-    width: "8%",
+    width: "9.5%",
     padding: 3,
+    paddingRight: 4,
     textAlign: "right",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColStatus: {
-    width: "7%",
+    width: "11%",
     padding: 3,
     textAlign: "center",
+  },
+  payHeaderCell: {
+    textAlign: "center",
+    justifyContent: "center",
   },
 });
 
@@ -672,40 +683,40 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
 
         <View style={styles.table}>
           <View
-            style={[styles.tableRow, styles.tableHeader, { fontSize: 7 }]}
+            style={[styles.tableRow, styles.tableHeader, { fontSize: 6.8 }]}
             wrap={false}
           >
-            <View style={styles.payColSeq}>
+            <View style={[styles.payColSeq, styles.payHeaderCell]}>
               <Text>Sr #</Text>
             </View>
-            <View style={styles.payColItem}>
+            <View style={[styles.payColItem, styles.payHeaderCell]}>
               <Text>Payment Milestone / Installment</Text>
             </View>
-            <View style={styles.payColDueDate}>
+            <View style={[styles.payColDueDate, styles.payHeaderCell]}>
               <Text>Due Date</Text>
             </View>
-            <View style={styles.payColDueAmt}>
+            <View style={[styles.payColDueAmt, styles.payHeaderCell]}>
               <Text>Due Amount</Text>
             </View>
-            <View style={styles.payColPaidDate}>
+            <View style={[styles.payColPaidDate, styles.payHeaderCell]}>
               <Text>Paid Date</Text>
             </View>
-            <View style={styles.payColPaidAmt}>
+            <View style={[styles.payColPaidAmt, styles.payHeaderCell]}>
               <Text>Paid Amount</Text>
             </View>
-            <View style={styles.payColReceipt}>
+            <View style={[styles.payColReceipt, styles.payHeaderCell]}>
               <Text>Receipt No</Text>
             </View>
-            <View style={styles.payColSurcharge}>
+            <View style={[styles.payColSurcharge, styles.payHeaderCell]}>
               <Text>Surcharge</Text>
             </View>
-            <View style={styles.payColStatus}>
+            <View style={[styles.payColStatus, styles.payHeaderCell]}>
               <Text>Status</Text>
             </View>
           </View>
 
           {/* Booking / Down Payment Row */}
-          <View style={[styles.tableRow, { fontSize: 6.8 }]} wrap={false}>
+          <View style={[styles.tableRow, { fontSize: 6.5 }]} wrap={false}>
             <View style={styles.payColSeq}>
               <Text>0</Text>
             </View>
@@ -736,9 +747,13 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
               </Text>
             </View>
             <View style={styles.payColReceipt}>
-              <Text>{props.financials.downPaymentReceiptNo || "—"}</Text>
+              <Text style={{ fontSize: 6.2 }}>
+                {props.financials.downPaymentReceiptNo || "—"}
+              </Text>
             </View>
-            <View style={styles.payColSurcharge}>
+            <View
+              style={[styles.payColSurcharge, { textAlign: "center", paddingRight: 0 }]}
+            >
               <Text>—</Text>
             </View>
             <View style={styles.payColStatus}>
@@ -749,21 +764,19 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
           {props.scheduleRows.map((row) => {
             const isPaid = row.status?.toUpperCase() === "PAID";
             const paidDateStr = row.paidDate ? formatDateParts(row.paidDate).short : "—";
-            const paidAmtStr =
-              row.paidAmountPkr && Number(row.paidAmountPkr) > 0
-                ? formatPkr(row.paidAmountPkr)
-                : isPaid
-                  ? formatPkr(row.amountPkr)
-                  : "—";
-            const surchargeStr =
-              row.surchargePkr && Number(row.surchargePkr) > 0
-                ? formatPkr(row.surchargePkr)
+            const hasPaidAmt = row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
+            const paidAmtStr = hasPaidAmt
+              ? formatPkr(row.paidAmountPkr!)
+              : isPaid
+                ? formatPkr(row.amountPkr)
                 : "—";
+            const hasSurcharge = row.surchargePkr && Number(row.surchargePkr) > 0;
+            const surchargeStr = hasSurcharge ? formatPkr(row.surchargePkr!) : "—";
 
             return (
               <View
                 key={row.seq}
-                style={[styles.tableRow, { fontSize: 6.8 }]}
+                style={[styles.tableRow, { fontSize: 6.5 }]}
                 wrap={false}
               >
                 <View style={styles.payColSeq}>
@@ -781,13 +794,27 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
                 <View style={styles.payColPaidDate}>
                   <Text>{paidDateStr}</Text>
                 </View>
-                <View style={styles.payColPaidAmt}>
+                <View
+                  style={[
+                    styles.payColPaidAmt,
+                    paidAmtStr === "—"
+                      ? { textAlign: "center", paddingRight: 0 }
+                      : undefined,
+                  ]}
+                >
                   <Text>{paidAmtStr}</Text>
                 </View>
                 <View style={styles.payColReceipt}>
-                  <Text>{row.receiptNo || "—"}</Text>
+                  <Text style={{ fontSize: 6.2 }}>{row.receiptNo || "—"}</Text>
                 </View>
-                <View style={styles.payColSurcharge}>
+                <View
+                  style={[
+                    styles.payColSurcharge,
+                    surchargeStr === "—"
+                      ? { textAlign: "center", paddingRight: 0 }
+                      : undefined,
+                  ]}
+                >
                   <Text>{surchargeStr}</Text>
                 </View>
                 <View style={styles.payColStatus}>
@@ -808,35 +835,39 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
           })}
 
           <View
-            style={[styles.tableRow, styles.tableHeader, { fontSize: 7 }]}
+            style={[styles.tableRow, styles.tableHeader, { fontSize: 6.8 }]}
             wrap={false}
           >
             <View style={styles.payColSeq}>
               <Text>—</Text>
             </View>
             <View style={styles.payColItem}>
-              <Text>TOTAL PURCHASE PRICE</Text>
+              <Text style={styles.bold}>TOTAL PURCHASE PRICE</Text>
             </View>
             <View style={styles.payColDueDate}>
-              <Text> </Text>
+              <Text>—</Text>
             </View>
             <View style={styles.payColDueAmt}>
-              <Text>{formatPkr(props.financials.totalPricePkr)}</Text>
+              <Text style={styles.bold}>{formatPkr(props.financials.totalPricePkr)}</Text>
             </View>
             <View style={styles.payColPaidDate}>
-              <Text> </Text>
+              <Text>—</Text>
             </View>
-            <View style={styles.payColPaidAmt}>
-              <Text> </Text>
+            <View
+              style={[styles.payColPaidAmt, { textAlign: "center", paddingRight: 0 }]}
+            >
+              <Text>—</Text>
             </View>
             <View style={styles.payColReceipt}>
-              <Text> </Text>
+              <Text>—</Text>
             </View>
-            <View style={styles.payColSurcharge}>
-              <Text> </Text>
+            <View
+              style={[styles.payColSurcharge, { textAlign: "center", paddingRight: 0 }]}
+            >
+              <Text>—</Text>
             </View>
             <View style={styles.payColStatus}>
-              <Text> </Text>
+              <Text>—</Text>
             </View>
           </View>
         </View>
