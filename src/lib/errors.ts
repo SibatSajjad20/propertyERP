@@ -1,5 +1,38 @@
 import { ZodError } from "zod";
-import { isTransientDbError } from "@/db";
+
+const TRANSIENT_DB_CODES = new Set([
+  "ECONNRESET",
+  "CONNECT_TIMEOUT",
+  "ETIMEDOUT",
+  "CONNECTION_CLOSED",
+  "EPIPE",
+  "ECONNREFUSED",
+  "EAI_AGAIN",
+]);
+
+export function isTransientDbError(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; depth < 5 && cur && typeof cur === "object"; depth++) {
+    const rec = cur as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof rec.code === "string" && TRANSIENT_DB_CODES.has(rec.code)) {
+      return true;
+    }
+    if (
+      typeof rec.message === "string" &&
+      (rec.message.includes("CONNECT_TIMEOUT") ||
+        rec.message.includes("ECONNRESET") ||
+        rec.message.includes("ETIMEDOUT") ||
+        rec.message.includes("Client network socket disconnected") ||
+        rec.message.includes("Connection terminated") ||
+        rec.message.includes("socket hang up") ||
+        rec.message.includes("connection closed"))
+    ) {
+      return true;
+    }
+    cur = rec.cause;
+  }
+  return false;
+}
 
 const LEAKY_PATTERN =
   /password|secret|DATABASE_URL|ECONN|postgres:\/\/|failed query|drizzlequeryerror|syntax error/i;
