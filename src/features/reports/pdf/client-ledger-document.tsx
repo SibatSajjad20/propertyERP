@@ -1,6 +1,7 @@
 import React from "react";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatPkr } from "@/lib/money";
+import { SARDARS_MALL_MARK_DATA_URL } from "@/features/documents/pdf/logo-base64";
 import type { ClientLedgerReportData } from "../queries";
 
 export interface ClientLedgerPdfProps {
@@ -26,31 +27,50 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     marginBottom: 8,
   },
+  brandLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  brandLogo: {
+    width: 34,
+    height: 40,
+    objectFit: "contain",
+    marginRight: 8,
+  },
+  brandTextGroup: {
+    flexDirection: "column",
+    justifyContent: "center",
+  },
   brandTitle: {
     fontSize: 15,
     fontFamily: "Helvetica-Bold",
     color: "#0B558B",
     letterSpacing: 0.5,
+    lineHeight: 1.25,
+    marginBottom: 2,
   },
   brandAddress: {
     fontSize: 7.2,
     color: "#475569",
-    marginTop: 1,
     fontFamily: "Helvetica-Bold",
+    lineHeight: 1.3,
+    marginBottom: 2,
   },
   allotmentTitle: {
     fontSize: 9.5,
     fontFamily: "Helvetica-Bold",
     color: "#0F172A",
-    marginTop: 3,
     letterSpacing: 0.2,
+    lineHeight: 1.25,
   },
   rightStampBox: {
     alignItems: "flex-end",
+    paddingTop: 2,
   },
   statementDate: {
     fontSize: 7.5,
     color: "#475569",
+    lineHeight: 1.3,
   },
   badgeText: {
     fontSize: 7,
@@ -62,13 +82,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     marginTop: 3,
-  },
-  boxCard: {
-    borderWidth: 0.8,
-    borderColor: "#CBD5E1",
-    padding: 6,
-    marginBottom: 7,
-    backgroundColor: "#FFFFFF",
+    lineHeight: 1.2,
   },
   twoColGrid: {
     flexDirection: "row",
@@ -293,14 +307,18 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
       <Page size="A4" style={styles.page} wrap>
         {/* Top Header matching reference document */}
         <View style={styles.headerBanner}>
-          <View>
-            <Text style={styles.brandTitle}>SARDAR&apos;S MALL</Text>
-            <Text style={styles.brandAddress}>
-              Plot no. 13/N, 2nd Floor, F-7 Markaz, Islamabad
-            </Text>
-            <Text style={styles.allotmentTitle}>
-              Allotment Details ({unitCodeDisplay})
-            </Text>
+          <View style={styles.brandLeft}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image src={SARDARS_MALL_MARK_DATA_URL} style={styles.brandLogo} />
+            <View style={styles.brandTextGroup}>
+              <Text style={styles.brandTitle}>SARDAR&apos;S MALL</Text>
+              <Text style={styles.brandAddress}>
+                Plot no. 13/N, 2nd Floor, F-7 Markaz, Islamabad
+              </Text>
+              <Text style={styles.allotmentTitle}>
+                Allotment Details ({unitCodeDisplay})
+              </Text>
+            </View>
           </View>
           <View style={styles.rightStampBox}>
             <Text style={styles.statementDate}>Date: {formatDate(now)}</Text>
@@ -308,58 +326,72 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
           </View>
         </View>
 
-        {/* Customer Details Box matching reference image */}
-        <View style={styles.boxCard}>
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            {/* Left Column */}
-            <View style={{ flex: 1 }}>
+        {/* Client Details & Nominee Details (side-by-side) */}
+        <View style={styles.twoColGrid}>
+          {/* Client Details */}
+          <View style={styles.detailsBox}>
+            <Text style={styles.sectionBanner}>Client Details</Text>
+            <View style={styles.detailsBody}>
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Name :</Text>
                 <Text style={styles.dataValue}>{clientDisplayName}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>So/Do/Wo Name :</Text>
+                <Text style={styles.dataValue}>{soDoWoName}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>CNIC :</Text>
+                <Text style={styles.dataValue}>{client.cnic}</Text>
               </View>
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Phone No :</Text>
                 <Text style={styles.dataValue}>{client.phone}</Text>
               </View>
               <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Cnic :</Text>
-                <Text style={styles.dataValue}>{client.cnic}</Text>
+                <Text style={styles.dataLabel}>Email :</Text>
+                <Text style={styles.dataValue}>{client.email || "N/A"}</Text>
               </View>
-              <View style={styles.dataRow}>
+              <View style={[styles.dataRow, { alignItems: "flex-start" }]}>
                 <Text style={styles.dataLabel}>Present Address :</Text>
                 <Text style={[styles.dataValue, { fontSize: 6.8 }]}>
                   {client.homeAddress || "N/A"}
                 </Text>
               </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Nominee :</Text>
-                <Text style={styles.dataValue}>{nextOfKin?.name || "N/A"}</Text>
-              </View>
-            </View>
-
-            {/* Right Column */}
-            <View style={{ flex: 1 }}>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>So/Do/Wo Name :</Text>
-                <Text style={styles.dataValue}>{soDoWoName}</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Email :</Text>
-                <Text style={styles.dataValue}>{client.email || "N/A"}</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Year of Birth :</Text>
-                <Text style={styles.dataValue}>N/A</Text>
-              </View>
-              <View style={styles.dataRow}>
+              <View style={[styles.dataRow, { alignItems: "flex-start" }]}>
                 <Text style={styles.dataLabel}>Permanent Address :</Text>
                 <Text style={[styles.dataValue, { fontSize: 6.8 }]}>
                   {client.postalAddress || client.homeAddress || "N/A"}
                 </Text>
               </View>
+            </View>
+          </View>
+
+          {/* Nominee Details */}
+          <View style={styles.detailsBox}>
+            <Text style={styles.sectionBanner}>Nominee Details</Text>
+            <View style={styles.detailsBody}>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Nominee Name :</Text>
+                <Text style={styles.dataValue}>{nextOfKin?.name || "N/A"}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Relationship :</Text>
+                <Text style={styles.dataValue}>{nextOfKin?.relation || "N/A"}</Text>
+              </View>
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Nominee CNIC :</Text>
                 <Text style={styles.dataValue}>{nextOfKin?.cnic || "N/A"}</Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Phone No :</Text>
+                <Text style={styles.dataValue}>{nextOfKin?.phone || "N/A"}</Text>
+              </View>
+              <View style={[styles.dataRow, { alignItems: "flex-start" }]}>
+                <Text style={styles.dataLabel}>Address :</Text>
+                <Text style={[styles.dataValue, { fontSize: 6.8 }]}>
+                  {nextOfKin?.address || "N/A"}
+                </Text>
               </View>
             </View>
           </View>
