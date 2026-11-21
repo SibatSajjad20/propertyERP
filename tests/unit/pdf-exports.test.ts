@@ -161,4 +161,54 @@ describe("New PDF Document Renderers", () => {
     expect(buf.byteLength).toBeGreaterThan(1000);
     expect(buf.subarray(0, 4).toString()).toBe("%PDF");
   });
+
+  it("renders ClientLedgerPdf in print mode with signature blocks", async () => {
+    const buf = await renderToBuffer(
+      ClientLedgerPdf({
+        mode: "print",
+        data: {
+          client: {
+            id: "client-1",
+            fullName: "Rahim Baz Khan",
+            cnic: "11101-7634417-1",
+            phone: "+92 336 1050888",
+            email: "rahim@example.com",
+            homeAddress: "House 123, Islamabad",
+            postalAddress: "House 123, Islamabad",
+          },
+          nextOfKin: {
+            name: "Baz Khan",
+            relation: "Father",
+            phone: "+92 300 1234567",
+            cnic: "11101-1234567-1",
+            address: "House 123, Islamabad",
+          },
+          units: [
+            {
+              unitId: "unit-1",
+              unitCode: "4F-08",
+              floorName: "4th Floor",
+              amountPkr: "5000000.00",
+              relationType: "BOOKED",
+              date: new Date("2026-11-20T00:00:00Z"),
+            },
+          ],
+          statement: {
+            period: {
+              startDate: "2026-11-01",
+              endDate: "2026-11-30",
+            },
+            openingBalancePkr: "0.00",
+            totalDebitsPkr: "5000000.00",
+            totalCreditsPkr: "1250000.00",
+            closingBalancePkr: "3750000.00",
+            entries: [],
+          },
+        },
+      }),
+    );
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.byteLength).toBeGreaterThan(1000);
+    expect(buf.subarray(0, 4).toString()).toBe("%PDF");
+  });
 });

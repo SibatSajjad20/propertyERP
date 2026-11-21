@@ -42,7 +42,12 @@ export async function GET(
       }
     }
 
-    const pdfBuffer = await renderToBuffer(ClientLedgerPdf({ data }));
+    const mode =
+      request.nextUrl.searchParams.get("mode") === "print" ? "print" : "download";
+    const download = request.nextUrl.searchParams.get("download") === "1";
+    const disposition = download ? "attachment" : "inline";
+
+    const pdfBuffer = await renderToBuffer(ClientLedgerPdf({ data, mode }));
     const stamp = new Date().toISOString().slice(0, 10);
     const sanitizedName = data.client.fullName.replace(/[^a-zA-Z0-9_-]/g, "_");
     const unitTag = data.selectedUnitDetails?.unitCode
@@ -54,7 +59,9 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${filename}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
+        "X-Frame-Options": "SAMEORIGIN",
+        "Content-Security-Policy": "frame-ancestors 'self'",
       },
     });
   } catch (error) {

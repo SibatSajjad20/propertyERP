@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Printer,
+  DownloadSimple,
   MagnifyingGlass,
   User,
   UsersThree,
@@ -102,9 +103,20 @@ function ClientLedgerScreenInner({
     router.push(`/reports/client-ledger?${params.toString()}` as never);
   }
 
-  function handleOpenPdf() {
+  function handlePrintPdf() {
     if (!currentClientId) return;
-    const url = `/api/documents/client-ledger/${currentClientId}/pdf?${searchParams.toString()}`;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("mode", "print");
+    const url = `/api/documents/client-ledger/${currentClientId}/pdf?${params.toString()}`;
+    window.open(url, "_blank");
+  }
+
+  function handleDownloadPdf() {
+    if (!currentClientId) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("mode", "download");
+    params.set("download", "1");
+    const url = `/api/documents/client-ledger/${currentClientId}/pdf?${params.toString()}`;
     window.open(url, "_blank");
   }
 
@@ -121,15 +133,26 @@ function ClientLedgerScreenInner({
           description="Customer debtor statement with running balance, allotment details, and Schedule-B payment plan."
           actions={
             ledgerData ? (
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={handleOpenPdf}
-                className="gap-1.5"
-              >
-                <Printer weight="light" className="size-4" />
-                <span>Print / PDF</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handlePrintPdf}
+                  className="gap-1.5"
+                >
+                  <Printer weight="light" className="size-4" />
+                  <span>Print</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleDownloadPdf}
+                  className="gap-1.5"
+                >
+                  <DownloadSimple weight="light" className="size-4" />
+                  <span>Download PDF</span>
+                </Button>
+              </div>
             ) : null
           }
         />

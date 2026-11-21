@@ -6,6 +6,7 @@ import type { ClientLedgerReportData } from "../queries";
 
 export interface ClientLedgerPdfProps {
   data: ClientLedgerReportData;
+  mode?: "print" | "download";
 }
 
 const styles = StyleSheet.create({
@@ -342,6 +343,56 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Oblique",
     textAlign: "center",
   },
+  footerPrintedBy: {
+    fontSize: 6.2,
+    color: "#64748B",
+    fontFamily: "Helvetica-Oblique",
+  },
+  signatureBlock: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  signatureCol: {
+    flex: 1,
+  },
+  sigBox: {
+    borderWidth: 0.8,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#FFFFFF",
+    padding: 6,
+  },
+  sigRole: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.2,
+    color: "#0B558B",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    borderBottomWidth: 0.8,
+    borderBottomColor: "#0B558B",
+    paddingBottom: 2,
+    marginBottom: 5,
+  },
+  sigLineGroup: {
+    gap: 4,
+  },
+  sigFieldRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  sigFieldLabel: {
+    width: 48,
+    fontSize: 6.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#475569",
+  },
+  sigDottedLine: {
+    flex: 1,
+    borderBottomWidth: 0.8,
+    borderBottomColor: "#94A3B8",
+    height: 10,
+  },
 });
 
 function formatDate(date: Date | string | null | undefined) {
@@ -369,7 +420,8 @@ function formatDateTime(date: Date) {
   return `${d} ${t}`;
 }
 
-export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
+export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProps) {
+  const isPrint = mode === "print";
   const { client, nextOfKin, selectedUnitDetails, financials, scheduleRows, statement } =
     data;
   const now = new Date();
@@ -389,8 +441,8 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
   return (
     <Document title={`Allotment-Details-${unitCodeDisplay}-${client.fullName}`}>
       <Page size="A4" style={styles.page} wrap>
-        {/* Top Header matching reference document */}
-        <View style={styles.headerBanner}>
+        {/* Top Header matching reference document - repeated on every page */}
+        <View style={styles.headerBanner} fixed>
           <View style={styles.brandLeft}>
             {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image src={SARDARS_MALL_MARK_DATA_URL} style={styles.brandLogo} />
@@ -749,7 +801,7 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
             <Text style={styles.termsBannerTitle}>
               IMPORTANT NOTES – TERMS &amp; CONDITIONS
             </Text>
-            <Text style={styles.termsBannerSub}>ASSH DEVELOPERS (PVT.) LTD.</Text>
+            <Text style={styles.termsBannerSub}>SARDAR MALL</Text>
           </View>
           <View style={styles.termsContent}>
             {/* Left Column: Terms & Policies */}
@@ -758,8 +810,8 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
                 <Text style={styles.termBullet}>•</Text>
                 <Text style={styles.termText}>
                   <Text style={styles.bold}>Down Payment: </Text>
-                  Must be paid exclusively through a Pay Order in favour of ASSH
-                  Developers (Pvt.) Ltd. No other payment method shall be accepted.
+                  Must be paid exclusively through a Pay Order in favour of Sardar Mall.
+                  No other payment method shall be accepted.
                 </Text>
               </View>
 
@@ -816,7 +868,7 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
                 <Text style={styles.termText}>
                   <Text style={styles.bold}>Customer Information: </Text>
                   Any change in contact number, mailing address, or other particulars must
-                  be promptly communicated to ASSH Developers (Pvt.) Ltd.
+                  be promptly communicated to Sardar Mall.
                 </Text>
               </View>
 
@@ -870,23 +922,68 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
             </View>
           </View>
 
-          {/* System Generated Statement Note */}
-          <View style={styles.termsFooterNote}>
-            <Text style={styles.systemGenText}>
-              This is a system-generated statement and does not require a signature.
-            </Text>
-          </View>
+          {/* System Generated Statement Note for Download Mode */}
+          {!isPrint ? (
+            <View style={styles.termsFooterNote}>
+              <Text style={styles.systemGenText}>
+                This is a system-generated statement and does not require a signature.
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* Printed By Info */}
-        <Text style={styles.printedByText}>
-          Printed By: Administrator || Date: {formatDateTime(now)}
-        </Text>
+        {/* Signature Fields for Print Mode */}
+        {isPrint ? (
+          <View style={styles.signatureBlock} wrap={false}>
+            <View style={styles.signatureCol}>
+              <View style={styles.sigBox}>
+                <Text style={styles.sigRole}>Prepared By</Text>
+                <View style={styles.sigLineGroup}>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Name:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Signature:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Date:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                </View>
+              </View>
+            </View>
 
-        {/* Page Footer */}
+            <View style={styles.signatureCol}>
+              <View style={styles.sigBox}>
+                <Text style={styles.sigRole}>Approved By</Text>
+                <View style={styles.sigLineGroup}>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Name:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Signature:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                  <View style={styles.sigFieldRow}>
+                    <Text style={styles.sigFieldLabel}>Date:</Text>
+                    <View style={styles.sigDottedLine} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Page Footer - fixed on all pages */}
         <View style={styles.footer} fixed>
           <Text>
             Sardar&apos;s Mall ERP • Official Client Statement &amp; Allotment Schedule
+          </Text>
+          <Text style={styles.footerPrintedBy}>
+            Printed By: Administrator || Date: {formatDateTime(now)}
           </Text>
           <Text
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
