@@ -230,33 +230,117 @@ const styles = StyleSheet.create({
     fontSize: 6.8,
     color: "#64748B",
   },
-  signatureSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 14,
-    marginBottom: 6,
-    paddingHorizontal: 20,
-  },
-  sigBox: {
-    alignItems: "center",
-    width: 140,
-  },
-  sigLine: {
-    width: "100%",
-    borderTopWidth: 0.8,
-    borderTopColor: "#475569",
-    marginBottom: 3,
-  },
-  sigLabel: {
-    fontSize: 7.2,
-    fontFamily: "Helvetica-Bold",
-    color: "#334155",
-  },
   printedByText: {
     fontSize: 6.8,
     color: "#64748B",
     fontFamily: "Helvetica-Oblique",
     marginTop: 4,
+  },
+  termsBox: {
+    borderWidth: 0.8,
+    borderColor: "#CBD5E1",
+    marginTop: 6,
+    marginBottom: 4,
+    backgroundColor: "#FFFFFF",
+  },
+  termsBanner: {
+    backgroundColor: "#1E293B",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  termsBannerTitle: {
+    color: "#FFFFFF",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.2,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  termsBannerSub: {
+    color: "#94A3B8",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.8,
+    letterSpacing: 0.3,
+  },
+  termsContent: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 5,
+  },
+  termsLeftCol: {
+    flex: 1.5,
+  },
+  termsRightCol: {
+    flex: 1,
+  },
+  termItem: {
+    flexDirection: "row",
+    marginBottom: 2,
+    alignItems: "flex-start",
+  },
+  termBullet: {
+    width: 7,
+    fontSize: 6,
+    color: "#0B558B",
+    fontFamily: "Helvetica-Bold",
+    lineHeight: 1.25,
+  },
+  termText: {
+    flex: 1,
+    fontSize: 6,
+    color: "#334155",
+    lineHeight: 1.25,
+  },
+  bankCard: {
+    borderWidth: 0.8,
+    borderColor: "#BAE6FD",
+    backgroundColor: "#F0F9FF",
+  },
+  bankCardHeader: {
+    backgroundColor: "#0B558B",
+    color: "#FFFFFF",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.5,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  bankCardBody: {
+    padding: 4,
+  },
+  bankRow: {
+    flexDirection: "row",
+    marginBottom: 1.8,
+    alignItems: "center",
+  },
+  bankLabel: {
+    width: "40%",
+    fontSize: 5.8,
+    color: "#475569",
+    fontFamily: "Helvetica-Bold",
+  },
+  bankValue: {
+    width: "60%",
+    fontSize: 5.8,
+    color: "#0F172A",
+    fontFamily: "Helvetica-Bold",
+  },
+  termsFooterNote: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#E2E8F0",
+    paddingVertical: 2.5,
+    paddingHorizontal: 6,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+  },
+  systemGenText: {
+    fontSize: 6,
+    color: "#64748B",
+    fontFamily: "Helvetica-Oblique",
+    textAlign: "center",
   },
 });
 
@@ -428,7 +512,13 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
               <View style={styles.dataRow}>
                 <Text style={styles.dataLabel}>Size :</Text>
                 <Text style={styles.dataValue}>
-                  {selectedUnitDetails?.grossAreaSqft || "—"} Sq Ft
+                  {selectedUnitDetails?.grossAreaSqft &&
+                  selectedUnitDetails.grossAreaSqft !== "—"
+                    ? `${selectedUnitDetails.grossAreaSqft} Sq Ft`
+                    : selectedUnitDetails?.netAreaSqft &&
+                        selectedUnitDetails.netAreaSqft !== "—"
+                      ? `${selectedUnitDetails.netAreaSqft} Sq Ft`
+                      : "—"}
                 </Text>
               </View>
               <View style={styles.dataRow}>
@@ -453,7 +543,7 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
                 <Text style={styles.dataValue}>
                   {financials?.discountValue && Number(financials.discountValue) > 0
                     ? formatPkr(financials.discountValue)
-                    : "0.00"}
+                    : "Rs 0"}
                 </Text>
               </View>
               <View style={styles.dataRow}>
@@ -466,6 +556,25 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
                 <Text style={styles.dataLabel}>Paid Amount :</Text>
                 <Text style={[styles.dataValue, { color: "#166534" }]}>
                   {formatPkr(financials?.paidTotal || statement.totalCreditsPkr)}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Surcharge :</Text>
+                <Text
+                  style={[
+                    styles.dataValue,
+                    financials?.surchargeAmount && Number(financials.surchargeAmount) > 0
+                      ? { color: "#B91C1C" }
+                      : {},
+                  ]}
+                >
+                  {formatPkr(financials?.surchargeAmount || "0.00")}
+                </Text>
+              </View>
+              <View style={styles.dataRow}>
+                <Text style={styles.dataLabel}>Govt Charges :</Text>
+                <Text style={styles.dataValue}>
+                  {formatPkr(financials?.govtCharges || "0.00")}
                 </Text>
               </View>
               <View style={styles.dataRow}>
@@ -634,22 +743,145 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
               ))}
         </View>
 
+        {/* Important Notes — Terms & Conditions */}
+        <View style={styles.termsBox} wrap={false}>
+          <View style={styles.termsBanner}>
+            <Text style={styles.termsBannerTitle}>
+              IMPORTANT NOTES – TERMS &amp; CONDITIONS
+            </Text>
+            <Text style={styles.termsBannerSub}>ASSH DEVELOPERS (PVT.) LTD.</Text>
+          </View>
+          <View style={styles.termsContent}>
+            {/* Left Column: Terms & Policies */}
+            <View style={styles.termsLeftCol}>
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Down Payment: </Text>
+                  Must be paid exclusively through a Pay Order in favour of ASSH
+                  Developers (Pvt.) Ltd. No other payment method shall be accepted.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Installment Payments: </Text>
+                  Shall be made through cash deposits, online banking, ATM transfers, or
+                  electronic fund transfers from any bank within Pakistan into the
+                  Company&apos;s designated UBL account.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Payment Deadline: </Text>
+                  Installments must be paid within 15 days of their respective due dates.
+                  Late payments shall attract a surcharge of 0.05% per day on the overdue
+                  amount.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Payment Verification: </Text>
+                  Customers must retain all payment receipts as proof of payment for
+                  future verification, rectification of discrepancies, and account
+                  reconciliation.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Account Reconciliation: </Text>
+                  Customers should review their account statements and promptly report any
+                  discrepancies to the Accounts Department with supporting evidence.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Taxes &amp; Charges: </Text>
+                  All applicable government taxes, statutory duties, and other legally
+                  imposed charges shall be payable as applicable.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Customer Information: </Text>
+                  Any change in contact number, mailing address, or other particulars must
+                  be promptly communicated to ASSH Developers (Pvt.) Ltd.
+                </Text>
+              </View>
+
+              <View style={styles.termItem}>
+                <Text style={styles.termBullet}>•</Text>
+                <Text style={styles.termText}>
+                  <Text style={styles.bold}>Statement Disclaimer: </Text>
+                  This statement is for information and reconciliation purposes only and
+                  does not constitute proof of ownership or transfer of title.
+                </Text>
+              </View>
+            </View>
+
+            {/* Right Column: Designated Bank Account Details Card */}
+            <View style={styles.termsRightCol}>
+              <View style={styles.bankCard}>
+                <Text style={styles.bankCardHeader}>Designated Bank Details</Text>
+                <View style={styles.bankCardBody}>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Bank:</Text>
+                    <Text style={styles.bankValue}>United Bank Limited (UBL)</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Title:</Text>
+                    <Text style={styles.bankValue}>ASSH Developers (Pvt.) Ltd.</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Account #:</Text>
+                    <Text style={styles.bankValue}>299201412</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Branch Code:</Text>
+                    <Text style={styles.bankValue}>0372</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>Branch:</Text>
+                    <Text style={styles.bankValue}>Satellite Town, Rawalpindi</Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>IBAN:</Text>
+                    <Text style={[styles.bankValue, { fontSize: 5 }]}>
+                      PK35UNIL0109000299201412
+                    </Text>
+                  </View>
+                  <View style={styles.bankRow}>
+                    <Text style={styles.bankLabel}>SWIFT:</Text>
+                    <Text style={styles.bankValue}>UNILPKKA741</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* System Generated Statement Note */}
+          <View style={styles.termsFooterNote}>
+            <Text style={styles.systemGenText}>
+              This is a system-generated statement and does not require a signature.
+            </Text>
+          </View>
+        </View>
+
         {/* Printed By Info */}
         <Text style={styles.printedByText}>
           Printed By: Administrator || Date: {formatDateTime(now)}
         </Text>
-
-        {/* Signatures matching reference image */}
-        <View style={styles.signatureSection} wrap={false}>
-          <View style={styles.sigBox}>
-            <View style={styles.sigLine} />
-            <Text style={styles.sigLabel}>Prepared By</Text>
-          </View>
-          <View style={styles.sigBox}>
-            <View style={styles.sigLine} />
-            <Text style={styles.sigLabel}>Checked By</Text>
-          </View>
-        </View>
 
         {/* Page Footer */}
         <View style={styles.footer} fixed>

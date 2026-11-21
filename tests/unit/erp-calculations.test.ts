@@ -154,7 +154,7 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
   });
 });
 
-describe("Surcharge Policy (30-day grace, 0.1%/day beyond day 30, Waive/Remove)", () => {
+describe("Surcharge Policy (30-day grace, 0.05%/day beyond day 30, Waive/Remove)", () => {
   it("charges Rs 0 when overdue 30 days or fewer", () => {
     const res = calculateInstallmentSurcharge(
       {
@@ -170,7 +170,7 @@ describe("Surcharge Policy (30-day grace, 0.1%/day beyond day 30, Waive/Remove)"
     expect(res.netDuePkr).toBe("0.00");
   });
 
-  it("charges 0.1% per day ONLY on days beyond the 30-day grace period", () => {
+  it("charges 0.05% per day ONLY on days beyond the 30-day grace period", () => {
     const res = calculateInstallmentSurcharge(
       {
         amount: "100000.00",
@@ -182,9 +182,9 @@ describe("Surcharge Policy (30-day grace, 0.1%/day beyond day 30, Waive/Remove)"
     );
     expect(res.daysPastDue).toBe(35);
     expect(res.chargeableDays).toBe(5);
-    // 100,000 * 0.1% * 5 = 500.00
-    expect(res.rawAccruedPkr).toBe("500.00");
-    expect(res.netDuePkr).toBe("500.00");
+    // 100,000 * 0.05% * 5 = 250.00
+    expect(res.rawAccruedPkr).toBe("250.00");
+    expect(res.netDuePkr).toBe("250.00");
   });
 
   it("computes surcharge on unpaid remainder for partially paid installments and respects waivers & paid surcharge", () => {
@@ -199,11 +199,11 @@ describe("Surcharge Policy (30-day grace, 0.1%/day beyond day 30, Waive/Remove)"
       },
       new Date("2026-02-10T00:00:00Z"), // 40 days -> 10 chargeable days
     );
-    // 60,000 * 0.1% * 10 = 600.00; minus 100 waived, minus 50 paid = 450.00
-    expect(res.rawAccruedPkr).toBe("600.00");
+    // 60,000 * 0.05% * 10 = 300.00; minus 100 waived, minus 50 paid = 150.00
+    expect(res.rawAccruedPkr).toBe("300.00");
     expect(res.waivedPkr).toBe("100.00");
     expect(res.paidPkr).toBe("50.00");
-    expect(res.netDuePkr).toBe("450.00");
+    expect(res.netDuePkr).toBe("150.00");
   });
 
   it("zeros out surcharge when waived or booking is exempt (Surcharge Remove Policy)", () => {

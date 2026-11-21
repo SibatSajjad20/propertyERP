@@ -503,7 +503,13 @@ function ClientLedgerScreenInner({
                     <div>
                       <span className="text-ink-muted">Size:</span>
                       <p className="font-semibold text-ink tabular-nums">
-                        {selectedUnitDetails?.grossAreaSqft || "—"} Sq Ft
+                        {selectedUnitDetails?.grossAreaSqft &&
+                        selectedUnitDetails.grossAreaSqft !== "—"
+                          ? `${selectedUnitDetails.grossAreaSqft} Sq Ft`
+                          : selectedUnitDetails?.netAreaSqft &&
+                              selectedUnitDetails.netAreaSqft !== "—"
+                            ? `${selectedUnitDetails.netAreaSqft} Sq Ft`
+                            : "—"}
                       </p>
                     </div>
                     <div>
@@ -539,7 +545,7 @@ function ClientLedgerScreenInner({
                       <p className="font-semibold text-ink tabular-nums">
                         {financials?.discountValue && Number(financials.discountValue) > 0
                           ? formatPkr(financials.discountValue)
-                          : "0.00"}
+                          : "Rs 0"}
                       </p>
                     </div>
                     <div>
@@ -556,6 +562,25 @@ function ClientLedgerScreenInner({
                         {formatPkr(
                           financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
                         )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Surcharge:</span>
+                      <p
+                        className={`font-semibold tabular-nums ${
+                          financials?.surchargeAmount &&
+                          Number(financials.surchargeAmount) > 0
+                            ? "text-sold"
+                            : "text-ink"
+                        }`}
+                      >
+                        {formatPkr(financials?.surchargeAmount || "0.00")}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-ink-muted">Govt Charges:</span>
+                      <p className="font-semibold text-ink tabular-nums">
+                        {formatPkr(financials?.govtCharges || "0.00")}
                       </p>
                     </div>
                     <div className="col-span-2 border-t border-line/60 pt-2">

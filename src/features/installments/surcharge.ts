@@ -1,7 +1,7 @@
 import { formatDecimal, parseDecimal } from "@/lib/money";
 
 export const SURCHARGE_GRACE_DAYS = 30;
-export const SURCHARGE_DAILY_PERCENT = 0.1; // 0.1% per overdue day beyond grace period
+export const SURCHARGE_DAILY_PERCENT = 0.05; // 0.05% per overdue day beyond grace period
 
 const MS_PER_DAY = 86_400_000;
 
@@ -41,9 +41,9 @@ export interface SurchargeBreakdown {
 /**
  * Automatic Surcharge Policy:
  * - Grace period: 30 days after due date (no surcharge on days 1..30)
- * - Rate: 0.1% per overdue day beyond the 30-day grace period
+ * - Rate: 0.05% per overdue day beyond the 30-day grace period
  * - Chargeable Days = max(0, daysPastDue - 30)
- * - Surcharge = Overdue Unpaid Principal × 0.1% × Chargeable Days
+ * - Surcharge = Overdue Unpaid Principal × 0.05% × Chargeable Days
  * - Respects booking-level Surcharge Exemption and installment-level Waive/Remove Policy.
  */
 export function calculateInstallmentSurcharge(
@@ -72,9 +72,9 @@ export function calculateInstallmentSurcharge(
   const daysPastDue = Math.max(0, Math.floor(diffMs / MS_PER_DAY));
   const chargeableDays = Math.max(0, daysPastDue - SURCHARGE_GRACE_DAYS);
 
-  // 0.1% = 1 / 1000
+  // 0.05% = 1 / 2000
   const rawAccruedPaisa =
-    chargeableDays > 0 ? divRoundHalfUp(unpaidPaisa * BigInt(chargeableDays), 1000n) : 0n;
+    chargeableDays > 0 ? divRoundHalfUp(unpaidPaisa * BigInt(chargeableDays), 2000n) : 0n;
 
   const isExemptOrWaived = Boolean(input.bookingSurchargeExempt || input.surchargeWaived);
 

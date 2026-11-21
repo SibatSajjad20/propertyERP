@@ -144,7 +144,7 @@ export function BookingDetailScreen({
       toast.success(
         nextExempt
           ? "Surcharge Remove Policy enabled for this booking."
-          : "Standard 0.1%/day surcharge policy restored.",
+          : "Standard 0.05%/day surcharge policy restored.",
       );
       setExemptDialogOpen(false);
       setExemptReason("");
@@ -512,7 +512,7 @@ export function BookingDetailScreen({
               Booking Plan &amp; Payment Schedule
             </h3>
             <p className="text-[12px] text-ink-muted">
-              Surcharge policy: 0.1%/day applies after 30 days past due date
+              Surcharge policy: 0.05%/day applies after 30 days past due date
               {booking.surchargeExempt
                 ? ` · Surcharge Removed (${booking.surchargeExemptReason || "Admin policy"})`
                 : "."}
@@ -532,7 +532,7 @@ export function BookingDetailScreen({
                   : "Surcharge Remove Policy"}
               </Button>
             )}
-            <span className="font-sans tabular-nums text-[12px] text-ink-muted">
+            <span className="font-sans text-[12px] text-ink-muted tabular-nums">
               {installments.length} entries ({booking.plan.toLowerCase()})
             </span>
           </div>
@@ -667,7 +667,7 @@ export function BookingDetailScreen({
               Receipted payments received against this booking.
             </p>
           </div>
-          <span className="font-sans tabular-nums text-[12px] text-ink-muted">
+          <span className="font-sans text-[12px] text-ink-muted tabular-nums">
             {payments.length} receipts
           </span>
         </div>
@@ -1140,7 +1140,7 @@ export function BookingDetailScreen({
           <div className="space-y-3 py-2 text-[13px]">
             <p className="text-ink-muted">
               {booking.surchargeExempt
-                ? "Re-enable the standard 0.1%/day late-payment surcharge after 30 days overdue on this booking."
+                ? "Re-enable the standard 0.05%/day late-payment surcharge after 30 days overdue on this booking."
                 : "Remove/exempt late-payment surcharges across all installments of this booking. Logged in audit trail."}
             </p>
             <div>

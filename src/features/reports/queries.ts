@@ -32,7 +32,10 @@ import {
   sales,
 } from "@/db/schema/sales";
 import { units } from "@/db/schema/units";
-import { calculateInstallmentSurcharge } from "@/features/installments/surcharge";
+import {
+  calculateInstallmentSurcharge,
+  summarizeBookingSurcharges,
+} from "@/features/installments/surcharge";
 import { formatUnitDisplayCode } from "@/lib/area";
 import { logger } from "@/lib/logger";
 import { formatDecimal, parseDecimal } from "@/lib/money";
@@ -1117,6 +1120,8 @@ export interface ClientLedgerReportData {
     netPrice: string;
     downPayment: string;
     paidTotal: string;
+    surchargeAmount: string;
+    govtCharges: string;
     remainingAmount: string;
   } | null;
   scheduleRows?: ClientLedgerScheduleRow[];
@@ -1317,8 +1322,8 @@ export async function getClientLedgerReport(
           unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
           floorName: b.floorName,
           categoryName: b.categoryName,
-          grossAreaSqft: b.grossAreaSqft,
-          netAreaSqft: b.netAreaSqft,
+          grossAreaSqft: b.grossAreaSqft || b.netAreaSqft,
+          netAreaSqft: b.netAreaSqft || b.grossAreaSqft,
           relationType: b.status === "RETURNED" ? "RETURNED" : "BOOKED",
           bookingId: b.id,
           date: b.createdAt,
@@ -1335,8 +1340,8 @@ export async function getClientLedgerReport(
           unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
           floorName: s.floorName,
           categoryName: s.categoryName,
-          grossAreaSqft: s.grossAreaSqft,
-          netAreaSqft: s.netAreaSqft,
+          grossAreaSqft: s.grossAreaSqft || s.netAreaSqft,
+          netAreaSqft: s.netAreaSqft || s.grossAreaSqft,
           relationType: s.status === "BOUGHT_BACK" ? "BOUGHT_BACK" : "SOLD",
           bookingId: s.bookingId,
           saleId: s.id,
@@ -1354,8 +1359,8 @@ export async function getClientLedgerReport(
           unitCode: formatUnitDisplayCode(r.unitCode, r.categoryName),
           floorName: r.floorName,
           categoryName: r.categoryName,
-          grossAreaSqft: r.grossAreaSqft,
-          netAreaSqft: r.netAreaSqft,
+          grossAreaSqft: r.grossAreaSqft || r.netAreaSqft,
+          netAreaSqft: r.netAreaSqft || r.grossAreaSqft,
           relationType: "RESERVED",
           date: r.startAt,
           amountPkr: r.tokenAmount || "0.00",
@@ -1391,9 +1396,22 @@ export async function getClientLedgerReport(
     if (selectedUnitId) {
       const b = clientBookings.find((item) => item.unitId === selectedUnitId);
       if (b) {
+        const bInstallments = clientInstallments
+          .filter((i) => i.bookingId === b.id)
+          .sort((x, y) => x.seq - y.seq);
+
+        const surchargeSummary = summarizeBookingSurcharges(
+          bInstallments,
+          b.surchargeExempt,
+        );
+        const surchargeAmount = surchargeSummary.totalNetDuePkr;
+        const surchargeNum = Number(surchargeAmount) || 0;
+        const govtCharges = "0.00";
+        const govtChargesNum = Number(govtCharges) || 0;
+
         const netNum = Number(b.netPrice) || 0;
         const paidNum = Number(b.paidTotal) || 0;
-        const balanceNum = Math.max(0, netNum - paidNum);
+        const balanceNum = Math.max(0, netNum - paidNum) + surchargeNum + govtChargesNum;
 
         financials = {
           listPrice: b.listPrice,
@@ -1401,6 +1419,8 @@ export async function getClientLedgerReport(
           netPrice: b.netPrice,
           downPayment: b.downPayment,
           paidTotal: b.paidTotal,
+          surchargeAmount,
+          govtCharges,
           remainingAmount: balanceNum.toFixed(2),
         };
 
@@ -1409,17 +1429,13 @@ export async function getClientLedgerReport(
           unitCode: formatUnitDisplayCode(b.unitCode, b.categoryName),
           floorName: b.floorName,
           categoryName: b.categoryName,
-          grossAreaSqft: b.grossAreaSqft || "—",
-          netAreaSqft: b.netAreaSqft || "—",
+          grossAreaSqft: b.grossAreaSqft || b.netAreaSqft || "—",
+          netAreaSqft: b.netAreaSqft || b.grossAreaSqft || "—",
           bookingNo: b.bookingNo,
           applicationFormNo: b.applicationFormNo || b.bookingNo,
           plan: b.plan,
           status: b.status,
         };
-
-        const bInstallments = clientInstallments
-          .filter((i) => i.bookingId === b.id)
-          .sort((x, y) => x.seq - y.seq);
 
         const downPaymentPayment = clientPayments.find(
           (p) => p.bookingId === b.id && p.category === "DOWN_PAYMENT",
@@ -1464,6 +1480,8 @@ export async function getClientLedgerReport(
             netPrice: s.salePrice,
             downPayment: s.salePrice,
             paidTotal: s.salePrice,
+            surchargeAmount: "0.00",
+            govtCharges: "0.00",
             remainingAmount: "0.00",
           };
 
@@ -1472,8 +1490,8 @@ export async function getClientLedgerReport(
             unitCode: formatUnitDisplayCode(s.unitCode, s.categoryName),
             floorName: s.floorName,
             categoryName: s.categoryName,
-            grossAreaSqft: s.grossAreaSqft || "—",
-            netAreaSqft: s.netAreaSqft || "—",
+            grossAreaSqft: s.grossAreaSqft || s.netAreaSqft || "—",
+            netAreaSqft: s.netAreaSqft || s.grossAreaSqft || "—",
             bookingNo: "DIRECT-SALE",
             applicationFormNo: "—",
             plan: "FULL_PAYMENT",
@@ -1494,6 +1512,33 @@ export async function getClientLedgerReport(
               status: "PAID",
             },
           ];
+        } else {
+          const r = clientReservations.find((item) => item.unitId === selectedUnitId);
+          if (r) {
+            financials = {
+              listPrice: r.tokenAmount || "0.00",
+              discountValue: "0.00",
+              netPrice: r.tokenAmount || "0.00",
+              downPayment: r.tokenAmount || "0.00",
+              paidTotal: r.tokenAmount || "0.00",
+              surchargeAmount: "0.00",
+              govtCharges: "0.00",
+              remainingAmount: "0.00",
+            };
+
+            selectedUnitDetails = {
+              unitId: r.unitId,
+              unitCode: formatUnitDisplayCode(r.unitCode, r.categoryName),
+              floorName: r.floorName,
+              categoryName: r.categoryName,
+              grossAreaSqft: r.grossAreaSqft || r.netAreaSqft || "—",
+              netAreaSqft: r.netAreaSqft || r.grossAreaSqft || "—",
+              bookingNo: "RESERVATION",
+              applicationFormNo: "—",
+              plan: "RESERVATION",
+              status: r.status,
+            };
+          }
         }
       }
     }
@@ -1525,7 +1570,7 @@ export async function getClientLedgerReport(
       });
     }
 
-    // Debits: Automatic Overdue Surcharges (> 30 days overdue @ 0.1%/day)
+    // Debits: Automatic Overdue Surcharges (> 30 days overdue @ 0.05%/day)
     const nowDate = new Date();
     for (const inst of clientInstallments) {
       const sc = calculateInstallmentSurcharge(
@@ -1546,7 +1591,7 @@ export async function getClientLedgerReport(
       if (totalEffectiveSurcharge > 0n) {
         rawEntries.push({
           date: new Date(new Date(inst.dueDate).getTime() + 31 * 86_400_000),
-          description: `Late Payment Surcharge — ${inst.label || `Installment #${inst.seq}`} (${sc.chargeableDays}d beyond 30d grace @ 0.1%/day · ${formatUnitDisplayCode(inst.unitCode, inst.categoryName)})`,
+          description: `Late Payment Surcharge — ${inst.label || `Installment #${inst.seq}`} (${sc.chargeableDays}d beyond 30d grace @ 0.05%/day · ${formatUnitDisplayCode(inst.unitCode, inst.categoryName)})`,
           receiptNo: null,
           debitPkr: formatDecimal(totalEffectiveSurcharge),
           creditPkr: "0.00",

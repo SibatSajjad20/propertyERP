@@ -307,7 +307,7 @@ export function CollectionsReportScreen({
               </h3>
               <p className="text-[11px] text-ink-muted">
                 {activeTab === "surcharges"
-                  ? "0.1% per overdue day beyond 30-day grace period, net of waivers and collections."
+                  ? "0.05% per overdue day beyond 30-day grace period, net of waivers and collections."
                   : activeTab === "total"
                     ? "All recorded collection receipts across token, down payment, installment, and balloon categories."
                     : "Filtered transactions within selected reporting window."}
