@@ -9,6 +9,13 @@ describe("Sale & Purchase Agreement Template & PDF", () => {
     expect(AGREEMENT_CLAUSES[0]?.title).toBe("THE PROJECT");
     expect(AGREEMENT_CLAUSES[21]?.title).toBe("SEVERABILITY");
     expect(AGREEMENT_DEFINITIONS.length).toBeGreaterThanOrEqual(20);
+
+    const clause1_2 = AGREEMENT_CLAUSES[0]?.paragraphs[1];
+    expect(clause1_2).toBeDefined();
+    expect(clause1_2).toContain("• **Residential Apartments (Un Furnished):**");
+    expect(clause1_2).toContain("• **Commercial Units/Shops:**");
+    expect(clause1_2).toContain("• **Offices (Unfurnished):**");
+    expect(clause1_2).not.toContain("Furnished/Semi Furnished");
   });
 
   it("renders a valid multi-page PDF buffer with Apartment No. format and 40-row Schedule-B", async () => {
@@ -100,5 +107,60 @@ describe("Sale & Purchase Agreement Template & PDF", () => {
     expect(buf.subarray(0, 4).toString()).toBe("%PDF");
     const pageMatches = buf.toString("latin1").match(/\/Type\s*\/Page\b/g) || [];
     expect(pageMatches.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("renders PDF with paid installments and total paid amount", async () => {
+    const buf = await renderToBuffer(
+      SalePurchaseAgreementPdf({
+        agreementNo: "SM-AGR-2026-0002",
+        agreementDate: new Date("2026-02-18T00:00:00Z"),
+        sellerName: "Mr. Afnan Khan",
+        anticipatedCompletionDate: "Feb-2029",
+        buyer: {
+          fullName: "Noreen Feroz",
+          relationPrefix: "W/O",
+          relationName: "Ghafoor Mahmood Iqbal",
+          cnic: "37401-7028130-6",
+          nationality: "Pakistani",
+          address: "NA160 New Mul Pur Satellite Town, Rawalpindi Pakistan",
+          phone: "+33650846069",
+          email: "mahmoodghafoor11@msn.com",
+        },
+        nominee: null,
+        unit: {
+          unitCode: "10F-RA1",
+          categoryName: "1-BED",
+          floorName: "10th Floor",
+          grossAreaSqft: "649.00",
+        },
+        financials: {
+          totalPricePkr: "15576000.00",
+          bookingAmountPkr: "3894000.00",
+          downPaymentPaidAmountPkr: "3894000.00",
+        },
+        scheduleRows: [
+          {
+            seq: 1,
+            label: "Installment #1",
+            type: "REGULAR",
+            dueDate: new Date(2026, 3, 18),
+            amountPkr: "129800.00",
+            paidAmountPkr: "129800.00",
+            status: "PAID",
+          },
+          {
+            seq: 2,
+            label: "Installment #2",
+            type: "REGULAR",
+            dueDate: new Date(2026, 4, 18),
+            amountPkr: "129800.00",
+            status: "PENDING",
+          },
+        ],
+      }),
+    );
+
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.subarray(0, 4).toString()).toBe("%PDF");
   });
 });

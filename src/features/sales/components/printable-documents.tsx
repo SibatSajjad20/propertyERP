@@ -90,7 +90,7 @@ export function PrintableReceiptDialog({
                   Commercial Enterprise & Property Management
                 </p>
                 <p className="text-[11px] text-ink-muted">
-                  Main Commercial Boulevard, Islamabad
+                  54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
                 </p>
               </div>
             </div>

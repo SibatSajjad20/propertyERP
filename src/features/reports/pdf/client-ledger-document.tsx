@@ -397,7 +397,7 @@ export function ClientLedgerPdf({ data }: ClientLedgerPdfProps) {
             <View style={styles.brandTextGroup}>
               <Text style={styles.brandTitle}>SARDAR&apos;S MALL</Text>
               <Text style={styles.brandAddress}>
-                Plot no. 13/N, 2nd Floor, F-7 Markaz, Islamabad
+                54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
               </Text>
               <Text style={styles.allotmentTitle}>
                 Allotment Details ({unitCodeDisplay})

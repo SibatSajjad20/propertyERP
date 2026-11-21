@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatUnitDisplayCode } from "@/lib/area";
-import { formatPkr } from "@/lib/money";
+import { formatDecimal, formatPkr, parseDecimal } from "@/lib/money";
 import { AGREEMENT_CLAUSES, AGREEMENT_DEFINITIONS } from "../template";
 
 export interface AgreementPdfScheduleRow {
@@ -360,6 +360,23 @@ function AgreementFooter({
   );
 }
 
+function renderFormattedParagraph(text: string) {
+  if (!text.includes("**")) {
+    return text;
+  }
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <Text key={i} style={styles.bold}>
+          {part.slice(2, -2)}
+        </Text>
+      );
+    }
+    return part;
+  });
+}
+
 export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
   const dt = formatDateParts(props.agreementDate);
   const unitDisplay = formatUnitDisplayCode(props.unit.unitCode, props.unit.categoryName);
@@ -373,6 +390,33 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
     props.buyer.relationPrefix === "W/O" ||
     props.buyer.relationPrefix === "D/O";
 
+  let totalPaidPaisa = 0n;
+  const downPaymentPaidStr =
+    props.financials.downPaymentPaidAmountPkr || props.financials.bookingAmountPkr;
+  if (downPaymentPaidStr) {
+    try {
+      totalPaidPaisa += parseDecimal(downPaymentPaidStr);
+    } catch {
+      // non-numeric fallback
+    }
+  }
+
+  for (const row of props.scheduleRows) {
+    const isPaid = row.status?.toUpperCase() === "PAID";
+    const hasPaidAmt = Boolean(row.paidAmountPkr && Number(row.paidAmountPkr) > 0);
+    if (hasPaidAmt) {
+      try {
+        totalPaidPaisa += parseDecimal(row.paidAmountPkr!);
+      } catch {}
+    } else if (isPaid && row.amountPkr) {
+      try {
+        totalPaidPaisa += parseDecimal(row.amountPkr);
+      } catch {}
+    }
+  }
+
+  const totalPaidAmountPkr = formatDecimal(totalPaidPaisa);
+
   return (
     <Document
       title={`Sale and Purchase Agreement - ${props.agreementNo}`}
@@ -382,8 +426,8 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
       <Page size="A4" style={styles.page} wrap>
         <Text style={styles.title}>SALE AND PURCHASE AGREEMENT</Text>
         <Text style={styles.subtitle}>
-          Agreement No. {props.agreementNo} • SARDAR'S MALL • Plot # 54-C, Satellite Town,
-          Rawalpindi
+          Agreement No. {props.agreementNo} • SARDAR'S MALL • 54-C Iran Road, Block C,
+          near Chandni Chowk, Rawalpindi
         </Text>
 
         <Text style={styles.paragraph}>
@@ -419,9 +463,10 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
         <Text style={styles.paragraph}>
           (i) The Seller/Vendor being the absolute owner is developing/constructing a
           multistory commercial, residential apartment / office building/complex known as
-          M/s ASSH DEVELOPERS (PRIVATE) LIMITED Building on the Plot # 54-C located in
-          Satellite Town, Rawalpindi (hereinafter referred to as the "PROJECT"), where the
-          PROJECT being developed by the Seller/Vendor is known as the SARDAR'S MALL.
+          M/s ASSH DEVELOPERS (PRIVATE) LIMITED Building on the Plot located at 54-C Iran
+          Road, Block C, near Chandni Chowk, Rawalpindi (hereinafter referred to as the
+          "PROJECT"), where the PROJECT being developed by the Seller/Vendor is known as
+          the SARDAR'S MALL.
         </Text>
         <Text style={styles.paragraph}>
           (ii) The Buyer/Vendee has seen the plan for the PROJECT and desires to acquire
@@ -493,7 +538,7 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
             </Text>
             {clause.paragraphs.map((p, idx) => (
               <Text key={`${clause.number}-${idx}`} style={styles.paragraph}>
-                {p}
+                {renderFormattedParagraph(p)}
               </Text>
             ))}
           </View>
@@ -851,10 +896,8 @@ export function SalePurchaseAgreementPdf(props: AgreementPdfProps) {
             <View style={styles.payColPaidDate}>
               <Text>—</Text>
             </View>
-            <View
-              style={[styles.payColPaidAmt, { textAlign: "center", paddingRight: 0 }]}
-            >
-              <Text>—</Text>
+            <View style={styles.payColPaidAmt}>
+              <Text style={styles.bold}>{formatPkr(totalPaidAmountPkr)}</Text>
             </View>
             <View style={styles.payColReceipt}>
               <Text>—</Text>
