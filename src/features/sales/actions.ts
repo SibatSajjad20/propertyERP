@@ -177,7 +177,7 @@ async function nextBookingNumber(tx: Tx): Promise<string> {
   if (existing) {
     const [maxRow] = await tx
       .select({
-        maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${bookings.bookingNo} FROM ${prefix.length + 1})::int), 0)::int`,
+        maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${bookings.bookingNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${bookings.bookingNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
       })
       .from(bookings)
       .where(sql`${bookings.bookingNo} LIKE ${prefix + "%"}`);
@@ -208,7 +208,7 @@ async function nextReceiptNumber(tx: Tx): Promise<string> {
   if (existing) {
     const [maxRow] = await tx
       .select({
-        maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${payments.receiptNo} FROM ${prefix.length + 1})::int), 0)::int`,
+        maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${payments.receiptNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${payments.receiptNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
       })
       .from(payments)
       .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
@@ -224,7 +224,7 @@ async function nextTokenReceiptNumber(tx: Tx): Promise<string> {
   const prefix = `SM-TOK-${year}-`;
   const [maxRow] = await tx
     .select({
-      maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${reservations.tokenReceiptNo} FROM ${prefix.length + 1})::int), 0)::int`,
+      maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${reservations.tokenReceiptNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${reservations.tokenReceiptNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
     })
     .from(reservations)
     .where(sql`${reservations.tokenReceiptNo} LIKE ${prefix + "%"}`);

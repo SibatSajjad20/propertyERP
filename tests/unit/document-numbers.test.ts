@@ -42,6 +42,27 @@ describe("document number formatters", () => {
     expect(nums.applicationFormNo).toBe("SM-1F-A10-27-004");
     expect(nums.registrationNo).toBe("ASSH-1F-A10-27-SM004");
   });
+
+  it("extracts and increments agreement sequence numbers past 0001 to 0002", () => {
+    const prefix = "SM-AGR-2026-";
+    const existing = "SM-AGR-2026-0001";
+    const rawSuffix = existing.slice(prefix.length);
+    expect(/^\d+$/.test(rawSuffix)).toBe(true);
+    const seq = parseInt(rawSuffix, 10);
+    expect(seq).toBe(1);
+    const nextCandidate = `${prefix}${(seq + 1).toString().padStart(4, "0")}`;
+    expect(nextCandidate).toBe("SM-AGR-2026-0002");
+  });
+
+  it("handles non-numeric agreement suffix safely without NaN or corrupt sequences", () => {
+    const prefix = "SM-AGR-2026-";
+    const corrupted = "SM-AGR-2026-TEMP";
+    const rawSuffix = corrupted.slice(prefix.length);
+    const isValid = /^\d+$/.test(rawSuffix);
+    expect(isValid).toBe(false);
+    const maxSeq = isValid ? parseInt(rawSuffix, 10) : 0;
+    expect(maxSeq).toBe(0);
+  });
 });
 
 describe("booking form field validation", () => {

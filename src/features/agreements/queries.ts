@@ -22,6 +22,20 @@ import {
 import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { getSupabaseServer, isStorageConfigured } from "@/lib/supabase-server";
 
+function toIsoDate(val: Date | string | null | undefined): string | null {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString();
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? String(val) : d.toISOString();
+}
+
+function requireIsoDate(
+  val: Date | string | null | undefined,
+  fallback?: string,
+): string {
+  return toIsoDate(val) ?? fallback ?? new Date().toISOString();
+}
+
 export interface AgreementListItem {
   id: string;
   agreementNo: string;
@@ -116,11 +130,11 @@ export async function listAgreements(filters?: {
       clientCnic: r.clientCnic,
       clientPhone: r.clientPhone,
       sellerName: r.sellerName,
-      agreementDate: r.agreementDate.toISOString(),
+      agreementDate: requireIsoDate(r.agreementDate),
       anticipatedCompletionDate: r.anticipatedCompletionDate,
       hasSignedCopy: Boolean(r.signedStoragePath),
       signedFileName: r.signedFileName,
-      createdAt: r.createdAt.toISOString(),
+      createdAt: requireIsoDate(r.createdAt),
     }));
   });
 }
@@ -218,12 +232,10 @@ export async function getAgreementDetail(id: string) {
     return {
       agreement: {
         ...row.agreement,
-        agreementDate: row.agreement.agreementDate.toISOString(),
-        signedUploadedAt: row.agreement.signedUploadedAt
-          ? row.agreement.signedUploadedAt.toISOString()
-          : null,
-        createdAt: row.agreement.createdAt.toISOString(),
-        updatedAt: row.agreement.updatedAt.toISOString(),
+        agreementDate: requireIsoDate(row.agreement.agreementDate),
+        signedUploadedAt: toIsoDate(row.agreement.signedUploadedAt),
+        createdAt: requireIsoDate(row.agreement.createdAt),
+        updatedAt: requireIsoDate(row.agreement.updatedAt),
       },
       unit: {
         id: row.agreement.unitId,
@@ -268,9 +280,7 @@ export async function getAgreementDetail(id: string) {
         tokenAdjustedAmountPkr: row.bookingTokenAdjusted ?? "0.00",
         plan: row.bookingPlan ?? "FULL",
         downPaymentReceiptNo: downPaymentPayment?.receiptNo ?? null,
-        downPaymentPaidAt: downPaymentPayment?.paidAt
-          ? downPaymentPayment.paidAt.toISOString()
-          : null,
+        downPaymentPaidAt: toIsoDate(downPaymentPayment?.paidAt),
         downPaymentPaidAmountPkr:
           downPaymentPayment?.amount ?? row.bookingDownPayment ?? row.salePrice ?? "0.00",
       },
@@ -278,9 +288,9 @@ export async function getAgreementDetail(id: string) {
         seq: i.seq,
         type: i.type,
         label: i.label || `Installment #${i.seq}`,
-        dueDate: i.dueDate.toISOString(),
+        dueDate: requireIsoDate(i.dueDate),
         amountPkr: i.amount,
-        paidDate: i.paidAt ? i.paidAt.toISOString() : null,
+        paidDate: toIsoDate(i.paidAt),
         paidAmountPkr: i.paidAmount,
         receiptNo: i.receiptNos || "—",
         surchargePkr: i.surchargePaidAmount || "0",

@@ -25,7 +25,7 @@ async function nextAgreementNumber(tx: Tx): Promise<string> {
   const prefix = `SM-AGR-${year}-`;
   const [maxRow] = await tx
     .select({
-      maxSeq: sql<number>`COALESCE(MAX(SUBSTRING(${agreements.agreementNo} FROM ${prefix.length + 1})::int), 0)::int`,
+      maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${agreements.agreementNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${agreements.agreementNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
     })
     .from(agreements)
     .where(sql`${agreements.agreementNo} LIKE ${prefix + "%"}`);
@@ -118,7 +118,11 @@ export async function createAgreement(input: unknown) {
   });
 
   revalidatePath("/agreements");
-  return created;
+  revalidatePath(`/agreements/${created.id}`);
+  return {
+    id: created.id,
+    agreementNo: created.agreementNo,
+  };
 }
 
 export async function updateAgreement(input: unknown) {
@@ -153,7 +157,7 @@ export async function updateAgreement(input: unknown) {
 
   revalidatePath("/agreements");
   revalidatePath(`/agreements/${data.id}`);
-  return updated;
+  return { success: true, id: updated.id };
 }
 
 function extForAgreementMime(mime: string): string {
@@ -252,5 +256,5 @@ export async function completeSignedAgreementUpload(input: unknown) {
 
   revalidatePath("/agreements");
   revalidatePath(`/agreements/${updated.id}`);
-  return updated;
+  return { success: true, id: updated.id };
 }
