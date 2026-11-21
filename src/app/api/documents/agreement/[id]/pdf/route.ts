@@ -50,6 +50,8 @@ export async function GET(
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `${disposition}; filename="${detail.agreement.agreementNo}-sale-purchase-agreement.pdf"`,
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'",
     },
   });
 }
