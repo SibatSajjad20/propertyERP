@@ -14,7 +14,7 @@ import { logger } from "@/lib/logger";
 import { moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import { isSellableCategory } from "./cleaning";
-import { parseSpreadsheetBuffer } from "./excel";
+import { parseSpreadsheetBuffer, validateFileSize } from "./excel";
 import { listImportBatches, loadImportContext } from "./queries";
 import { commitImportSchema, importPreviewSchema, rollbackBatchSchema } from "./schema";
 import type { CleanedImportRow, ColumnMapping, ImportMode } from "./types";
@@ -59,6 +59,14 @@ export async function uploadAndParseSpreadsheet(formData: FormData) {
   const hasValidExt = validExtensions.some((ext) => lowerName.endsWith(ext));
   if (!hasValidExt) {
     throw new ValidationError("File must be a .xlsx, .xls, or .csv document.");
+  }
+
+  try {
+    validateFileSize(file.size);
+  } catch (err) {
+    throw new ValidationError(
+      err instanceof Error ? err.message : "File exceeds maximum allowed size.",
+    );
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

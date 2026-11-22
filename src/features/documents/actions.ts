@@ -23,7 +23,6 @@ import {
 } from "./constants";
 import { listCurrentDocumentsForClient, loadSignedUrlsForDocumentIds } from "./queries";
 import { timed } from "./timing";
-import { requiredDocumentErrorMessage } from "./required";
 import {
   assertAllowedMime,
   photoMimeError,
@@ -432,16 +431,6 @@ export async function clearCurrentDocument(input: unknown) {
     revalidatePath("/sold");
     return { ok: true as const };
   });
-}
-
-export async function assertRequiredDocumentsForClient(clientId: string, kinId: string) {
-  const docs = await listCurrentDocumentsForClient(clientId);
-  const relevant = docs.filter(
-    (doc) =>
-      doc.ownerType === "CLIENT" || (doc.ownerType === "KIN" && doc.kinId === kinId),
-  );
-  const message = requiredDocumentErrorMessage(relevant);
-  if (message) throw new ValidationError(message);
 }
 
 export async function prepareUploads(input: unknown) {

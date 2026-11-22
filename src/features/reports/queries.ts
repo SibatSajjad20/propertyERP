@@ -64,6 +64,13 @@ export async function getReportFilterOptions(): Promise<FilterOptions> {
       db
         .select({ id: categories.id, name: categories.name })
         .from(categories)
+        .where(
+          sql`EXISTS (
+            SELECT 1 FROM ${units}
+            WHERE ${units.categoryId} = ${categories.id}
+              AND ${units.archivedAt} IS NULL
+          )`,
+        )
         .orderBy(asc(categories.name)),
     ]);
 
@@ -179,6 +186,7 @@ export async function getSummaryReport(
           .select({
             sales_count: sql<number>`count(*) filter (where ${sales.status} = 'ACTIVE' and ${sales.soldAt} >= ${startIso}::timestamptz and ${sales.soldAt} <= ${endIso}::timestamptz)::int`,
             sales_total: sql<string>`coalesce(sum(${sales.salePrice}) filter (where ${sales.status} = 'ACTIVE' and ${sales.soldAt} >= ${startIso}::timestamptz and ${sales.soldAt} <= ${endIso}::timestamptz), 0)::text`,
+            direct_sales_total: sql<string>`coalesce(sum(${sales.salePrice}) filter (where ${sales.bookingId} is null and ${sales.status} = 'ACTIVE' and ${sales.soldAt} >= ${startIso}::timestamptz and ${sales.soldAt} <= ${endIso}::timestamptz), 0)::text`,
           })
           .from(sales),
         db
@@ -317,7 +325,9 @@ export async function getSummaryReport(
     const salesValuePkr = salesAgg?.sales_total || "0.00";
     const salesCount = Number(salesAgg?.sales_count || 0);
 
-    const grossCollectedPaisa = parseDecimal(paymentsAgg?.payments_total || "0");
+    const directSalesPaisa = parseDecimal(salesAgg?.direct_sales_total || "0");
+    const grossCollectedPaisa =
+      parseDecimal(paymentsAgg?.payments_total || "0") + directSalesPaisa;
     const refundsPaisa = parseDecimal(refundsAgg?.refunds_total || "0");
     const refundsCount = Number(refundsAgg?.refunds_count || 0);
     const buybacksPaisa = parseDecimal(buybacksAgg?.buybacks_total || "0");
@@ -1825,7 +1835,26 @@ export async function getDetailedCollectionsReport(
       );
     }
 
-    const [tokenRows, paymentRows, overdueInstRows] = await Promise.all([
+    const directSaleConditions = [
+      eq(sales.status, "ACTIVE"),
+      isNull(sales.bookingId),
+      sql`${sales.soldAt} >= ${startIso}::timestamptz`,
+      sql`${sales.soldAt} <= ${endIso}::timestamptz`,
+    ];
+    if (floorFilter) directSaleConditions.push(floorFilter);
+    if (catFilter) directSaleConditions.push(catFilter);
+    if (searchTerm) {
+      directSaleConditions.push(
+        or(
+          ilike(clients.fullName, searchTerm),
+          ilike(clients.cnic, searchTerm),
+          ilike(units.unitCode, searchTerm),
+          ilike(sales.applicationFormNo, searchTerm),
+        )!,
+      );
+    }
+
+    const [tokenRows, paymentRows, overdueInstRows, directSaleRows] = await Promise.all([
       db
         .select({
           id: reservations.id,
@@ -1904,6 +1933,28 @@ export async function getDetailedCollectionsReport(
         .innerJoin(clients, eq(bookings.clientId, clients.id))
         .where(and(...instConditions))
         .orderBy(asc(installments.dueDate)),
+      db
+        .select({
+          id: sales.id,
+          date: sales.soldAt,
+          receiptNo: sales.applicationFormNo,
+          clientName: clients.fullName,
+          clientCnic: clients.cnic,
+          clientPhone: clients.phone,
+          unitCode: units.unitCode,
+          floorName: floors.name,
+          categoryName: categories.name,
+          method: sales.paymentMethod,
+          amount: sales.salePrice,
+          notes: sales.notes,
+        })
+        .from(sales)
+        .innerJoin(units, eq(sales.unitId, units.id))
+        .innerJoin(floors, eq(units.floorId, floors.id))
+        .innerJoin(categories, eq(units.categoryId, categories.id))
+        .innerJoin(clients, eq(sales.clientId, clients.id))
+        .where(and(...directSaleConditions))
+        .orderBy(desc(sales.soldAt)),
     ]);
 
     const tokens: DetailedCollectionTxRow[] = [];
@@ -1981,6 +2032,26 @@ export async function getDetailedCollectionsReport(
           installmentCols.push(row);
           break;
       }
+    }
+
+    for (const d of directSaleRows) {
+      const amt = parseDecimal(d.amount);
+      downTotal += amt;
+      downPayments.push({
+        id: d.id,
+        date: new Date(d.date),
+        receiptNo: d.receiptNo,
+        clientName: d.clientName,
+        clientCnic: d.clientCnic,
+        clientPhone: d.clientPhone,
+        unitCode: formatUnitDisplayCode(d.unitCode, d.categoryName),
+        floorName: d.floorName,
+        categoryName: d.categoryName,
+        bookingNo: null,
+        method: d.method,
+        amountPkr: d.amount,
+        notes: d.notes || "Direct sale full payment",
+      });
     }
 
     const surcharges: SurchargeCollectionRow[] = [];

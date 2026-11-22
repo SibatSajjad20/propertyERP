@@ -87,13 +87,7 @@ export function matchCategoryToSection(
     return (floorLevel ?? 0) >= 1 ? "mall-shops" : "commercial-shops";
   }
 
-  if (
-    c === "food court" ||
-    c === "food outlets" ||
-    c === "food outlet" ||
-    c === "cafetria" ||
-    c === "cafeteria"
-  ) {
+  if (c === "food court" || c === "food outlets" || c === "food outlet") {
     return "food-court";
   }
 
@@ -103,7 +97,10 @@ export function matchCategoryToSection(
     c === "corporate offices" ||
     c === "corporate office" ||
     c === "office" ||
-    c === "offices"
+    c === "offices" ||
+    c === "meeting room" ||
+    c === "cafetria" ||
+    c === "cafeteria"
   ) {
     return "corporate-offices";
   }
@@ -131,41 +128,40 @@ export function categoryMatchesSection(
   const c = categoryName.trim().toLowerCase();
   switch (section) {
     case "mall-shops":
-      return c === "mall shops" || c === "mall shop" || c === "shop" || c === "shops";
+      return c === "shop" || c === "shops" || c === "mall shops" || c === "mall shop";
     case "commercial-shops":
       return (
-        c === "commercial shops" ||
-        c === "commercial shop" ||
         c === "shop" ||
-        c === "shops"
+        c === "shops" ||
+        c === "commercial shops" ||
+        c === "commercial shop"
       );
     case "food-court":
-      return (
-        c === "food court" ||
-        c === "food outlets" ||
-        c === "food outlet" ||
-        c === "cafetria" ||
-        c === "cafeteria"
-      );
+      // Food court sub-types are food outlets. Cafeteria belongs to corporate offices.
+      return c === "food outlets" || c === "food outlet";
     case "kiosks":
-      return c === "kiosks" || c === "kiosk";
+      return c === "kiosk" || c === "kiosks";
     case "corporate-offices":
       return (
-        c === "corporate offices" ||
-        c === "corporate office" ||
         c === "office" ||
-        c === "offices"
+        c === "offices" ||
+        c === "meeting room" ||
+        c === "cafetria" ||
+        c === "cafeteria" ||
+        c === "corporate offices" ||
+        c === "corporate office"
       );
     case "residential-apartments":
+      // Sub-types of residential apartments are specific apartment unit types (1-BED, 2-BED, etc.)
       return (
-        c === "residential apartments" ||
-        c === "residential apartment" ||
-        c === "apartment" ||
-        c === "apartments" ||
         c === "1-bed" ||
         c === "2-bed" ||
         c === "3-bed" ||
-        c.includes("apartment")
+        c === "apartment" ||
+        c === "apartments" ||
+        (c.includes("apartment") &&
+          c !== "residential apartments" &&
+          c !== "residential apartment")
       );
   }
 }

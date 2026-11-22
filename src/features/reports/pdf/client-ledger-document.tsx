@@ -50,13 +50,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.25,
     marginBottom: 2,
   },
-  brandAddress: {
-    fontSize: 7.2,
-    color: "#475569",
-    fontFamily: "Helvetica-Bold",
-    lineHeight: 1.3,
-    marginBottom: 2,
-  },
   allotmentTitle: {
     fontSize: 9.5,
     fontFamily: "Helvetica-Bold",
@@ -231,6 +224,16 @@ const styles = StyleSheet.create({
     fontSize: 6.8,
     color: "#64748B",
   },
+  footerAddress: {
+    fontSize: 6.8,
+    color: "#475569",
+    fontFamily: "Helvetica",
+  },
+  footerPageNumber: {
+    fontSize: 6.8,
+    color: "#64748B",
+    fontFamily: "Helvetica",
+  },
   printedByText: {
     fontSize: 6.8,
     color: "#64748B",
@@ -343,11 +346,6 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Oblique",
     textAlign: "center",
   },
-  footerPrintedBy: {
-    fontSize: 6.2,
-    color: "#64748B",
-    fontFamily: "Helvetica-Oblique",
-  },
   signatureBlock: {
     flexDirection: "row",
     gap: 12,
@@ -448,9 +446,6 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
             <Image src={SARDARS_MALL_MARK_DATA_URL} style={styles.brandLogo} />
             <View style={styles.brandTextGroup}>
               <Text style={styles.brandTitle}>SARDAR&apos;S MALL</Text>
-              <Text style={styles.brandAddress}>
-                54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
-              </Text>
               <Text style={styles.allotmentTitle}>
                 Allotment Details ({unitCodeDisplay})
               </Text>
@@ -977,15 +972,18 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
           </View>
         ) : null}
 
+        {/* Printed By Info */}
+        <Text style={styles.printedByText}>
+          Printed By: Administrator || Date: {formatDateTime(now)}
+        </Text>
+
         {/* Page Footer - fixed on all pages */}
         <View style={styles.footer} fixed>
-          <Text>
-            Sardar&apos;s Mall ERP • Official Client Statement &amp; Allotment Schedule
-          </Text>
-          <Text style={styles.footerPrintedBy}>
-            Printed By: Administrator || Date: {formatDateTime(now)}
+          <Text style={styles.footerAddress}>
+            54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
           </Text>
           <Text
+            style={styles.footerPageNumber}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
           />
         </View>

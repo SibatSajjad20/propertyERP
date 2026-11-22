@@ -13,18 +13,36 @@ import {
   installments,
   nextOfKin,
   payments,
+  receipts,
   refunds,
   reservations,
   sales,
 } from "@/db/schema/sales";
 import { upsertClientAndKin } from "./client-upsert";
-import { allocateDocumentNumbers } from "./document-numbers";
+import {
+  allocateBookingNumber,
+  allocateDocumentNumbers,
+  allocatePaymentReceiptNumber,
+  allocateReceiptNumber,
+  allocateTokenReceiptNumber,
+} from "./document-numbers";
 import { requiredDocumentErrorMessage } from "@/features/documents/required";
 import { units } from "@/db/schema/units";
 import { invalidateDashboardBundleCache } from "@/features/dashboard/queries";
 import { formatCnic } from "./schema";
+import { requireSession } from "@/lib/auth";
+import { assertCan, can } from "@/lib/permissions";
 
 export async function findClientByCnic(cnic: string) {
+  const session = await requireSession();
+  if (
+    !can(session.user.role, "bookings.create") &&
+    !can(session.user.role, "sales.create") &&
+    !can(session.user.role, "reservations.create")
+  ) {
+    assertCan(session.user.role, "bookings.create");
+  }
+
   const trimmed = cnic.trim();
   if (!trimmed) return null;
   const normalized = formatCnic(trimmed);
@@ -74,7 +92,6 @@ function parseInput<T>(
   }
   return result.data;
 }
-import { requireSession } from "@/lib/auth";
 import {
   errorMessage,
   ForbiddenError,
@@ -96,7 +113,6 @@ function formatActionError(err: unknown): string {
 }
 import { effectivePricingArea } from "@/lib/area";
 import { computeTotalPrice, formatDecimal, parseDecimal } from "@/lib/money";
-import { assertCan, can } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
 import {
   allocatePayment,
@@ -157,79 +173,16 @@ async function requireClientDocuments(
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function nextBookingNumber(tx: Tx): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SM-BK-${year}-`;
-  const [row] = await tx
-    .select({ count: sql<number>`count(*)::int` })
-    .from(bookings)
-    .where(sql`${bookings.bookingNo} LIKE ${prefix + "%"}`);
-
-  let seq = Number(row?.count ?? 0) + 1;
-  let candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
-
-  const [existing] = await tx
-    .select({ id: bookings.id })
-    .from(bookings)
-    .where(eq(bookings.bookingNo, candidate))
-    .limit(1);
-
-  if (existing) {
-    const [maxRow] = await tx
-      .select({
-        maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${bookings.bookingNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${bookings.bookingNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
-      })
-      .from(bookings)
-      .where(sql`${bookings.bookingNo} LIKE ${prefix + "%"}`);
-    seq = Number(maxRow?.maxSeq ?? 0) + 1;
-    candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
-  }
-
-  return candidate;
+async function nextBookingNumber(tx: Tx, date = new Date()): Promise<string> {
+  return allocateBookingNumber(tx, date);
 }
 
-async function nextReceiptNumber(tx: Tx): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SM-REC-${year}-`;
-  const [row] = await tx
-    .select({ count: sql<number>`count(*)::int` })
-    .from(payments)
-    .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
-
-  let seq = Number(row?.count ?? 0) + 1;
-  let candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
-
-  const [existing] = await tx
-    .select({ id: payments.id })
-    .from(payments)
-    .where(eq(payments.receiptNo, candidate))
-    .limit(1);
-
-  if (existing) {
-    const [maxRow] = await tx
-      .select({
-        maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${payments.receiptNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${payments.receiptNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
-      })
-      .from(payments)
-      .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
-    seq = Number(maxRow?.maxSeq ?? 0) + 1;
-    candidate = `${prefix}${seq.toString().padStart(4, "0")}`;
-  }
-
-  return candidate;
+async function nextReceiptNumber(tx: Tx, date = new Date()): Promise<string> {
+  return allocatePaymentReceiptNumber(tx, date);
 }
 
-async function nextTokenReceiptNumber(tx: Tx): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SM-TOK-${year}-`;
-  const [maxRow] = await tx
-    .select({
-      maxSeq: sql<number>`COALESCE(MAX(CASE WHEN SUBSTR(${reservations.tokenReceiptNo}, ${prefix.length + 1}) ~ '^[0-9]+$' THEN SUBSTR(${reservations.tokenReceiptNo}, ${prefix.length + 1})::int ELSE 0 END), 0)::int`,
-    })
-    .from(reservations)
-    .where(sql`${reservations.tokenReceiptNo} LIKE ${prefix + "%"}`);
-  const seq = Number(maxRow?.maxSeq ?? 0) + 1;
-  return `${prefix}${seq.toString().padStart(4, "0")}`;
+async function nextTokenReceiptNumber(tx: Tx, date = new Date()): Promise<string> {
+  return allocateTokenReceiptNumber(tx, date);
 }
 
 export async function createReservation(input: unknown) {
@@ -987,9 +940,9 @@ export async function createDirectSale(input: unknown) {
         unit.priceAdjustmentPkr,
       );
 
-      // If sale price differs from computed price, ADMIN permission is required
-      if (parseDecimal(parsed.salePricePkr) !== parseDecimal(computedPrice)) {
-        assertCan(session.user.role, "units.manage");
+      // If sale price differs from computed price, enforce discount authorization
+      const priceDiff = parseDecimal(computedPrice) - parseDecimal(parsed.salePricePkr);
+      if (priceDiff !== 0n) {
         if (
           !parsed.priceAdjustmentReason ||
           parsed.priceAdjustmentReason.trim().length === 0
@@ -997,6 +950,12 @@ export async function createDirectSale(input: unknown) {
           throw new ValidationError(
             "A reason is required when sale price differs from asking price.",
           );
+        }
+        // Discounts exceeding 10% strictly require ADMIN authorization
+        if (priceDiff > 0n && priceDiff * 10n > parseDecimal(computedPrice)) {
+          assertCan(session.user.role, "sales.large_discount");
+        } else {
+          assertCan(session.user.role, "units.manage");
         }
       }
 
@@ -1041,6 +1000,14 @@ export async function createDirectSale(input: unknown) {
         .returning();
 
       if (!saleRecord) throw new Error("Failed to create sale");
+
+      await tx.insert(receipts).values({
+        saleId: saleRecord.id,
+        receiptNo: numbers.applicationFormNo,
+        type: "DOWN_PAYMENT",
+        createdBy: session.user.id,
+      });
+
       return saleRecord;
     });
 
@@ -1180,56 +1147,4 @@ export async function buybackSale(input: unknown) {
   logger.info({ buybackId: created.id, actorId: session.user.id }, "buyback completed");
   revalidateSalesPaths(parsed.unitId);
   return created;
-}
-
-export async function expireReservationsCron() {
-  const now = new Date();
-  const expired = await db
-    .select({
-      id: reservations.id,
-      unitId: reservations.unitId,
-    })
-    .from(reservations)
-    .where(
-      and(eq(reservations.status, "ACTIVE"), sql`${reservations.expiresAt} < ${now}`),
-    );
-
-  let expiredCount = 0;
-  for (const res of expired) {
-    try {
-      await db.transaction(async (tx) => {
-        const [unit] = await tx
-          .select()
-          .from(units)
-          .where(eq(units.id, res.unitId))
-          .for("update");
-
-        if (unit && unit.status === "RESERVED") {
-          await changeUnitStatusInTx(
-            tx,
-            {
-              unitId: unit.id,
-              expectedVersion: unit.version,
-              toStatus: "AVAILABLE",
-              reason: "Reservation expired automatically",
-            },
-            { id: "system", role: "ADMIN" },
-          );
-        }
-
-        await tx
-          .update(reservations)
-          .set({
-            status: "EXPIRED",
-            updatedAt: new Date(),
-          })
-          .where(eq(reservations.id, res.id));
-      });
-      expiredCount++;
-    } catch (err) {
-      logger.error({ err, reservationId: res.id }, "failed to expire reservation");
-    }
-  }
-
-  return { expiredCount };
 }

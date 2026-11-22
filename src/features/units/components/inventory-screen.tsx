@@ -169,10 +169,20 @@ export function InventoryScreen({
 
   const scopedFloors =
     query.section === "mall-shops"
-      ? options.floors.filter((f) => (f.level ?? 0) >= 1)
+      ? options.floors.filter((f) => (f.level ?? 0) >= 1 && (f.level ?? 0) <= 3)
       : query.section === "commercial-shops"
         ? options.floors.filter((f) => (f.level ?? 0) <= 0)
-        : options.floors;
+        : query.section === "food-court"
+          ? options.floors.filter((f) => (f.level ?? 0) === 3)
+          : query.section === "kiosks"
+            ? options.floors.filter((f) => (f.level ?? 0) === 3)
+            : query.section === "corporate-offices"
+              ? options.floors.filter((f) => (f.level ?? 0) === 4 || (f.level ?? 0) === 5)
+              : query.section === "residential-apartments"
+                ? options.floors.filter(
+                    (f) => (f.level ?? 0) >= 6 && (f.level ?? 0) <= 10,
+                  )
+                : options.floors;
 
   useEffect(() => {
     const host = window as Window & {

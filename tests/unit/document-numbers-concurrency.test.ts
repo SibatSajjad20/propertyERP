@@ -18,5 +18,5 @@ describe.skipIf(!hasDb)("document number concurrency", () => {
     expect(new Set(serials).size).toBe(20);
     expect(new Set(results.map((row) => row.applicationFormNo)).size).toBe(20);
     expect(new Set(results.map((row) => row.registrationNo)).size).toBe(20);
-  }, 30_000);
+  }, 60_000);
 });

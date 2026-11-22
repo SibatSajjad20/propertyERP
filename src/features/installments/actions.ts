@@ -1,6 +1,6 @@
 "use server";
 
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import type { z } from "zod";
 import { db } from "@/db";
@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 import { formatDecimal, parseDecimal } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
+import { allocatePaymentReceiptNumber } from "@/features/sales/document-numbers";
 import { recalculateInstallmentAllocations, validateReschedule } from "./calculator";
 import { calculateInstallmentSurcharge } from "./surcharge";
 import { getClientProfileWithBookings, searchInstallmentsClients } from "./queries";
@@ -36,8 +37,6 @@ export async function getClientProfileAction(clientId: string) {
   assertCan(session.user.role, "installments.read");
   return getClientProfileWithBookings(clientId);
 }
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function parseInput<T>(
   schema: z.ZodType<T>,
@@ -66,18 +65,6 @@ function revalidateInstallmentPaths(unitId?: string, bookingId?: string) {
   revalidatePath("/");
   if (unitId) revalidatePath(`/units/${unitId}`);
   if (bookingId) revalidatePath(`/bookings/${bookingId}`);
-}
-
-async function nextReceiptNumber(tx: Tx): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SM-REC-${year}-`;
-  const [row] = await tx
-    .select({ count: sql<number>`count(*)::int` })
-    .from(payments)
-    .where(sql`${payments.receiptNo} LIKE ${prefix + "%"}`);
-
-  const seq = (Number(row?.count ?? 0) + 1).toString().padStart(4, "0");
-  return `${prefix}${seq}`;
 }
 
 /**
@@ -117,8 +104,8 @@ export async function recordInstallmentPayment(input: unknown) {
       throw new NotFoundError("Unit not found");
     }
 
-    const receiptNo = await nextReceiptNumber(tx);
     const paidAt = parsed.paidAt ? new Date(parsed.paidAt) : new Date();
+    const receiptNo = await allocatePaymentReceiptNumber(tx, paidAt);
 
     const allInstRows = await tx
       .select()

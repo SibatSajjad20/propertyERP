@@ -45,15 +45,15 @@ function sectionSqlCondition(section: InventorySectionKey): SQL {
   const catLower = sql`lower(trim(${categories.name}))`;
   switch (section) {
     case "mall-shops":
-      return sql`(${catLower} in ('mall shops', 'mall shop') OR (${catLower} in ('shop', 'shops') AND ${floors.level} >= 1))`;
+      return sql`(${catLower} in ('mall shops', 'mall shop') OR (${catLower} in ('shop', 'shops') AND ${floors.level} >= 1 AND ${floors.level} <= 3))`;
     case "commercial-shops":
       return sql`(${catLower} in ('commercial shops', 'commercial shop') OR (${catLower} in ('shop', 'shops') AND ${floors.level} <= 0))`;
     case "food-court":
-      return sql`${catLower} in ('food court', 'food outlets', 'food outlet', 'cafetria', 'cafeteria')`;
+      return sql`(${catLower} in ('food court', 'food outlets', 'food outlet') AND ${floors.level} = 3)`;
     case "kiosks":
-      return sql`${catLower} in ('kiosks', 'kiosk')`;
+      return sql`(${catLower} in ('kiosks', 'kiosk') AND ${floors.level} = 3)`;
     case "corporate-offices":
-      return sql`${catLower} in ('corporate offices', 'corporate office', 'office', 'offices')`;
+      return sql`(${catLower} in ('corporate offices', 'corporate office', 'office', 'offices', 'meeting room', 'cafetria', 'cafeteria') AND ${floors.level} in (4, 5))`;
     case "residential-apartments":
       return sql`(${catLower} in ('residential apartments', 'residential apartment', 'apartment', 'apartments', '1-bed', '2-bed', '3-bed') OR ${catLower} like '%apartment%')`;
   }
@@ -311,7 +311,16 @@ export async function getInventoryFilterOptions(): Promise<InventoryFilterOption
         })
         .from(categories)
         .innerJoin(properties, eq(properties.id, categories.propertyId))
-        .where(isNull(properties.archivedAt))
+        .where(
+          and(
+            isNull(properties.archivedAt),
+            sql`EXISTS (
+              SELECT 1 FROM ${units}
+              WHERE ${units.categoryId} = ${categories.id}
+                AND ${units.archivedAt} IS NULL
+            )`,
+          ),
+        )
         .orderBy(asc(categories.name)),
     ]),
   );

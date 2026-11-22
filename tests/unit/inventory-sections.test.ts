@@ -31,7 +31,17 @@ describe("Inventory Sections Mapping & Cascading Filters", () => {
     expect(matchCategoryToSection("2-BED", 10)).toBe("residential-apartments");
     expect(categoryMatchesSection("1-BED", "residential-apartments")).toBe(true);
     expect(categoryMatchesSection("2-BED", "residential-apartments")).toBe(true);
+    expect(
+      categoryMatchesSection("Residential Apartments", "residential-apartments"),
+    ).toBe(false);
     expect(categoryMatchesSection("Office", "residential-apartments")).toBe(false);
+    expect(categoryMatchesSection("Food Outlets", "food-court")).toBe(true);
+    expect(categoryMatchesSection("Cafetria", "food-court")).toBe(false);
+    expect(categoryMatchesSection("Food Court", "food-court")).toBe(false);
+    expect(categoryMatchesSection("Kiosk", "kiosks")).toBe(true);
+    expect(categoryMatchesSection("Office", "corporate-offices")).toBe(true);
+    expect(categoryMatchesSection("Meeting Room", "corporate-offices")).toBe(true);
+    expect(categoryMatchesSection("Cafetria", "corporate-offices")).toBe(true);
   });
 });
 
