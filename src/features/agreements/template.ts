@@ -77,7 +77,7 @@ export const AGREEMENT_DEFINITIONS: readonly AgreementDefinitionRow[] = [
   {
     term: "Parking Area",
     definition:
-      '"Parking Area" means the demarcated parking area within the Sardars Mall Building designated for the common use of visitors and occupants of the Project (Sardars Mall). It is expressly clarified that no specific, fixed, or exclusive parking space shall be allocated or assigned to any Buyer.',
+      '"Parking Area" means either Dedicated Parking Slots Duly Paid and Purchased by Buyer/Vendee, Which Shell Allocated to them by the management of Sardars Mall or Common Parking Area in-front of Sardars Mall Building on each Side.',
   },
   {
     term: "Parties",

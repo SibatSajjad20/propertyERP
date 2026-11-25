@@ -16,6 +16,15 @@ describe("Sale & Purchase Agreement Template & PDF", () => {
     expect(clause1_2).toContain("• **Commercial Units/Shops:**");
     expect(clause1_2).toContain("• **Offices (Unfurnished):**");
     expect(clause1_2).not.toContain("Furnished/Semi Furnished");
+
+    const parkingDef = AGREEMENT_DEFINITIONS.find((d) => d.term === "Parking Area");
+    expect(parkingDef).toBeDefined();
+    expect(parkingDef?.definition).toContain(
+      "Dedicated Parking Slots Duly Paid and Purchased by Buyer/Vendee",
+    );
+    expect(parkingDef?.definition).toContain(
+      "Common Parking Area in-front of Sardars Mall Building",
+    );
   });
 
   it("renders a valid multi-page PDF buffer with Apartment No. format and 40-row Schedule-B", async () => {
