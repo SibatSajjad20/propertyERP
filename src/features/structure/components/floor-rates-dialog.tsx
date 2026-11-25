@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { CurrencyDollar, ShieldCheck, Warning } from "@phosphor-icons/react";
+import { CurrencyDollar, ShieldCheck } from "@phosphor-icons/react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { formatPkr } from "@/lib/money";
 import { errorMessage } from "@/lib/errors";
 import { getFloorRateSummary, updateFloorRates } from "../actions";
@@ -43,16 +42,9 @@ interface FloorRatesFormProps {
   floorName?: string;
   onClose: () => void;
   onSuccess?: () => void;
-  isAdmin: boolean;
 }
 
-function FloorRatesForm({
-  floorId,
-  floorName,
-  onClose,
-  onSuccess,
-  isAdmin,
-}: FloorRatesFormProps) {
+function FloorRatesForm({ floorId, floorName, onClose, onSuccess }: FloorRatesFormProps) {
   const [summary, setSummary] = React.useState<FloorRateSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -61,7 +53,6 @@ function FloorRatesForm({
   const [categoryId, setCategoryId] = React.useState<string>("");
   const [newRate, setNewRate] = React.useState<string>("");
   const [reason, setReason] = React.useState<string>("");
-  const [includeSoldBooked, setIncludeSoldBooked] = React.useState(false);
 
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -96,17 +87,16 @@ function FloorRatesForm({
     return summary.categories.find((c) => c.categoryId === categoryId) ?? null;
   }, [scope, summary, categoryId]);
 
-  // Compute unit target counts based on scope and includeSoldBooked
+  // Compute unit target counts based on scope (strictly AVAILABLE units only)
   const { targetCount, protectedCount, currentRateDisplay } = React.useMemo(() => {
     if (!summary) {
       return { targetCount: 0, protectedCount: 0, currentRateDisplay: "—" };
     }
 
     if (scope === "CATEGORY" && activeCategory) {
-      const unsold = activeCategory.availableUnits;
+      const available = activeCategory.availableUnits;
       const total = activeCategory.totalUnits;
-      const target = includeSoldBooked ? total : unsold;
-      const protectedSold = total - unsold;
+      const protectedOther = total - available;
 
       let rateText = "No rates recorded";
       if (activeCategory.minRate && activeCategory.maxRate) {
@@ -116,17 +106,16 @@ function FloorRatesForm({
             : `Rs ${formatPkr(activeCategory.minRate)} – ${formatPkr(activeCategory.maxRate)} / sqft`;
       }
       return {
-        targetCount: target,
-        protectedCount: protectedSold,
+        targetCount: available,
+        protectedCount: protectedOther,
         currentRateDisplay: rateText,
       };
     }
 
-    // Entire floor
-    const unsold = summary.availableUnits + summary.reservedUnits;
+    // Entire floor - available units only
+    const available = summary.availableUnits;
     const total = summary.totalUnits;
-    const target = includeSoldBooked ? total : unsold;
-    const protectedSold = total - unsold;
+    const protectedOther = total - available;
 
     let rateText = "No rates recorded";
     if (summary.overallMinRate && summary.overallMaxRate) {
@@ -137,11 +126,11 @@ function FloorRatesForm({
     }
 
     return {
-      targetCount: target,
-      protectedCount: protectedSold,
+      targetCount: available,
+      protectedCount: protectedOther,
       currentRateDisplay: rateText,
     };
-  }, [summary, scope, activeCategory, includeSoldBooked]);
+  }, [summary, scope, activeCategory]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -166,7 +155,6 @@ function FloorRatesForm({
         categoryId: scope === "CATEGORY" ? categoryId : null,
         newRatePerSqftPkr: cleanRate,
         reason: reason.trim(),
-        includeSoldBooked,
       });
 
       toast.success(result.message);
@@ -203,6 +191,9 @@ function FloorRatesForm({
 
   if (!summary) return null;
 
+  const nonAvailableCount =
+    summary.reservedUnits + summary.bookedUnits + summary.soldUnits;
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 py-4">
@@ -218,18 +209,18 @@ function FloorRatesForm({
           </div>
           <div>
             <div className="text-[10.5px] font-medium tracking-wider text-ink-muted uppercase">
-              Unsold
+              Available Only
             </div>
             <div className="text-success font-sans text-[15px] font-semibold tabular-nums">
-              {summary.availableUnits + summary.reservedUnits}
+              {summary.availableUnits}
             </div>
           </div>
           <div>
             <div className="text-[10.5px] font-medium tracking-wider text-ink-muted uppercase">
-              Sold / Booked
+              Reserved / Booked / Sold
             </div>
             <div className="font-sans text-[15px] font-semibold text-ink-muted tabular-nums">
-              {summary.soldUnits + summary.bookedUnits}
+              {nonAvailableCount}
             </div>
           </div>
         </div>
@@ -243,7 +234,7 @@ function FloorRatesForm({
             options={[
               {
                 value: "ALL",
-                label: `Entire Floor (${summary.totalUnits} units)`,
+                label: `Entire Floor (${summary.availableUnits} available)`,
               },
               {
                 value: "CATEGORY",
@@ -270,8 +261,8 @@ function FloorRatesForm({
               <SelectContent>
                 {summary.categories.map((cat) => (
                   <SelectItem key={cat.categoryId} value={cat.categoryId}>
-                    {cat.categoryName} ({cat.totalUnits} units • {cat.availableUnits}{" "}
-                    unsold)
+                    {cat.categoryName} ({cat.availableUnits} available • {cat.totalUnits}{" "}
+                    total)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -281,7 +272,7 @@ function FloorRatesForm({
 
         {/* Current Rate Display */}
         <div className="flex items-center justify-between rounded-[6px] border border-line bg-surface px-3 py-2 text-[12px]">
-          <span className="text-ink-muted">Current Rate Range:</span>
+          <span className="text-ink-muted">Current Rate Range (Available):</span>
           <span className="font-sans font-medium text-ink tabular-nums">
             {currentRateDisplay}
           </span>
@@ -332,65 +323,33 @@ function FloorRatesForm({
           </p>
         </div>
 
-        {/* Protection Notice / Admin Override */}
+        {/* Protection Notice */}
         <div className="rounded-[6px] border border-line bg-subtle/40 p-3 text-[12px]">
           <div className="flex items-start gap-2">
             <ShieldCheck weight="fill" className="text-success mt-0.5 size-4 shrink-0" />
             <div className="space-y-1 text-ink-muted">
-              <p className="font-medium text-ink">Customer Contract Protection Active</p>
+              <p className="font-medium text-ink">Strict Status Protection Active</p>
               <p className="text-[11.5px] leading-relaxed">
-                This update will target{" "}
+                This price update will only apply to{" "}
                 <strong className="text-ink">
-                  {targetCount} unsold unit{targetCount === 1 ? "" : "s"}
+                  {targetCount} Available unit{targetCount === 1 ? "" : "s"}
                 </strong>
                 .
-                {protectedCount > 0 && !includeSoldBooked && (
+                {protectedCount > 0 && (
                   <span>
                     {" "}
+                    All{" "}
                     <strong className="text-ink">
-                      {protectedCount} Sold/Booked
+                      {protectedCount} Reserved, Booked, and Sold
                     </strong>{" "}
-                    unit{protectedCount === 1 ? "" : "s"} will remain unchanged to protect
-                    existing sales contracts.
+                    unit{protectedCount === 1 ? "" : "s"} are strictly protected and will
+                    remain untouched.
                   </span>
                 )}
               </p>
             </div>
           </div>
-
-          {/* Admin override checkbox */}
-          {isAdmin && protectedCount > 0 && (
-            <div className="mt-3 flex items-center justify-between border-t border-line/70 pt-2.5">
-              <div className="pr-3">
-                <Label
-                  htmlFor="include-sold-toggle"
-                  className="cursor-pointer text-[11.5px] font-medium text-ink"
-                >
-                  Administrative Override
-                </Label>
-                <p className="text-[10.5px] text-ink-muted">
-                  Include Sold/Booked units in this rate update
-                </p>
-              </div>
-              <Switch
-                id="include-sold-toggle"
-                checked={includeSoldBooked}
-                onCheckedChange={setIncludeSoldBooked}
-              />
-            </div>
-          )}
         </div>
-
-        {/* Warning if override enabled */}
-        {includeSoldBooked && (
-          <div className="flex items-start gap-2 rounded-[6px] border border-amber-300 bg-amber-50 p-2.5 text-[11.5px] text-amber-900">
-            <Warning weight="fill" className="mt-0.5 size-4 shrink-0 text-amber-600" />
-            <p>
-              <strong>Warning:</strong> You are updating rates on sold or booked units.
-              This will alter the recorded asking rate on active customer agreements.
-            </p>
-          </div>
-        )}
 
         {/* Submit Error */}
         {submitError && (
@@ -418,7 +377,7 @@ function FloorRatesForm({
         >
           {submitting
             ? "Updating rates..."
-            : `Update ${targetCount} Unit${targetCount === 1 ? "" : "s"}`}
+            : `Update ${targetCount} Available Unit${targetCount === 1 ? "" : "s"}`}
         </Button>
       </DialogFooter>
     </form>
@@ -431,7 +390,6 @@ export function FloorRatesDialog({
   open,
   onOpenChange,
   onSuccess,
-  isAdmin = false,
 }: FloorRatesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -446,8 +404,7 @@ export function FloorRatesDialog({
                 Update Rates — {floorName || "Floor"}
               </DialogTitle>
               <DialogDescription className="text-[12px] text-ink-muted">
-                Batch adjust the base asking rate (PKR / sq ft) across units on this
-                level.
+                Batch adjust the base asking rate (PKR / sq ft) on Available units only.
               </DialogDescription>
             </div>
           </div>
@@ -460,7 +417,6 @@ export function FloorRatesDialog({
             floorName={floorName}
             onClose={() => onOpenChange(false)}
             onSuccess={onSuccess}
-            isAdmin={isAdmin}
           />
         ) : null}
       </DialogContent>

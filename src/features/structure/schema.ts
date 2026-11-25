@@ -69,7 +69,6 @@ export const updateFloorRatesSchema = z.object({
     .trim()
     .min(3, "Reason must be at least 3 characters")
     .max(200, "Reason cannot exceed 200 characters"),
-  includeSoldBooked: z.boolean().default(false),
 });
 
 export type UpdateFloorRatesInput = z.infer<typeof updateFloorRatesSchema>;

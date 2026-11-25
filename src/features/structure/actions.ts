@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -682,7 +682,7 @@ export async function getFloorRateSummary(floorId: string): Promise<FloorRateSum
       categoryMap.set(u.categoryId, cat);
     }
     cat.totalUnits++;
-    if (u.status === "AVAILABLE" || u.status === "RESERVED") {
+    if (u.status === "AVAILABLE") {
       cat.availableUnits++;
     }
     if (rateNum > 0) {
@@ -723,12 +723,6 @@ export async function updateFloorRates(input: unknown) {
   const session = await requireSession();
   assertCan(session.user.role, "units.update_rate");
 
-  if (parsed.includeSoldBooked && session.user.role !== "ADMIN") {
-    throw new ValidationError(
-      "Only administrators can update rates on sold or booked units.",
-    );
-  }
-
   const cleanRate = parsed.newRatePerSqftPkr.replace(/,/g, "").trim();
 
   const result = await db.transaction(async (tx) => {
@@ -742,19 +736,14 @@ export async function updateFloorRates(input: unknown) {
       throw new NotFoundError("Floor not found");
     }
 
-    // 2. Build unit conditions
-    const conditions = [eq(units.floorId, parsed.floorId), isNull(units.archivedAt)];
+    // 2. Build unit conditions - strictly AVAILABLE units only (never booked, sold, or reserved)
+    const conditions = [
+      eq(units.floorId, parsed.floorId),
+      isNull(units.archivedAt),
+      eq(units.status, "AVAILABLE"),
+    ];
     if (parsed.categoryId) {
       conditions.push(eq(units.categoryId, parsed.categoryId));
-    }
-    if (!parsed.includeSoldBooked) {
-      const statusCondition = or(
-        eq(units.status, "AVAILABLE"),
-        eq(units.status, "RESERVED"),
-      );
-      if (statusCondition) {
-        conditions.push(statusCondition);
-      }
     }
 
     // 3. Query matching units
@@ -775,7 +764,7 @@ export async function updateFloorRates(input: unknown) {
         ok: true,
         updatedCount: 0,
         floorName: floor.name,
-        message: "No eligible units found on this floor to update.",
+        message: "No available units found on this floor to update.",
       };
     }
 
@@ -789,7 +778,7 @@ export async function updateFloorRates(input: unknown) {
         ok: true,
         updatedCount: 0,
         floorName: floor.name,
-        message: "All selected units already have this rate.",
+        message: "All selected available units already have this rate.",
       };
     }
 
@@ -831,7 +820,7 @@ export async function updateFloorRates(input: unknown) {
         newRatePerSqftPkr: cleanRate,
         reason: parsed.reason,
         unitsUpdatedCount: unitsToChange.length,
-        includeSoldBooked: parsed.includeSoldBooked,
+        statusTarget: "AVAILABLE_ONLY",
       },
     });
 
@@ -839,7 +828,7 @@ export async function updateFloorRates(input: unknown) {
       ok: true,
       updatedCount: unitsToChange.length,
       floorName: floor.name,
-      message: `Successfully updated ${unitsToChange.length} unit${unitsToChange.length === 1 ? "" : "s"} on ${floor.name} to Rs ${cleanRate}/sqft.`,
+      message: `Successfully updated ${unitsToChange.length} available unit${unitsToChange.length === 1 ? "" : "s"} on ${floor.name} to Rs ${cleanRate}/sqft.`,
     };
   });
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { ForbiddenError } from "@/lib/errors";
 import { updateFloorRatesSchema } from "@/features/structure/schema";
 import type { UserRole } from "@/db/schema/enums";
 
@@ -42,7 +42,6 @@ describe("updateFloorRatesSchema", () => {
     const parsed = updateFloorRatesSchema.parse(valid);
     expect(parsed.floorId).toBe(FLOOR_ID);
     expect(parsed.newRatePerSqftPkr).toBe("18500");
-    expect(parsed.includeSoldBooked).toBe(false);
   });
 
   it("accepts categoryId and comma-separated rates", () => {
@@ -51,12 +50,10 @@ describe("updateFloorRatesSchema", () => {
       categoryId: CATEGORY_ID,
       newRatePerSqftPkr: "18,500.50",
       reason: "Category revision",
-      includeSoldBooked: true,
     };
     const parsed = updateFloorRatesSchema.parse(valid);
     expect(parsed.categoryId).toBe(CATEGORY_ID);
     expect(parsed.newRatePerSqftPkr).toBe("18,500.50");
-    expect(parsed.includeSoldBooked).toBe(true);
   });
 
   it("rejects non-positive rates and empty reasons", () => {
@@ -109,39 +106,25 @@ describe("updateFloorRates permissions & safety", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it("blocks non-admin from using includeSoldBooked override", async () => {
+  it("allows INVENTORY_MANAGER to update available units", async () => {
     mockSession("INVENTORY_MANAGER");
     await expect(
       updateFloorRates({
         floorId: FLOOR_ID,
         newRatePerSqftPkr: "20000",
-        reason: "Manager attempt on sold units",
-        includeSoldBooked: true,
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
-    expect(db.transaction).not.toHaveBeenCalled();
-  });
-
-  it("allows INVENTORY_MANAGER to update unsold units", async () => {
-    mockSession("INVENTORY_MANAGER");
-    await expect(
-      updateFloorRates({
-        floorId: FLOOR_ID,
-        newRatePerSqftPkr: "20000",
-        reason: "Manager normal rate update",
+        reason: "Manager normal rate update on available units",
       }),
     ).rejects.toThrow("db reached");
     expect(db.transaction).toHaveBeenCalledTimes(1);
   });
 
-  it("allows ADMIN to update rates with includeSoldBooked", async () => {
+  it("allows ADMIN to update rates on available units", async () => {
     mockSession("ADMIN");
     await expect(
       updateFloorRates({
         floorId: FLOOR_ID,
         newRatePerSqftPkr: "22000",
-        reason: "Admin full rate adjustment",
-        includeSoldBooked: true,
+        reason: "Admin rate adjustment on available units",
       }),
     ).rejects.toThrow("db reached");
     expect(db.transaction).toHaveBeenCalledTimes(1);
