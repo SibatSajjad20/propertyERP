@@ -52,3 +52,49 @@ export type CreateBlockInput = z.infer<typeof createBlockSchema>;
 export type UpdateBlockInput = z.infer<typeof updateBlockSchema>;
 export type CreateFloorInput = z.infer<typeof createFloorSchema>;
 export type UpdateFloorInput = z.infer<typeof updateFloorSchema>;
+
+export const updateFloorRatesSchema = z.object({
+  floorId: z.uuid(),
+  categoryId: z.uuid().optional().nullable(),
+  newRatePerSqftPkr: z
+    .string()
+    .trim()
+    .min(1, "Rate is required")
+    .refine((val) => {
+      const clean = val.replace(/,/g, "");
+      return /^\d+(\.\d{1,2})?$/.test(clean) && Number(clean) > 0;
+    }, "Rate must be a positive number"),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Reason must be at least 3 characters")
+    .max(200, "Reason cannot exceed 200 characters"),
+  includeSoldBooked: z.boolean().default(false),
+});
+
+export type UpdateFloorRatesInput = z.infer<typeof updateFloorRatesSchema>;
+
+export type FloorRateCategorySummary = {
+  categoryId: string;
+  categoryName: string;
+  totalUnits: number;
+  availableUnits: number;
+  minRate: string | null;
+  maxRate: string | null;
+};
+
+export type FloorRateSummary = {
+  floorId: string;
+  floorName: string;
+  floorLevel: number;
+  blockName: string;
+  propertyName: string;
+  totalUnits: number;
+  availableUnits: number;
+  reservedUnits: number;
+  bookedUnits: number;
+  soldUnits: number;
+  categories: FloorRateCategorySummary[];
+  overallMinRate: string | null;
+  overallMaxRate: string | null;
+};

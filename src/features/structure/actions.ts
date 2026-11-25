@@ -1,14 +1,15 @@
 "use server";
 
-import { and, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { auditLog } from "@/db/schema/audit";
-import { blocks, floors, properties } from "@/db/schema/property";
-import { units } from "@/db/schema/units";
+import { blocks, categories, floors, properties } from "@/db/schema/property";
+import { rateHistory, units } from "@/db/schema/units";
 import { requireSession } from "@/lib/auth";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { moneyEquals } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import {
   assertNoActiveUnits,
@@ -23,7 +24,10 @@ import {
   createBlockSchema,
   createFloorSchema,
   createPropertySchema,
+  type FloorRateCategorySummary,
+  type FloorRateSummary,
   updateBlockSchema,
+  updateFloorRatesSchema,
   updateFloorSchema,
   updatePropertySchema,
 } from "./schema";
@@ -601,5 +605,260 @@ export async function archiveFloor(input: unknown): Promise<ArchiveResult> {
 
   logger.info({ floorId: parsed.id, actorId: session.user.id }, "floor archived");
   revalidateStructure();
+  return result;
+}
+
+export async function getFloorRateSummary(floorId: string): Promise<FloorRateSummary> {
+  const session = await requireSession();
+  assertCan(session.user.role, "units.update_rate");
+
+  const [floorRow] = await db
+    .select({
+      id: floors.id,
+      name: floors.name,
+      level: floors.level,
+      blockName: blocks.name,
+      propertyName: properties.name,
+    })
+    .from(floors)
+    .innerJoin(blocks, eq(blocks.id, floors.blockId))
+    .innerJoin(properties, eq(properties.id, blocks.propertyId))
+    .where(and(eq(floors.id, floorId), isNull(floors.archivedAt)));
+
+  if (!floorRow) {
+    throw new NotFoundError("Floor not found");
+  }
+
+  const unitRows = await db
+    .select({
+      id: units.id,
+      status: units.status,
+      ratePerSqftPkr: units.ratePerSqftPkr,
+      categoryId: units.categoryId,
+      categoryName: categories.name,
+    })
+    .from(units)
+    .innerJoin(categories, eq(categories.id, units.categoryId))
+    .where(and(eq(units.floorId, floorId), isNull(units.archivedAt)));
+
+  let availableUnits = 0;
+  let reservedUnits = 0;
+  let bookedUnits = 0;
+  let soldUnits = 0;
+
+  const categoryMap = new Map<
+    string,
+    {
+      categoryId: string;
+      categoryName: string;
+      totalUnits: number;
+      availableUnits: number;
+      rates: number[];
+    }
+  >();
+
+  const allRates: number[] = [];
+
+  for (const u of unitRows) {
+    if (u.status === "AVAILABLE") availableUnits++;
+    else if (u.status === "RESERVED") reservedUnits++;
+    else if (u.status === "BOOKED") bookedUnits++;
+    else if (u.status === "SOLD") soldUnits++;
+
+    const rateNum = Number(u.ratePerSqftPkr) || 0;
+    if (rateNum > 0) {
+      allRates.push(rateNum);
+    }
+
+    let cat = categoryMap.get(u.categoryId);
+    if (!cat) {
+      cat = {
+        categoryId: u.categoryId,
+        categoryName: u.categoryName,
+        totalUnits: 0,
+        availableUnits: 0,
+        rates: [],
+      };
+      categoryMap.set(u.categoryId, cat);
+    }
+    cat.totalUnits++;
+    if (u.status === "AVAILABLE" || u.status === "RESERVED") {
+      cat.availableUnits++;
+    }
+    if (rateNum > 0) {
+      cat.rates.push(rateNum);
+    }
+  }
+
+  const catList: FloorRateCategorySummary[] = Array.from(categoryMap.values())
+    .map((c) => ({
+      categoryId: c.categoryId,
+      categoryName: c.categoryName,
+      totalUnits: c.totalUnits,
+      availableUnits: c.availableUnits,
+      minRate: c.rates.length ? Math.min(...c.rates).toFixed(2) : null,
+      maxRate: c.rates.length ? Math.max(...c.rates).toFixed(2) : null,
+    }))
+    .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+
+  return {
+    floorId: floorRow.id,
+    floorName: floorRow.name,
+    floorLevel: floorRow.level,
+    blockName: floorRow.blockName,
+    propertyName: floorRow.propertyName,
+    totalUnits: unitRows.length,
+    availableUnits,
+    reservedUnits,
+    bookedUnits,
+    soldUnits,
+    categories: catList,
+    overallMinRate: allRates.length ? Math.min(...allRates).toFixed(2) : null,
+    overallMaxRate: allRates.length ? Math.max(...allRates).toFixed(2) : null,
+  };
+}
+
+export async function updateFloorRates(input: unknown) {
+  const parsed = updateFloorRatesSchema.parse(input);
+  const session = await requireSession();
+  assertCan(session.user.role, "units.update_rate");
+
+  if (parsed.includeSoldBooked && session.user.role !== "ADMIN") {
+    throw new ValidationError(
+      "Only administrators can update rates on sold or booked units.",
+    );
+  }
+
+  const cleanRate = parsed.newRatePerSqftPkr.replace(/,/g, "").trim();
+
+  const result = await db.transaction(async (tx) => {
+    // 1. Verify floor exists
+    const [floor] = await tx
+      .select({ id: floors.id, name: floors.name, level: floors.level })
+      .from(floors)
+      .where(and(eq(floors.id, parsed.floorId), isNull(floors.archivedAt)))
+      .for("update");
+    if (!floor) {
+      throw new NotFoundError("Floor not found");
+    }
+
+    // 2. Build unit conditions
+    const conditions = [eq(units.floorId, parsed.floorId), isNull(units.archivedAt)];
+    if (parsed.categoryId) {
+      conditions.push(eq(units.categoryId, parsed.categoryId));
+    }
+    if (!parsed.includeSoldBooked) {
+      const statusCondition = or(
+        eq(units.status, "AVAILABLE"),
+        eq(units.status, "RESERVED"),
+      );
+      if (statusCondition) {
+        conditions.push(statusCondition);
+      }
+    }
+
+    // 3. Query matching units
+    const targetUnits = await tx
+      .select({
+        id: units.id,
+        unitCode: units.unitCode,
+        ratePerSqftPkr: units.ratePerSqftPkr,
+        status: units.status,
+        version: units.version,
+      })
+      .from(units)
+      .where(and(...conditions))
+      .for("update");
+
+    if (targetUnits.length === 0) {
+      return {
+        ok: true,
+        updatedCount: 0,
+        floorName: floor.name,
+        message: "No eligible units found on this floor to update.",
+      };
+    }
+
+    // 4. Filter units that actually have a rate change
+    const unitsToChange = targetUnits.filter(
+      (u) => !moneyEquals(u.ratePerSqftPkr, cleanRate),
+    );
+
+    if (unitsToChange.length === 0) {
+      return {
+        ok: true,
+        updatedCount: 0,
+        floorName: floor.name,
+        message: "All selected units already have this rate.",
+      };
+    }
+
+    // 5. Batch insert rateHistory
+    const historyRows = unitsToChange.map((u) => ({
+      unitId: u.id,
+      oldRatePerSqftPkr: u.ratePerSqftPkr,
+      ratePerSqftPkr: cleanRate,
+      reason: parsed.reason,
+      actorId: session.user.id,
+    }));
+    await tx.insert(rateHistory).values(historyRows);
+
+    // 6. Update units
+    const now = new Date();
+    for (const u of unitsToChange) {
+      await tx
+        .update(units)
+        .set({
+          ratePerSqftPkr: cleanRate,
+          version: u.version + 1,
+          updatedAt: now,
+        })
+        .where(eq(units.id, u.id));
+    }
+
+    // 7. Write audit log
+    await writeAudit(tx, {
+      actorId: session.user.id,
+      entity: "floor",
+      entityId: floor.id,
+      action: "UPDATE",
+      before: null,
+      after: {
+        action: "UPDATE_FLOOR_RATES",
+        floorId: floor.id,
+        floorName: floor.name,
+        categoryId: parsed.categoryId ?? null,
+        newRatePerSqftPkr: cleanRate,
+        reason: parsed.reason,
+        unitsUpdatedCount: unitsToChange.length,
+        includeSoldBooked: parsed.includeSoldBooked,
+      },
+    });
+
+    return {
+      ok: true,
+      updatedCount: unitsToChange.length,
+      floorName: floor.name,
+      message: `Successfully updated ${unitsToChange.length} unit${unitsToChange.length === 1 ? "" : "s"} on ${floor.name} to Rs ${cleanRate}/sqft.`,
+    };
+  });
+
+  logger.info(
+    {
+      actorId: session.user.id,
+      floorId: parsed.floorId,
+      updatedCount: result.updatedCount,
+      rate: cleanRate,
+    },
+    "floor rates updated",
+  );
+
+  revalidateTag("structure", "max");
+  revalidateTag("inventory", "max");
+  revalidateTag("dashboard", "max");
+  revalidateTag("report-filters", "max");
+  revalidatePath("/structure");
+  revalidatePath("/inventory");
+
   return result;
 }

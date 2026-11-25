@@ -19,6 +19,11 @@ export default async function StructurePage({
   const data = await getStructureScreenData(params.propertyId, params.blockId);
 
   return (
-    <StructureScreen {...data} canManage={can(session.user.role, "structure.manage")} />
+    <StructureScreen
+      {...data}
+      canManage={can(session.user.role, "structure.manage")}
+      canUpdateRates={can(session.user.role, "units.update_rate")}
+      isAdmin={session.user.role === "ADMIN"}
+    />
   );
 }

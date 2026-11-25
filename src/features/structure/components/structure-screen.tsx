@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  CurrencyDollar,
   DotsThree,
   PencilSimple,
   Plus,
@@ -51,6 +52,7 @@ import {
 } from "../actions";
 import type { ArchiveResult } from "../archive-guard";
 import type { StructureScreenData } from "../queries";
+import { FloorRatesDialog } from "./floor-rates-dialog";
 import { StructurePanel, type StructurePanelState } from "./structure-panel";
 
 function isArchiveResult(value: unknown): value is ArchiveResult {
@@ -62,6 +64,8 @@ function isArchiveResult(value: unknown): value is ArchiveResult {
 
 interface StructureScreenProps extends StructureScreenData {
   canManage: boolean;
+  canUpdateRates?: boolean;
+  isAdmin?: boolean;
 }
 
 function hrefFor(propertyId: string, blockId?: string): Route {
@@ -85,11 +89,14 @@ export function StructureScreen({
   selectedBlock,
   floors,
   canManage,
+  canUpdateRates = false,
+  isAdmin = false,
 }: StructureScreenProps) {
   const router = useRouter();
   const [panel, setPanel] = useState<StructurePanelState | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<ConfirmArchiveState | null>(null);
   const [archivePending, setArchivePending] = useState(false);
+  const [rateFloor, setRateFloor] = useState<{ id: string; name: string } | null>(null);
 
   async function run(task: () => Promise<unknown>, successMsg?: string) {
     try {
@@ -445,7 +452,23 @@ export function StructureScreen({
                                   <DotsThree weight="bold" className="size-3.5" />
                                 </button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuContent align="end" className="w-40">
+                                {canUpdateRates && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setRateFloor({
+                                        id: f.id,
+                                        name: f.name,
+                                      })
+                                    }
+                                  >
+                                    <CurrencyDollar
+                                      weight="light"
+                                      className="mr-2 size-3.5 text-primary"
+                                    />
+                                    Update rates
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                   onClick={() =>
                                     setPanel({
@@ -534,6 +557,19 @@ export function StructureScreen({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Floor Rates Dialog */}
+      <FloorRatesDialog
+        floorId={rateFloor?.id ?? null}
+        floorName={rateFloor?.name}
+        open={Boolean(rateFloor)}
+        onOpenChange={(open) => !open && setRateFloor(null)}
+        onSuccess={() => {
+          setRateFloor(null);
+          router.refresh();
+        }}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }
