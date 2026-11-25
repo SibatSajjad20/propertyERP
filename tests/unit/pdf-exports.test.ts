@@ -127,6 +127,115 @@ describe("New PDF Document Renderers", () => {
     expect(buf.subarray(0, 4).toString()).toBe("%PDF");
   });
 
+  it("renders ClientLedgerPdf with Schedule B installments and cumulative balance due", async () => {
+    const buf = await renderToBuffer(
+      ClientLedgerPdf({
+        data: {
+          client: {
+            id: "client-1",
+            fullName: "Rahim Baz Khan",
+            cnic: "11101-7634417-1",
+            phone: "+92 336 1050888",
+            email: "rahim@example.com",
+            homeAddress: "House 123, Islamabad",
+            postalAddress: "House 123, Islamabad",
+          },
+          nextOfKin: {
+            name: "Baz Khan",
+            relation: "Father",
+            phone: "+92 300 1234567",
+            cnic: "11101-1234567-1",
+            address: "House 123, Islamabad",
+          },
+          units: [
+            {
+              unitId: "unit-1",
+              unitCode: "4F-08",
+              floorName: "4th Floor",
+              amountPkr: "140000.00",
+              relationType: "BOOKED",
+              date: new Date("2026-09-01T00:00:00Z"),
+            },
+          ],
+          selectedUnitDetails: {
+            unitId: "unit-1",
+            unitCode: "4F-08",
+            floorName: "4th Floor",
+            categoryName: "Office",
+            grossAreaSqft: "500",
+            netAreaSqft: "450",
+            bookingNo: "SM-BK-2026-0001",
+            applicationFormNo: "SM-APP-001",
+            plan: "CUSTOM",
+            status: "BOOKED",
+          },
+          financials: {
+            listPrice: "140000.00",
+            discountValue: "0.00",
+            netPrice: "140000.00",
+            downPayment: "50000.00",
+            paidTotal: "90000.00",
+            surchargeAmount: "0.00",
+            govtCharges: "0.00",
+            remainingAmount: "50000.00",
+          },
+          scheduleRows: [
+            {
+              seq: 0,
+              label: "Down Payment",
+              type: "DOWN_PAYMENT",
+              dueDate: new Date("2026-09-01T00:00:00Z"),
+              amountPkr: "50000.00",
+              paidDate: new Date("2026-09-01T00:00:00Z"),
+              paidAmountPkr: "50000.00",
+              receiptNo: "SM-REC-001",
+              surchargePkr: "—",
+              status: "PAID",
+            },
+            {
+              seq: 1,
+              label: "Installment #1 (Sep)",
+              type: "REGULAR",
+              dueDate: new Date("2026-09-20T00:00:00Z"),
+              amountPkr: "50000.00",
+              paidDate: new Date("2026-09-22T00:00:00Z"),
+              paidAmountPkr: "40000.00",
+              receiptNo: "SM-REC-002",
+              surchargePkr: "—",
+              status: "PARTIAL",
+            },
+            {
+              seq: 2,
+              label: "Installment #2 (Oct)",
+              type: "REGULAR",
+              dueDate: new Date("2026-10-20T00:00:00Z"),
+              amountPkr: "40000.00",
+              paidDate: null,
+              paidAmountPkr: null,
+              receiptNo: null,
+              surchargePkr: "—",
+              status: "PENDING",
+            },
+          ],
+          statement: {
+            period: {
+              startDate: "2026-09-01",
+              endDate: "2026-10-31",
+            },
+            openingBalancePkr: "0.00",
+            totalDebitsPkr: "140000.00",
+            totalCreditsPkr: "90000.00",
+            closingBalancePkr: "50000.00",
+            entries: [],
+          },
+        },
+      }),
+    );
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.byteLength).toBeGreaterThan(1000);
+    expect(buf.subarray(0, 4).toString()).toBe("%PDF");
+  });
+
   it("renders ReportPdfDocument buffer without errors", async () => {
     const buf = await renderToBuffer(
       ReportPdfDocument({

@@ -49,6 +49,41 @@ function formatDate(date: Date | string | null | undefined) {
   });
 }
 
+function computeScheduleRowsWithBalance(
+  scheduleRows: NonNullable<ClientLedgerReportData["scheduleRows"]>,
+) {
+  let totalDue = 0;
+  let totalPaid = 0;
+  let runningBal = 0;
+
+  const rows = scheduleRows.map((row) => {
+    const dueAmt = Number(row.amountPkr) || 0;
+    const isPaid = row.status?.toUpperCase() === "PAID";
+    const hasPaidAmt = row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
+    const paidAmt = hasPaidAmt ? Number(row.paidAmountPkr) : isPaid ? dueAmt : 0;
+
+    totalDue += dueAmt;
+    totalPaid += paidAmt;
+    runningBal = Math.max(0, runningBal + (dueAmt - paidAmt));
+
+    return {
+      ...row,
+      dueAmt,
+      paidAmt,
+      hasPaidAmt,
+      isPaid,
+      balanceDue: runningBal,
+    };
+  });
+
+  return {
+    rows,
+    totalDue,
+    totalPaid,
+    totalBalanceDue: Math.max(0, totalDue - totalPaid),
+  };
+}
+
 export function ClientLedgerScreen(props: ClientLedgerScreenProps) {
   return (
     <React.Suspense
@@ -123,6 +158,11 @@ function ClientLedgerScreenInner({
   const selectedUnitDetails = ledgerData?.selectedUnitDetails;
   const financials = ledgerData?.financials;
   const scheduleRows = ledgerData?.scheduleRows || [];
+  const scheduleData = computeScheduleRowsWithBalance(scheduleRows);
+  const rowsWithBalance = scheduleData.rows;
+  const finalTotalDue = scheduleData.totalDue;
+  const finalTotalPaid = scheduleData.totalPaid;
+  const finalTotalBalanceDue = scheduleData.totalBalanceDue;
 
   return (
     <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
@@ -667,7 +707,7 @@ function ClientLedgerScreenInner({
 
               {/* Schedule-B Payment Schedule Table */}
               <div className="card overflow-hidden rounded-[12px]">
-                <div className="flex items-center justify-between border-b border-line bg-subtle/30 px-4 py-3">
+                <div className="flex flex-col items-start justify-between gap-3 border-b border-line bg-subtle/30 px-4 py-3 sm:flex-row sm:items-center">
                   <div>
                     <h4 className="text-[13px] font-semibold text-ink">
                       Installment Details (Payment Schedule - Schedule B)
@@ -679,6 +719,17 @@ function ClientLedgerScreenInner({
                         selectedUnitDetails?.bookingNo ||
                         "—"}
                     </p>
+                  </div>
+                  {/* Total Due Card on top of Table */}
+                  <div className="flex items-center gap-3 self-stretch rounded-[8px] border border-primary/20 bg-primary/5 px-3.5 py-1.5 text-right sm:self-auto">
+                    <div>
+                      <span className="block text-[10px] font-semibold tracking-wider text-primary uppercase">
+                        Total Due Amount
+                      </span>
+                      <span className="font-sans text-[15px] font-bold text-ink tabular-nums">
+                        {formatPkr(finalTotalDue.toFixed(2))}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -693,28 +744,27 @@ function ClientLedgerScreenInner({
                         <th className="px-3 py-2.5 text-right">Due Amount</th>
                         <th className="px-3 py-2.5 text-center">Paid Date</th>
                         <th className="px-3 py-2.5 text-right">Paid Amount</th>
+                        <th className="px-3 py-2.5 text-right">Balance Due</th>
                         <th className="px-3 py-2.5 text-center">Receipt No</th>
                         <th className="px-3 py-2.5 text-right">Surcharge</th>
                         <th className="px-3 py-2.5 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line/60">
-                      {scheduleRows.length === 0 ? (
+                      {rowsWithBalance.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
                             className="px-4 py-6 text-center text-ink-muted"
                           >
                             No installment schedule found for this unit.
                           </td>
                         </tr>
                       ) : (
-                        scheduleRows.map((row) => {
-                          const isPaid = row.status?.toUpperCase() === "PAID";
+                        rowsWithBalance.map((row) => {
+                          const isPaid = row.isPaid;
                           const isOverdue = row.status?.toUpperCase() === "OVERDUE";
-                          const hasPaidAmt =
-                            row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
-                          const paidAmtStr = hasPaidAmt
+                          const paidAmtStr = row.hasPaidAmt
                             ? formatPkr(row.paidAmountPkr!)
                             : isPaid
                               ? formatPkr(row.amountPkr)
@@ -758,6 +808,9 @@ function ClientLedgerScreenInner({
                               <td className="px-3 py-2.5 text-right font-medium text-available tabular-nums">
                                 {paidAmtStr}
                               </td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-primary tabular-nums">
+                                {formatPkr(row.balanceDue.toFixed(2))}
+                              </td>
                               <td className="px-3 py-2.5 text-center font-sans text-[11px] text-primary tabular-nums">
                                 {row.receiptNo || "—"}
                               </td>
@@ -784,8 +837,40 @@ function ClientLedgerScreenInner({
                         })
                       )}
                     </tbody>
+                    <tfoot className="border-t-2 border-line bg-subtle/40 font-semibold text-ink">
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="px-4 py-2.5 text-right font-bold tracking-wider text-ink uppercase"
+                        >
+                          Total
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-ink tabular-nums">
+                          {formatPkr(finalTotalDue.toFixed(2))}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-available tabular-nums">
+                          {formatPkr(finalTotalPaid.toFixed(2))}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-primary tabular-nums">
+                          {formatPkr(finalTotalBalanceDue.toFixed(2))}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2.5 text-right text-ink-muted">—</td>
+                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
+              </div>
+
+              {/* Page Footer */}
+              <div className="mt-2 flex flex-col items-center justify-between gap-2 border-t border-line pt-4 text-[12px] text-ink-muted sm:flex-row print:flex">
+                <span>
+                  Sardar&apos;s Mall • 54-C Iran Road, Block C, near Chandni Chowk,
+                  Rawalpindi
+                </span>
+                <span>Official Statement of Account • Page 1</span>
               </div>
             </>
           )}

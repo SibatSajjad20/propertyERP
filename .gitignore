@@ -32,6 +32,12 @@ graphify-out/*
 /.next/
 /out/
 
+# launch-video
+/launch-video/node_modules/
+/launch-video/out/
+/launch-video/captures/
+/captures/
+
 # production
 /build
 

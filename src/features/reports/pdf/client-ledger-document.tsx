@@ -144,28 +144,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   payColSeq: {
-    width: "4%",
+    width: "3.5%",
     padding: 2.5,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "22%",
+    width: "19%",
     padding: 2.5,
     paddingLeft: 4,
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColDueDate: {
-    width: "9.5%",
+    width: "8.5%",
     padding: 2.5,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColDueAmt: {
-    width: "11%",
+    width: "10.5%",
     padding: 2.5,
     paddingRight: 4,
     textAlign: "right",
@@ -173,14 +173,22 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColPaidDate: {
-    width: "9.5%",
+    width: "8.5%",
     padding: 2.5,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColPaidAmt: {
-    width: "11%",
+    width: "10.5%",
+    padding: 2.5,
+    paddingRight: 4,
+    textAlign: "right",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  payColBalanceDue: {
+    width: "10.5%",
     padding: 2.5,
     paddingRight: 4,
     textAlign: "right",
@@ -188,14 +196,14 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColReceipt: {
-    width: "12.5%",
+    width: "10.5%",
     padding: 2.5,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColSurcharge: {
-    width: "9.5%",
+    width: "8.5%",
     padding: 2.5,
     paddingRight: 4,
     textAlign: "right",
@@ -203,16 +211,69 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColStatus: {
-    width: "11%",
+    width: "10%",
     padding: 2.5,
     textAlign: "center",
+  },
+  payTotalLabelCol: {
+    width: "31%",
+    padding: 2.5,
+    paddingRight: 6,
+    textAlign: "right",
+    fontFamily: "Helvetica-Bold",
+    color: "#1E293B",
+    borderRightWidth: 0.5,
+    borderRightColor: "#CBD5E1",
+  },
+  tableFooterRow: {
+    backgroundColor: "#F8FAFC",
+    borderTopWidth: 1,
+    borderTopColor: "#94A3B8",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.5,
+  },
+  totalDueCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F0F9FF",
+    borderWidth: 0.8,
+    borderColor: "#BAE6FD",
+    borderRadius: 3,
+    paddingVertical: 4.5,
+    paddingHorizontal: 8,
+    marginBottom: 5,
+  },
+  totalDueCardLeft: {
+    flexDirection: "column",
+  },
+  totalDueCardTitle: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#0B558B",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  totalDueCardSub: {
+    fontSize: 6,
+    color: "#64748B",
+    fontFamily: "Helvetica",
+    marginTop: 1,
+  },
+  totalDueCardRight: {
+    alignItems: "flex-end",
+  },
+  totalDueCardValue: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#0B558B",
   },
   bold: {
     fontFamily: "Helvetica-Bold",
   },
   footer: {
     position: "absolute",
-    bottom: 18,
+    bottom: 16,
     left: 36,
     right: 36,
     flexDirection: "row",
@@ -418,11 +479,93 @@ function formatDateTime(date: Date) {
   return `${d} ${t}`;
 }
 
+function computeScheduleRowsWithBalance(
+  scheduleRows: NonNullable<ClientLedgerReportData["scheduleRows"]>,
+) {
+  let totalDue = 0;
+  let totalPaid = 0;
+  let runningBal = 0;
+
+  const rows = scheduleRows.map((row) => {
+    const dueAmt = Number(row.amountPkr) || 0;
+    const isPaid = row.status?.toUpperCase() === "PAID";
+    const hasPaidAmt = row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
+    const paidAmt = hasPaidAmt ? Number(row.paidAmountPkr) : isPaid ? dueAmt : 0;
+
+    totalDue += dueAmt;
+    totalPaid += paidAmt;
+    runningBal = Math.max(0, runningBal + (dueAmt - paidAmt));
+
+    return {
+      ...row,
+      dueAmt,
+      paidAmt,
+      hasPaidAmt,
+      isPaid,
+      balanceDue: runningBal,
+    };
+  });
+
+  return {
+    rows,
+    totalDue,
+    totalPaid,
+    totalBalanceDue: Math.max(0, totalDue - totalPaid),
+  };
+}
+
+function computeFallbackEntriesWithBalance(
+  entries: ClientLedgerReportData["statement"]["entries"],
+) {
+  let totalDue = 0;
+  let totalPaid = 0;
+  let runningBal = 0;
+
+  const rows = entries.map((entry) => {
+    const dueAmt = Number(entry.debitPkr) || 0;
+    const paidAmt = Number(entry.creditPkr) || 0;
+
+    totalDue += dueAmt;
+    totalPaid += paidAmt;
+    runningBal = Math.max(0, runningBal + (dueAmt - paidAmt));
+
+    return {
+      ...entry,
+      dueAmt,
+      paidAmt,
+      balanceDue: runningBal,
+    };
+  });
+
+  return {
+    rows,
+    totalDue,
+    totalPaid,
+    totalBalanceDue: Math.max(0, totalDue - totalPaid),
+  };
+}
+
 export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProps) {
   const isPrint = mode === "print";
   const { client, nextOfKin, selectedUnitDetails, financials, scheduleRows, statement } =
     data;
   const now = new Date();
+
+  // Compute running balance due and totals for Schedule B
+  const scheduleData =
+    scheduleRows && scheduleRows.length > 0
+      ? computeScheduleRowsWithBalance(scheduleRows)
+      : null;
+  const fallbackData = !scheduleData
+    ? computeFallbackEntriesWithBalance(statement.entries)
+    : null;
+
+  const rowsWithBalance = scheduleData?.rows ?? [];
+  const fallbackEntriesWithBalance = fallbackData?.rows ?? [];
+  const finalTotalDue = scheduleData?.totalDue ?? fallbackData?.totalDue ?? 0;
+  const finalTotalPaid = scheduleData?.totalPaid ?? fallbackData?.totalPaid ?? 0;
+  const finalTotalBalanceDue =
+    scheduleData?.totalBalanceDue ?? fallbackData?.totalBalanceDue ?? 0;
 
   const titlePrefix = client.title ? `${client.title} ` : "";
   const clientDisplayName = `${titlePrefix}${client.fullName}`.trim();
@@ -455,6 +598,17 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
             <Text style={styles.statementDate}>Date: {formatDate(now)}</Text>
             <Text style={styles.badgeText}>Form #: {formNoDisplay}</Text>
           </View>
+        </View>
+
+        {/* Page Footer - fixed on all pages */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerAddress}>
+            Sardar&apos;s Mall • 54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
+          </Text>
+          <Text
+            style={styles.footerPageNumber}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
         </View>
 
         {/* Client Details & Nominee Details (side-by-side) */}
@@ -641,6 +795,21 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
           </Text>
         </View>
 
+        {/* Total Due Card on top of Schedule B Table */}
+        <View style={styles.totalDueCard}>
+          <View style={styles.totalDueCardLeft}>
+            <Text style={styles.totalDueCardTitle}>Total Due Amount</Text>
+            <Text style={styles.totalDueCardSub}>
+              Total scheduled payment obligations across all milestones
+            </Text>
+          </View>
+          <View style={styles.totalDueCardRight}>
+            <Text style={styles.totalDueCardValue}>
+              {formatPkr(finalTotalDue.toFixed(2))}
+            </Text>
+          </View>
+        </View>
+
         {/* Schedule B Table */}
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]} wrap={false}>
@@ -662,6 +831,9 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
             <View style={[styles.payColPaidAmt, styles.payHeaderCell]}>
               <Text>Paid Amount</Text>
             </View>
+            <View style={[styles.payColBalanceDue, styles.payHeaderCell]}>
+              <Text>Balance Due</Text>
+            </View>
             <View style={[styles.payColReceipt, styles.payHeaderCell]}>
               <Text>Receipt No</Text>
             </View>
@@ -674,14 +846,11 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
           </View>
 
           {/* Rows */}
-          {scheduleRows && scheduleRows.length > 0
-            ? scheduleRows.map((row) => {
-                const isPaid = row.status?.toUpperCase() === "PAID";
-                const isOverdue = row.status?.toUpperCase() === "OVERDUE";
-                const hasPaidAmt = row.paidAmountPkr && Number(row.paidAmountPkr) > 0;
-                const paidAmtStr = hasPaidAmt
+          {rowsWithBalance && rowsWithBalance.length > 0
+            ? rowsWithBalance.map((row) => {
+                const paidAmtStr = row.hasPaidAmt
                   ? formatPkr(row.paidAmountPkr!)
-                  : isPaid
+                  : row.isPaid
                     ? formatPkr(row.amountPkr)
                     : "—";
                 const paidDateStr = row.paidDate ? formatDate(row.paidDate) : "—";
@@ -719,8 +888,22 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                       <Text>{paidDateStr}</Text>
                     </View>
                     <View style={styles.payColPaidAmt}>
-                      <Text style={hasPaidAmt || isPaid ? styles.bold : undefined}>
+                      <Text
+                        style={row.hasPaidAmt || row.isPaid ? styles.bold : undefined}
+                      >
                         {paidAmtStr}
+                      </Text>
+                    </View>
+                    <View style={styles.payColBalanceDue}>
+                      <Text
+                        style={[
+                          styles.bold,
+                          {
+                            color: row.balanceDue > 0 ? "#0B558B" : "#475569",
+                          },
+                        ]}
+                      >
+                        {formatPkr(row.balanceDue.toFixed(2))}
                       </Text>
                     </View>
                     <View style={styles.payColReceipt}>
@@ -741,7 +924,11 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                         style={[
                           styles.bold,
                           {
-                            color: isPaid ? "#166534" : isOverdue ? "#991B1B" : "#475569",
+                            color: row.isPaid
+                              ? "#166534"
+                              : row.status?.toUpperCase() === "OVERDUE"
+                                ? "#991B1B"
+                                : "#475569",
                           },
                         ]}
                       >
@@ -752,7 +939,7 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                 );
               })
             : /* Fallback to statement entries if scheduleRows is empty */
-              statement.entries.map((entry, idx) => (
+              fallbackEntriesWithBalance.map((entry, idx) => (
                 <View key={idx} style={[styles.tableRow, { fontSize: 6.5 }]} wrap={false}>
                   <View style={styles.payColSeq}>
                     <Text>{idx + 1}</Text>
@@ -772,6 +959,11 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                   <View style={styles.payColPaidAmt}>
                     <Text>{formatPkr(entry.creditPkr)}</Text>
                   </View>
+                  <View style={styles.payColBalanceDue}>
+                    <Text style={styles.bold}>
+                      {formatPkr(entry.balanceDue.toFixed(2))}
+                    </Text>
+                  </View>
                   <View style={styles.payColReceipt}>
                     <Text>{entry.receiptNo || "—"}</Text>
                   </View>
@@ -788,6 +980,40 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                   </View>
                 </View>
               ))}
+
+          {/* Schedule B Table Totals Row */}
+          <View style={[styles.tableRow, styles.tableFooterRow]} wrap={false}>
+            <View style={styles.payTotalLabelCol}>
+              <Text>TOTAL</Text>
+            </View>
+            <View style={styles.payColDueAmt}>
+              <Text style={styles.bold}>{formatPkr(finalTotalDue.toFixed(2))}</Text>
+            </View>
+            <View style={styles.payColPaidDate}>
+              <Text>—</Text>
+            </View>
+            <View style={styles.payColPaidAmt}>
+              <Text style={[styles.bold, { color: "#166534" }]}>
+                {formatPkr(finalTotalPaid.toFixed(2))}
+              </Text>
+            </View>
+            <View style={styles.payColBalanceDue}>
+              <Text style={[styles.bold, { color: "#0B558B" }]}>
+                {formatPkr(finalTotalBalanceDue.toFixed(2))}
+              </Text>
+            </View>
+            <View style={styles.payColReceipt}>
+              <Text>—</Text>
+            </View>
+            <View
+              style={[styles.payColSurcharge, { textAlign: "center", paddingRight: 0 }]}
+            >
+              <Text>—</Text>
+            </View>
+            <View style={styles.payColStatus}>
+              <Text>—</Text>
+            </View>
+          </View>
         </View>
 
         {/* Important Notes — Terms & Conditions */}
@@ -976,17 +1202,6 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
         <Text style={styles.printedByText}>
           Printed By: Administrator || Date: {formatDateTime(now)}
         </Text>
-
-        {/* Page Footer - fixed on all pages */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerAddress}>
-            54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
-          </Text>
-          <Text
-            style={styles.footerPageNumber}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
       </Page>
     </Document>
   );
