@@ -738,7 +738,7 @@ function ClientLedgerScreenInner({
                       <tr>
                         <th className="w-12 px-3 py-2.5 text-center">Sr #</th>
                         <th className="px-4 py-2.5 whitespace-nowrap">
-                          Payment Milestone / Installment
+                          Payment Milestone
                         </th>
                         <th className="px-3 py-2.5 text-center">Due Date</th>
                         <th className="px-3 py-2.5 text-right">Due Amount</th>
@@ -811,7 +811,7 @@ function ClientLedgerScreenInner({
                               <td className="px-3 py-2.5 text-right font-semibold text-primary tabular-nums">
                                 {formatPkr(row.balanceDue.toFixed(2))}
                               </td>
-                              <td className="px-3 py-2.5 text-center font-sans text-[11px] text-primary tabular-nums">
+                              <td className="px-3 py-2.5 text-center font-sans text-[11px] whitespace-nowrap text-primary tabular-nums">
                                 {row.receiptNo || "—"}
                               </td>
                               <td className="px-3 py-2.5 text-right text-sold tabular-nums">

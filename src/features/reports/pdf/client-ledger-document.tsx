@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColItem: {
-    width: "19%",
+    width: "18%",
     padding: 2.5,
     paddingLeft: 4,
     borderRightWidth: 0.5,
@@ -196,14 +196,14 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColReceipt: {
-    width: "10.5%",
-    padding: 2.5,
+    width: "13%",
+    padding: 2,
     textAlign: "center",
     borderRightWidth: 0.5,
     borderRightColor: "#CBD5E1",
   },
   payColSurcharge: {
-    width: "8.5%",
+    width: "7.5%",
     padding: 2.5,
     paddingRight: 4,
     textAlign: "right",
@@ -211,12 +211,12 @@ const styles = StyleSheet.create({
     borderRightColor: "#CBD5E1",
   },
   payColStatus: {
-    width: "10%",
+    width: "9.5%",
     padding: 2.5,
     textAlign: "center",
   },
   payTotalLabelCol: {
-    width: "31%",
+    width: "30%",
     padding: 2.5,
     paddingRight: 6,
     textAlign: "right",
@@ -817,7 +817,7 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
               <Text>Sr #</Text>
             </View>
             <View style={[styles.payColItem, styles.payHeaderCell]}>
-              <Text>Payment Milestone / Installment</Text>
+              <Text>Payment Milestone</Text>
             </View>
             <View style={[styles.payColDueDate, styles.payHeaderCell]}>
               <Text>Due Date</Text>
@@ -907,7 +907,7 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                       </Text>
                     </View>
                     <View style={styles.payColReceipt}>
-                      <Text style={{ fontSize: 6.2 }}>{row.receiptNo || "—"}</Text>
+                      <Text style={{ fontSize: 5.8 }}>{row.receiptNo || "—"}</Text>
                     </View>
                     <View
                       style={[
@@ -965,7 +965,7 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
                     </Text>
                   </View>
                   <View style={styles.payColReceipt}>
-                    <Text>{entry.receiptNo || "—"}</Text>
+                    <Text style={{ fontSize: 5.8 }}>{entry.receiptNo || "—"}</Text>
                   </View>
                   <View
                     style={[
