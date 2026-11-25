@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 16,
+    bottom: 22,
     left: 36,
     right: 36,
     flexDirection: "row",
@@ -281,17 +281,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 0.5,
     borderTopColor: "#CBD5E1",
-    paddingTop: 4,
-    fontSize: 6.8,
+    paddingTop: 5,
+    fontSize: 7.2,
     color: "#64748B",
   },
   footerAddress: {
-    fontSize: 6.8,
+    fontSize: 7.2,
     color: "#475569",
     fontFamily: "Helvetica",
   },
   footerPageNumber: {
-    fontSize: 6.8,
+    fontSize: 7.2,
     color: "#64748B",
     fontFamily: "Helvetica",
   },
@@ -598,17 +598,6 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
             <Text style={styles.statementDate}>Date: {formatDate(now)}</Text>
             <Text style={styles.badgeText}>Form #: {formNoDisplay}</Text>
           </View>
-        </View>
-
-        {/* Page Footer - fixed on all pages */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerAddress}>
-            Sardar&apos;s Mall • 54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
-          </Text>
-          <Text
-            style={styles.footerPageNumber}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
         </View>
 
         {/* Client Details & Nominee Details (side-by-side) */}
@@ -1202,6 +1191,17 @@ export function ClientLedgerPdf({ data, mode = "download" }: ClientLedgerPdfProp
         <Text style={styles.printedByText}>
           Printed By: Administrator || Date: {formatDateTime(now)}
         </Text>
+
+        {/* Page Footer - fixed on all pages */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerAddress}>
+            Sardar&apos;s Mall • 54-C Iran Road, Block C, near Chandni Chowk, Rawalpindi
+          </Text>
+          <Text
+            style={styles.footerPageNumber}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
       </Page>
     </Document>
   );

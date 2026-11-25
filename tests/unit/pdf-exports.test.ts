@@ -192,21 +192,9 @@ describe("New PDF Document Renderers", () => {
               surchargePkr: "—",
               status: "PAID",
             },
-            {
-              seq: 1,
-              label: "Installment #1 (Sep)",
-              type: "REGULAR",
-              dueDate: new Date("2026-09-20T00:00:00Z"),
-              amountPkr: "50000.00",
-              paidDate: new Date("2026-09-22T00:00:00Z"),
-              paidAmountPkr: "40000.00",
-              receiptNo: "SM-REC-002",
-              surchargePkr: "—",
-              status: "PARTIAL",
-            },
-            {
-              seq: 2,
-              label: "Installment #2 (Oct)",
+            ...Array.from({ length: 14 }, (_, i) => ({
+              seq: i + 1,
+              label: `Installment #${i + 1}`,
               type: "REGULAR",
               dueDate: new Date("2026-10-20T00:00:00Z"),
               amountPkr: "40000.00",
@@ -215,7 +203,7 @@ describe("New PDF Document Renderers", () => {
               receiptNo: null,
               surchargePkr: "—",
               status: "PENDING",
-            },
+            })),
           ],
           statement: {
             period: {
