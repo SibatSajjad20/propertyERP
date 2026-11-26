@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { formatPkr, formatPkrCompact } from "@/lib/money";
 import { ReportShell, type ReportStatCard } from "./report-shell";
 import type { FilterOptions, ReservedUnitsReportData } from "../queries";
@@ -69,23 +69,23 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
       }}
       filterOptions={filterOptions}
     >
-      <div className="card overflow-hidden rounded-[12px]">
+      <div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left font-sans text-[12px]">
-            <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+            <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
               <tr>
-                <th className="px-4 py-2.5">Unit</th>
-                <th className="px-3 py-2.5">Floor</th>
-                <th className="px-4 py-2.5">Client</th>
-                <th className="px-3 py-2.5">Phone</th>
-                <th className="px-3 py-2.5 text-right">Token (PKR)</th>
-                <th className="px-3 py-2.5">Reserved On</th>
-                <th className="px-3 py-2.5">Expires At</th>
-                <th className="px-3 py-2.5">Time Left</th>
-                <th className="px-3 py-2.5 text-center">Status</th>
+                <th className="px-4 font-medium">Unit</th>
+                <th className="px-3 font-medium">Floor</th>
+                <th className="px-4 font-medium">Client</th>
+                <th className="px-3 font-medium">Phone</th>
+                <th className="px-3 text-right font-medium">Token (PKR)</th>
+                <th className="px-3 font-medium">Reserved On</th>
+                <th className="px-3 font-medium">Expires At</th>
+                <th className="px-3 font-medium">Time Left</th>
+                <th className="px-3 text-center font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line/60">
+            <tbody className="divide-y divide-[var(--line)]">
               {data.rows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-ink-muted">
@@ -97,59 +97,54 @@ export function ReservedReportScreen({ data, filterOptions }: ReservedReportScre
                   <tr
                     key={row.reservationId}
                     onClick={() => router.push(`/reservations/${row.reservationId}`)}
-                    className="cursor-pointer transition-colors hover:bg-subtle/40"
+                    className="h-[44px] cursor-pointer transition-colors hover:bg-[#F8FAFC]"
                   >
-                    <td className="unit-code px-4 py-2.5 text-[11px] font-medium text-ink">
+                    <td className="unit-code px-4 py-2 text-[12px] font-medium text-primary">
                       {row.unitCode}
                     </td>
-                    <td className="px-3 py-2.5 text-ink-muted">{row.floorName}</td>
-                    <td className="px-4 py-2.5 font-medium text-ink">{row.clientName}</td>
-                    <td className="px-3 py-2.5 font-sans text-ink-muted tabular-nums">
+                    <td className="px-3 py-2 text-ink-muted">{row.floorName}</td>
+                    <td className="px-4 py-2 font-medium text-ink">{row.clientName}</td>
+                    <td className="px-3 py-2 font-sans text-[11px] text-ink-muted tabular-nums">
                       {row.clientPhone}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-medium text-ink tabular-nums">
+                    <td className="px-3 py-2 text-right font-medium text-ink tabular-nums">
                       {formatPkr(row.tokenAmountPkr)}
                     </td>
-                    <td className="px-3 py-2.5 text-ink-muted tabular-nums">
-                      {new Date(row.reservedOn).toISOString().split("T")[0]}
-                    </td>
-                    <td className="px-3 py-2.5 text-ink-muted tabular-nums">
-                      {new Date(row.expiresAt).toLocaleString("en-US", {
+                    <td className="px-3 py-2 text-ink tabular-nums">
+                      {new Date(row.reservedOn).toLocaleDateString("en-GB", {
+                        day: "2-digit",
                         month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
+                        year: "numeric",
                       })}
                     </td>
-                    <td className="px-3 py-2.5">
-                      <span
-                        className={
-                          row.isExpired
-                            ? "font-medium text-sold"
-                            : row.status === "ACTIVE"
-                              ? "font-medium text-primary"
-                              : "text-ink-muted"
-                        }
-                      >
-                        {row.timeLeft}
-                      </span>
+                    <td className="px-3 py-2 text-ink tabular-nums">
+                      {new Date(row.expiresAt).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </td>
-                    <td className="px-3 py-2.5 text-center">
-                      <Badge
+                    <td className="px-3 py-2">
+                      {row.isExpired ? (
+                        <span className="font-semibold text-sold">Expired</span>
+                      ) : (
+                        <span className="text-ink tabular-nums">{row.timeLeft}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <Pill
                         tone={
                           row.status === "ACTIVE"
-                            ? row.isExpired
-                              ? "sold"
-                              : "accent"
+                            ? "available"
                             : row.status === "CONVERTED"
-                              ? "available"
-                              : "muted"
+                              ? "primary"
+                              : row.status === "EXPIRED"
+                                ? "sold"
+                                : "muted"
                         }
                       >
-                        {row.isExpired && row.status === "ACTIVE"
-                          ? "EXPIRED"
-                          : row.status}
-                      </Badge>
+                        {row.status}
+                      </Pill>
                     </td>
                   </tr>
                 ))

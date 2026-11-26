@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Printer, MagnifyingGlass, ArrowClockwise } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import {
   Select,
   SelectContent,
@@ -74,7 +75,6 @@ function ReportTabs({ pathname }: { pathname: string }) {
           { href: "/reports/sold" as Route, label: "Sold" },
           { href: "/reports/booked" as Route, label: "Booked" },
           { href: "/reports/reserved" as Route, label: "Reserved" },
-          { href: "/reports/collections" as Route, label: "Collections" },
           { href: "/reports/installments" as Route, label: "Installments" },
           { href: "/reports/client-ledger" as Route, label: "Client ledger" },
         ] as const
@@ -104,44 +104,27 @@ function ReportTabs({ pathname }: { pathname: string }) {
 function ReportStatCards({ stats }: { stats: ReportStatCard[] }) {
   if (stats.length === 0) return null;
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5 print:grid-cols-4 print:gap-2">
-      {stats.map((stat, idx) => {
-        const toneBorder =
-          stat.tone === "accent"
-            ? "border-l-primary"
-            : stat.tone === "available"
-              ? "border-l-available"
+    <StatStrip columns={stats.length}>
+      {stats.map((stat, idx) => (
+        <StatCell
+          key={idx}
+          label={stat.label}
+          value={stat.value}
+          subLine={stat.subValue}
+          valueClassName={
+            stat.tone === "available"
+              ? "text-available"
               : stat.tone === "sold"
-                ? "border-l-sold"
-                : stat.tone === "primary"
-                  ? "border-l-primary"
-                  : "border-l-line-strong";
-
-        return (
-          <div
-            key={idx}
-            className={cn(
-              "card flex flex-col justify-between rounded-[12px] border-l-4 p-3.5 transition-transform hover:-translate-y-0.5",
-              toneBorder,
-            )}
-          >
-            <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              {stat.label}
-            </span>
-            <div className="mt-1 flex items-baseline justify-between gap-1">
-              <span className="font-sans text-[18px] font-semibold tracking-tight text-ink tabular-nums sm:text-[20px]">
-                {stat.value}
-              </span>
-            </div>
-            {stat.subValue && (
-              <span className="mt-0.5 font-sans text-[11px] text-ink-muted tabular-nums">
-                {stat.subValue}
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
+                ? "text-sold"
+                : stat.tone === "accent"
+                  ? "text-accent"
+                  : stat.tone === "primary"
+                    ? "text-primary"
+                    : undefined
+          }
+        />
+      ))}
+    </StatStrip>
   );
 }
 
@@ -161,7 +144,7 @@ export function ReportShell({
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
+    <div className="flex flex-col gap-5 select-none print:p-0">
       <div className="space-y-4 print:hidden">
         <PageHeader
           title={title}

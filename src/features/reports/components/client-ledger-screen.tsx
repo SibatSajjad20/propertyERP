@@ -16,8 +16,11 @@ import {
   ArrowRight,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList, DefinitionRow } from "@/components/ui/definition-list";
 import { cn } from "@/lib/cn";
 import { formatPkr } from "@/lib/money";
 import { reportPresets, type ReportPreset } from "../schema";
@@ -164,12 +167,15 @@ function ClientLedgerScreenInner({
   const finalTotalPaid = scheduleData.totalPaid;
   const finalTotalBalanceDue = scheduleData.totalBalanceDue;
 
+  const paidPercent =
+    finalTotalDue > 0 ? Math.round((finalTotalPaid / finalTotalDue) * 100) : 0;
+
   return (
-    <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
+    <div className="flex flex-col gap-6 select-none print:p-0">
       {/* Screen Page Header */}
       <div className="space-y-4 print:hidden">
         <PageHeader
-          title="Client Ledger &amp; Statement"
+          title="Client Ledger & Statement"
           description="Customer debtor statement with running balance, allotment details, and Schedule-B payment plan."
           actions={
             ledgerData ? (
@@ -314,104 +320,89 @@ function ClientLedgerScreenInner({
             })}
           </div>
 
-          {/* Client & Next of Kin Card */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Client Info */}
-            <div className="card rounded-[12px] border-l-4 border-l-primary p-4">
-              <div className="flex items-center gap-2">
-                <User weight="light" className="size-4 text-primary" />
-                <h4 className="text-[13px] font-semibold text-ink">Client Credentials</h4>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
-                <div>
-                  <span className="text-ink-muted">Full Name:</span>
-                  <p className="font-medium text-ink">
-                    {ledgerData.client.title ? `${ledgerData.client.title} ` : ""}
-                    {ledgerData.client.fullName}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-ink-muted">So/Do/Wo Name:</span>
-                  <p className="font-medium text-ink">
-                    {ledgerData.client.relationPrefix && ledgerData.client.relationName
-                      ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
-                      : ledgerData.client.relationName || "—"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-ink-muted">CNIC:</span>
-                  <p className="font-sans text-[11px] font-medium text-ink tabular-nums">
-                    {ledgerData.client.cnic}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-ink-muted">Phone:</span>
-                  <p className="font-sans text-ink tabular-nums">
-                    {ledgerData.client.phone}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-ink-muted">Email:</span>
-                  <p className="text-ink">{ledgerData.client.email || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-ink-muted">Present Address:</span>
-                  <p className="truncate text-ink">{ledgerData.client.homeAddress}</p>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-ink-muted">Permanent Address:</span>
-                  <p className="truncate text-ink">
-                    {ledgerData.client.postalAddress || ledgerData.client.homeAddress}
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* 4-Cell StatStrip */}
+          <StatStrip columns={4}>
+            <StatCell
+              label="Total Contract Due"
+              value={formatPkr(finalTotalDue.toFixed(0))}
+              subLine="total scheduled contract amount"
+            />
+            <StatCell
+              label="Total Paid"
+              value={formatPkr(finalTotalPaid.toFixed(0))}
+              subLine={`${paidPercent}% settled`}
+              progress={paidPercent}
+              valueClassName="text-available"
+            />
+            <StatCell
+              label="Remaining Balance"
+              value={formatPkr(finalTotalBalanceDue.toFixed(0))}
+              subLine="outstanding receivable"
+              valueClassName="text-primary"
+            />
+            <StatCell
+              label="Surcharge / Overdue"
+              value={formatPkr(financials?.surchargeAmount || "0.00")}
+              subLine="penalty / late surcharge"
+              valueClassName={
+                financials?.surchargeAmount && Number(financials.surchargeAmount) > 0
+                  ? "text-sold"
+                  : undefined
+              }
+            />
+          </StatStrip>
 
-            {/* Next of Kin Info */}
-            <div className="card rounded-[12px] border-l-4 border-l-primary p-4">
-              <div className="flex items-center gap-2">
-                <UsersThree weight="light" className="size-4 text-primary" />
-                <h4 className="text-[13px] font-semibold text-ink">
-                  Nominee / Next of Kin Details
-                </h4>
-              </div>
+          {/* Client & Next of Kin Panels */}
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+            <Panel title="Client Credentials" hint="Registered primary buyer">
+              <DefinitionList>
+                <DefinitionRow
+                  label="Full Name"
+                  value={`${ledgerData.client.title ? `${ledgerData.client.title} ` : ""}${ledgerData.client.fullName}`}
+                />
+                <DefinitionRow
+                  label="Relation Name"
+                  value={
+                    ledgerData.client.relationPrefix && ledgerData.client.relationName
+                      ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
+                      : ledgerData.client.relationName || "—"
+                  }
+                />
+                <DefinitionRow label="CNIC" value={ledgerData.client.cnic} />
+                <DefinitionRow label="Phone" value={ledgerData.client.phone} />
+                <DefinitionRow label="Email" value={ledgerData.client.email || "—"} />
+                <DefinitionRow
+                  label="Present Address"
+                  value={ledgerData.client.homeAddress}
+                />
+                <DefinitionRow
+                  label="Permanent Address"
+                  value={ledgerData.client.postalAddress || ledgerData.client.homeAddress}
+                />
+              </DefinitionList>
+            </Panel>
+
+            <Panel title="Nominee / Next of Kin Details" hint="Legal successor nominee">
               {ledgerData.nextOfKin ? (
-                <div className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
-                  <div>
-                    <span className="text-ink-muted">Nominee Name:</span>
-                    <p className="font-medium text-ink">{ledgerData.nextOfKin.name}</p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Relation:</span>
-                    <p className="font-medium text-ink">
-                      {ledgerData.nextOfKin.relation}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Nominee CNIC:</span>
-                    <p className="font-sans text-[11px] text-ink tabular-nums">
-                      {ledgerData.nextOfKin.cnic || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Phone:</span>
-                    <p className="font-sans text-ink tabular-nums">
-                      {ledgerData.nextOfKin.phone}
-                    </p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-ink-muted">Address:</span>
-                    <p className="truncate text-ink">
-                      {ledgerData.nextOfKin.address || "—"}
-                    </p>
-                  </div>
-                </div>
+                <DefinitionList>
+                  <DefinitionRow label="Nominee Name" value={ledgerData.nextOfKin.name} />
+                  <DefinitionRow label="Relation" value={ledgerData.nextOfKin.relation} />
+                  <DefinitionRow
+                    label="Nominee CNIC"
+                    value={ledgerData.nextOfKin.cnic || "—"}
+                  />
+                  <DefinitionRow label="Phone" value={ledgerData.nextOfKin.phone} />
+                  <DefinitionRow
+                    label="Address"
+                    value={ledgerData.nextOfKin.address || "—"}
+                  />
+                </DefinitionList>
               ) : (
-                <p className="mt-3 text-[12px] text-ink-muted">
+                <p className="text-[12px] text-ink-muted">
                   No nominee / next of kin recorded for this client.
                 </p>
               )}
-            </div>
+            </Panel>
           </div>
 
           {/* Associated Units Header / Switcher */}
@@ -456,7 +447,7 @@ function ClientLedgerScreenInner({
                       <span className="text-[11px] font-semibold text-ink tabular-nums">
                         {formatPkr(u.amountPkr)}
                       </span>
-                      <Badge
+                      <Pill
                         tone={
                           u.relationType === "SOLD"
                             ? "sold"
@@ -468,7 +459,7 @@ function ClientLedgerScreenInner({
                         }
                       >
                         {u.relationType}
-                      </Badge>
+                      </Pill>
                     </button>
                   );
                 })}
@@ -502,7 +493,7 @@ function ClientLedgerScreenInner({
                       <span className="unit-code text-[14px] font-bold text-ink group-hover:text-primary">
                         {u.unitCode}
                       </span>
-                      <Badge
+                      <Pill
                         tone={
                           u.relationType === "SOLD"
                             ? "sold"
@@ -514,7 +505,7 @@ function ClientLedgerScreenInner({
                         }
                       >
                         {u.relationType}
-                      </Badge>
+                      </Pill>
                     </div>
                     <span className="mt-1 text-[12px] text-ink-muted">
                       {u.floorName} {u.categoryName ? `• ${u.categoryName}` : ""}
@@ -532,181 +523,113 @@ function ClientLedgerScreenInner({
             </div>
           ) : (
             <>
-              {/* File Details & Financial Details Side-by-Side (matching reference image) */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* File Details */}
-                <div className="card overflow-hidden rounded-[12px]">
-                  <div className="flex items-center gap-2 bg-[#1E293B] px-4 py-2.5 text-white">
-                    <FileText weight="light" className="size-4 text-white" />
-                    <h4 className="text-[13px] font-semibold tracking-wide uppercase">
-                      File Details
-                    </h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 p-4 text-[12px]">
-                    <div>
-                      <span className="text-ink-muted">Project Name:</span>
-                      <p className="font-semibold text-ink">Sardar&apos;s Mall</p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Provisional Sector:</span>
-                      <p className="font-semibold text-ink">Commercial</p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Floor / Unit:</span>
-                      <p className="font-semibold text-ink">
-                        {selectedUnitDetails?.floorName} ({selectedUnitDetails?.unitCode})
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Category:</span>
-                      <p className="font-semibold text-ink">
-                        {selectedUnitDetails?.categoryName || "Office / Retail"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Size:</span>
-                      <p className="font-semibold text-ink tabular-nums">
-                        {selectedUnitDetails?.grossAreaSqft &&
+              {/* File Details & Financial Details Side-by-Side */}
+              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+                <Panel title="File Details" hint="Property allotment specifications">
+                  <DefinitionList>
+                    <DefinitionRow label="Project Name" value="Sardar's Mall" />
+                    <DefinitionRow label="Provisional Sector" value="Commercial" />
+                    <DefinitionRow
+                      label="Floor / Unit"
+                      value={`${selectedUnitDetails?.floorName} (${selectedUnitDetails?.unitCode})`}
+                    />
+                    <DefinitionRow
+                      label="Category"
+                      value={selectedUnitDetails?.categoryName || "Office / Retail"}
+                    />
+                    <DefinitionRow
+                      label="Size"
+                      value={
+                        selectedUnitDetails?.grossAreaSqft &&
                         selectedUnitDetails.grossAreaSqft !== "—"
                           ? `${selectedUnitDetails.grossAreaSqft} Sq Ft`
                           : selectedUnitDetails?.netAreaSqft &&
                               selectedUnitDetails.netAreaSqft !== "—"
                             ? `${selectedUnitDetails.netAreaSqft} Sq Ft`
-                            : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Form No:</span>
-                      <p className="font-semibold text-primary tabular-nums">
-                        {selectedUnitDetails?.applicationFormNo ||
-                          selectedUnitDetails?.bookingNo ||
-                          "—"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                            : "—"
+                      }
+                    />
+                    <DefinitionRow
+                      label="Form No"
+                      value={
+                        <span className="font-semibold text-primary">
+                          {selectedUnitDetails?.applicationFormNo ||
+                            selectedUnitDetails?.bookingNo ||
+                            "—"}
+                        </span>
+                      }
+                    />
+                  </DefinitionList>
+                </Panel>
 
-                {/* Financial Details */}
-                <div className="card overflow-hidden rounded-[12px]">
-                  <div className="flex items-center gap-2 bg-[#1E293B] px-4 py-2.5 text-white">
-                    <CurrencyDollar weight="light" className="size-4 text-white" />
-                    <h4 className="text-[13px] font-semibold tracking-wide uppercase">
-                      Financial Details
-                    </h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 p-4 text-[12px]">
-                    <div>
-                      <span className="text-ink-muted">Price:</span>
-                      <p className="font-semibold text-ink tabular-nums">
-                        {formatPkr(
-                          financials?.listPrice || ledgerData.statement.totalDebitsPkr,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Discount:</span>
-                      <p className="font-semibold text-ink tabular-nums">
-                        {financials?.discountValue && Number(financials.discountValue) > 0
+                <Panel title="Financial Details" hint="Price, discount, and receipts">
+                  <DefinitionList>
+                    <DefinitionRow
+                      label="Price"
+                      value={formatPkr(
+                        financials?.listPrice || ledgerData.statement.totalDebitsPkr,
+                      )}
+                    />
+                    <DefinitionRow
+                      label="Discount"
+                      value={
+                        financials?.discountValue && Number(financials.discountValue) > 0
                           ? formatPkr(financials.discountValue)
-                          : "Rs 0"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Net Price:</span>
-                      <p className="font-semibold text-ink tabular-nums">
-                        {formatPkr(
-                          financials?.netPrice || ledgerData.statement.totalDebitsPkr,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Paid Amount:</span>
-                      <p className="font-semibold text-available tabular-nums">
-                        {formatPkr(
-                          financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Surcharge:</span>
-                      <p
-                        className={`font-semibold tabular-nums ${
-                          financials?.surchargeAmount &&
-                          Number(financials.surchargeAmount) > 0
-                            ? "text-sold"
-                            : "text-ink"
-                        }`}
-                      >
-                        {formatPkr(financials?.surchargeAmount || "0.00")}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Govt Charges:</span>
-                      <p className="font-semibold text-ink tabular-nums">
-                        {formatPkr(financials?.govtCharges || "0.00")}
-                      </p>
-                    </div>
-                    <div className="col-span-2 border-t border-line/60 pt-2">
-                      <span className="text-ink-muted">Outstanding Balance:</span>
-                      <p className="font-sans text-[18px] font-bold text-primary tabular-nums">
-                        {formatPkr(
-                          financials?.remainingAmount ||
-                            ledgerData.statement.closingBalancePkr,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Statement Balance Summary */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="card rounded-[12px] border-l-4 border-l-sold p-3.5">
-                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                    Unit Value
-                  </span>
-                  <p className="mt-1 font-sans text-[20px] font-semibold text-sold tabular-nums">
-                    {formatPkr(
-                      financials?.netPrice || ledgerData.statement.totalDebitsPkr,
-                    )}
-                  </p>
-                  <span className="text-[10px] text-ink-muted">
-                    Contract value &amp; amounts due
-                  </span>
-                </div>
-
-                <div className="card rounded-[12px] border-l-4 border-l-available p-3.5">
-                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                    Amount Received
-                  </span>
-                  <p className="mt-1 font-sans text-[20px] font-semibold text-available tabular-nums">
-                    {formatPkr(
-                      financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
-                    )}
-                  </p>
-                  <span className="text-[10px] text-ink-muted">
-                    Payments received to date
-                  </span>
-                </div>
-
-                <div className="card rounded-[12px] border-l-4 border-l-primary p-3.5">
-                  <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                    Outstanding Balance
-                  </span>
-                  <p className="mt-1 font-sans text-[20px] font-semibold text-primary tabular-nums">
-                    {formatPkr(
-                      financials?.remainingAmount ||
-                        ledgerData.statement.closingBalancePkr,
-                    )}
-                  </p>
-                  <span className="text-[10px] text-ink-muted">
-                    Current outstanding amount
-                  </span>
-                </div>
+                          : "Rs 0"
+                      }
+                    />
+                    <DefinitionRow
+                      label="Net Price"
+                      value={formatPkr(
+                        financials?.netPrice || ledgerData.statement.totalDebitsPkr,
+                      )}
+                    />
+                    <DefinitionRow
+                      label="Paid Amount"
+                      value={
+                        <span className="font-semibold text-available">
+                          {formatPkr(
+                            financials?.paidTotal || ledgerData.statement.totalCreditsPkr,
+                          )}
+                        </span>
+                      }
+                    />
+                    <DefinitionRow
+                      label="Surcharge"
+                      value={
+                        <span
+                          className={
+                            financials?.surchargeAmount &&
+                            Number(financials.surchargeAmount) > 0
+                              ? "font-semibold text-sold"
+                              : ""
+                          }
+                        >
+                          {formatPkr(financials?.surchargeAmount || "0.00")}
+                        </span>
+                      }
+                    />
+                    <DefinitionRow
+                      label="Govt Charges"
+                      value={formatPkr(financials?.govtCharges || "0.00")}
+                    />
+                    <DefinitionRow
+                      label="Outstanding Balance"
+                      value={
+                        <span className="font-sans text-[16px] font-bold text-primary">
+                          {formatPkr(
+                            financials?.remainingAmount ||
+                              ledgerData.statement.closingBalancePkr,
+                          )}
+                        </span>
+                      }
+                    />
+                  </DefinitionList>
+                </Panel>
               </div>
 
               {/* Schedule-B Payment Schedule Table */}
-              <div className="card overflow-hidden rounded-[12px]">
+              <div className="overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--surface)]">
                 <div className="flex flex-col items-start justify-between gap-3 border-b border-line bg-subtle/30 px-4 py-3 sm:flex-row sm:items-center">
                   <div>
                     <h4 className="text-[13px] font-semibold text-ink">
@@ -734,23 +657,23 @@ function ClientLedgerScreenInner({
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left font-sans text-[12px]">
-                    <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                    <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
                       <tr>
-                        <th className="w-12 px-3 py-2.5 text-center">Sr #</th>
-                        <th className="px-4 py-2.5 whitespace-nowrap">
+                        <th className="w-12 px-3 text-center font-medium">Sr #</th>
+                        <th className="px-4 font-medium whitespace-nowrap">
                           Payment Milestone
                         </th>
-                        <th className="px-3 py-2.5 text-center">Due Date</th>
-                        <th className="px-3 py-2.5 text-right">Due Amount</th>
-                        <th className="px-3 py-2.5 text-center">Paid Date</th>
-                        <th className="px-3 py-2.5 text-right">Paid Amount</th>
-                        <th className="px-3 py-2.5 text-right">Balance Due</th>
-                        <th className="px-3 py-2.5 text-center">Receipt No</th>
-                        <th className="px-3 py-2.5 text-right">Surcharge</th>
-                        <th className="px-3 py-2.5 text-center">Status</th>
+                        <th className="px-3 text-center font-medium">Due Date</th>
+                        <th className="px-3 text-right font-medium">Due Amount</th>
+                        <th className="px-3 text-center font-medium">Paid Date</th>
+                        <th className="px-3 text-right font-medium">Paid Amount</th>
+                        <th className="px-3 text-right font-medium">Balance Due</th>
+                        <th className="px-3 text-center font-medium">Receipt No</th>
+                        <th className="px-3 text-right font-medium">Surcharge</th>
+                        <th className="px-3 text-center font-medium">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-line/60">
+                    <tbody className="divide-y divide-[var(--line)]">
                       {rowsWithBalance.length === 0 ? (
                         <tr>
                           <td
@@ -784,41 +707,41 @@ function ClientLedgerScreenInner({
                             <tr
                               key={row.seq}
                               className={cn(
-                                "transition-colors hover:bg-subtle/40",
+                                "h-[44px] transition-colors hover:bg-[#F8FAFC]",
                                 row.seq === 0 && "bg-subtle/20 font-medium",
                               )}
                             >
-                              <td className="px-3 py-2.5 text-center font-sans text-ink-muted tabular-nums">
+                              <td className="px-3 py-2 text-center font-sans text-ink-muted tabular-nums">
                                 {row.seq}
                               </td>
-                              <td className="px-4 py-2.5 font-medium whitespace-nowrap text-ink">
+                              <td className="px-4 py-2 font-medium whitespace-nowrap text-ink">
                                 {row.label === "Down Payment / Booking Amount"
                                   ? "Down Payment"
                                   : row.label}
                               </td>
-                              <td className="px-3 py-2.5 text-center text-ink-muted tabular-nums">
+                              <td className="px-3 py-2 text-center text-ink-muted tabular-nums">
                                 {formatDate(row.dueDate)}
                               </td>
-                              <td className="px-3 py-2.5 text-right font-semibold text-ink tabular-nums">
+                              <td className="px-3 py-2 text-right font-semibold text-ink tabular-nums">
                                 {formatPkr(row.amountPkr)}
                               </td>
-                              <td className="px-3 py-2.5 text-center text-ink-muted tabular-nums">
+                              <td className="px-3 py-2 text-center text-ink-muted tabular-nums">
                                 {paidDateStr}
                               </td>
-                              <td className="px-3 py-2.5 text-right font-medium text-available tabular-nums">
+                              <td className="px-3 py-2 text-right font-medium text-available tabular-nums">
                                 {paidAmtStr}
                               </td>
-                              <td className="px-3 py-2.5 text-right font-semibold text-primary tabular-nums">
+                              <td className="px-3 py-2 text-right font-semibold text-primary tabular-nums">
                                 {formatPkr(row.balanceDue.toFixed(2))}
                               </td>
-                              <td className="px-3 py-2.5 text-center font-sans text-[11px] whitespace-nowrap text-primary tabular-nums">
+                              <td className="px-3 py-2 text-center font-sans text-[11px] whitespace-nowrap text-primary tabular-nums">
                                 {row.receiptNo || "—"}
                               </td>
-                              <td className="px-3 py-2.5 text-right text-sold tabular-nums">
+                              <td className="px-3 py-2 text-right text-sold tabular-nums">
                                 {surchargeStr}
                               </td>
-                              <td className="px-3 py-2.5 text-center">
-                                <Badge
+                              <td className="px-3 py-2 text-center">
+                                <Pill
                                   tone={
                                     isPaid
                                       ? "available"
@@ -830,34 +753,34 @@ function ClientLedgerScreenInner({
                                   }
                                 >
                                   {row.status?.toUpperCase() || "PENDING"}
-                                </Badge>
+                                </Pill>
                               </td>
                             </tr>
                           );
                         })
                       )}
                     </tbody>
-                    <tfoot className="border-t-2 border-line bg-subtle/40 font-semibold text-ink">
+                    <tfoot className="h-[44px] border-t-2 border-[var(--line)] bg-[#FAFBFC] font-semibold text-ink">
                       <tr>
                         <td
                           colSpan={3}
-                          className="px-4 py-2.5 text-right font-bold tracking-wider text-ink uppercase"
+                          className="px-4 py-2 text-right font-bold tracking-wider text-ink uppercase"
                         >
                           Total
                         </td>
-                        <td className="px-3 py-2.5 text-right font-bold text-ink tabular-nums">
+                        <td className="px-3 py-2 text-right font-bold text-ink tabular-nums">
                           {formatPkr(finalTotalDue.toFixed(2))}
                         </td>
-                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
-                        <td className="px-3 py-2.5 text-right font-bold text-available tabular-nums">
+                        <td className="px-3 py-2 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2 text-right font-bold text-available tabular-nums">
                           {formatPkr(finalTotalPaid.toFixed(2))}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-bold text-primary tabular-nums">
+                        <td className="px-3 py-2 text-right font-bold text-primary tabular-nums">
                           {formatPkr(finalTotalBalanceDue.toFixed(2))}
                         </td>
-                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
-                        <td className="px-3 py-2.5 text-right text-ink-muted">—</td>
-                        <td className="px-3 py-2.5 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2 text-right text-ink-muted">—</td>
+                        <td className="px-3 py-2 text-center text-ink-muted">—</td>
                       </tr>
                     </tfoot>
                   </table>

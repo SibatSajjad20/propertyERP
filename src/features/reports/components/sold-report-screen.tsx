@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { formatPkr, formatPkrCompact } from "@/lib/money";
 import { ReportShell, type ReportStatCard } from "./report-shell";
 import type { FilterOptions, SoldUnitsReportData } from "../queries";
@@ -52,26 +52,26 @@ export function SoldReportScreen({ data, filterOptions }: SoldReportScreenProps)
       }}
       filterOptions={filterOptions}
     >
-      <div className="card overflow-hidden rounded-[12px]">
+      <div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left font-sans text-[12px]">
-            <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+            <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
               <tr>
-                <th className="px-4 py-2.5">Unit</th>
-                <th className="px-3 py-2.5">Floor</th>
-                <th className="px-3 py-2.5">Category</th>
-                <th className="px-3 py-2.5 text-right">Area (sqft)</th>
-                <th className="px-4 py-2.5">Client</th>
-                <th className="px-3 py-2.5">CNIC</th>
-                <th className="px-3 py-2.5 text-right">List Price</th>
-                <th className="px-3 py-2.5 text-right">Discount</th>
-                <th className="px-4 py-2.5 text-right">Sale Price</th>
-                <th className="px-3 py-2.5">Sold Date</th>
-                <th className="px-3 py-2.5">Source</th>
-                <th className="px-3 py-2.5 text-center">Status</th>
+                <th className="px-4 font-medium">Unit</th>
+                <th className="px-3 font-medium">Floor</th>
+                <th className="px-3 font-medium">Category</th>
+                <th className="px-3 text-right font-medium">Area (sqft)</th>
+                <th className="px-4 font-medium">Client</th>
+                <th className="px-3 font-medium">CNIC</th>
+                <th className="px-3 text-right font-medium">List Price</th>
+                <th className="px-3 text-right font-medium">Discount</th>
+                <th className="px-4 text-right font-medium">Sale Price</th>
+                <th className="px-3 font-medium">Sold Date</th>
+                <th className="px-3 font-medium">Source</th>
+                <th className="px-3 text-center font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line/60">
+            <tbody className="divide-y divide-[var(--line)]">
               {data.rows.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="px-4 py-8 text-center text-ink-muted">
@@ -83,43 +83,41 @@ export function SoldReportScreen({ data, filterOptions }: SoldReportScreenProps)
                   <tr
                     key={row.saleId}
                     onClick={() => router.push(`/sold/${row.saleId}`)}
-                    className="cursor-pointer transition-colors hover:bg-subtle/40"
+                    className="h-[44px] cursor-pointer transition-colors hover:bg-[#F8FAFC]"
                   >
-                    <td className="unit-code px-4 py-2.5 text-[11px] font-medium text-ink">
+                    <td className="unit-code px-4 py-2 text-[12px] font-semibold text-primary">
                       {row.unitCode}
                     </td>
-                    <td className="px-3 py-2.5 text-ink-muted">{row.floorName}</td>
-                    <td className="px-3 py-2.5 text-ink-muted">{row.categoryName}</td>
-                    <td className="px-3 py-2.5 text-right text-ink tabular-nums">
+                    <td className="px-3 py-2 text-ink-muted">{row.floorName}</td>
+                    <td className="px-3 py-2 text-ink-muted">{row.categoryName}</td>
+                    <td className="px-3 py-2 text-right text-ink tabular-nums">
                       {row.netAreaSqft}
                     </td>
-                    <td className="px-4 py-2.5 font-medium text-ink">{row.clientName}</td>
-                    <td className="px-3 py-2.5 font-sans text-[11px] text-ink-muted tabular-nums">
+                    <td className="px-4 py-2 font-medium text-ink">{row.clientName}</td>
+                    <td className="px-3 py-2 font-sans text-[11px] text-ink-muted tabular-nums">
                       {row.clientCnic}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-ink-muted tabular-nums">
+                    <td className="px-3 py-2 text-right text-ink-muted tabular-nums">
                       {formatPkr(row.listPrice)}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-sold tabular-nums">
-                      {row.discount !== "0.00" ? formatPkr(row.discount) : "-"}
+                    <td className="px-3 py-2 text-right text-ink-muted tabular-nums">
+                      {row.discount !== "0.00" ? formatPkr(row.discount) : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
+                    <td className="px-4 py-2 text-right font-semibold text-ink tabular-nums">
                       {formatPkr(row.salePrice)}
                     </td>
-                    <td className="px-3 py-2.5 text-ink-muted tabular-nums">
-                      {new Date(row.soldDate).toISOString().split("T")[0]}
+                    <td className="px-3 py-2 font-sans text-ink tabular-nums">
+                      {new Date(row.soldDate).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex rounded-full bg-subtle px-2 py-0.5 text-[10px] font-medium text-ink">
-                        {row.source}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {row.isBoughtBack ? (
-                        <Badge tone="accent">Bought Back</Badge>
-                      ) : (
-                        <Badge tone="sold">Sold</Badge>
-                      )}
+                    <td className="px-3 py-2 text-[11px] text-ink-muted">{row.source}</td>
+                    <td className="px-3 py-2 text-center">
+                      <Pill tone={row.isBoughtBack ? "muted" : "sold"}>
+                        {row.isBoughtBack ? "Bought Back" : "Sold"}
+                      </Pill>
                     </td>
                   </tr>
                 ))

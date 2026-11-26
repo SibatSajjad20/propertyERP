@@ -1,10 +1,21 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { formatPkr, formatPkrCompact } from "@/lib/money";
-import { CollectionsAreaChart } from "./collections-area-chart";
 import { ReportShell, type ReportStatCard } from "./report-shell";
+import { Panel } from "@/components/ui/panel";
 import type { FilterOptions, SummaryReportData } from "../queries";
+
+const CollectionsAreaChart = dynamic(
+  () => import("./collections-area-chart").then((m) => m.CollectionsAreaChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[240px] w-full animate-pulse rounded-[8px] bg-subtle" />
+    ),
+  },
+);
 
 export interface SummaryReportScreenProps {
   data: SummaryReportData;
@@ -26,6 +37,12 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
       tone: "available",
     },
     {
+      label: "Discounts Given",
+      value: formatPkrCompact(data.periodMetrics.discountsGivenPkr),
+      subValue: `${data.periodMetrics.discountsCount} discounts`,
+      tone: "neutral",
+    },
+    {
       label: "Outstanding",
       value: formatPkrCompact(data.periodMetrics.outstandingReceivablesPkr),
       subValue: "Active booking balance",
@@ -37,13 +54,33 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
       subValue: `${data.periodMetrics.overdueCount} installments overdue`,
       tone: "sold",
     },
-    {
-      label: "Discounts Given",
-      value: formatPkrCompact(data.periodMetrics.discountsGivenPkr),
-      subValue: `${data.periodMetrics.discountsCount} discounts`,
-      tone: "neutral",
-    },
   ];
+
+  // Compute Floor Ledger Summary totals
+  const floorTotals = React.useMemo(() => {
+    let units = 0;
+    let available = 0;
+    let booked = 0;
+    let sold = 0;
+    let totalVal = 0;
+    let soldVal = 0;
+
+    for (const f of data.floorBreakdown) {
+      units += f.totalUnits;
+      available += f.availableCount;
+      booked += f.bookedCount;
+      sold += f.soldCount;
+      totalVal += Number(f.totalValuePkr) || 0;
+      soldVal += Number(f.soldValuePkr) || 0;
+    }
+
+    return { units, available, booked, sold, totalVal, soldVal };
+  }, [data.floorBreakdown]);
+
+  // Compute Category Mix total units
+  const totalCategoryUnits = React.useMemo(() => {
+    return data.categoryBreakdown.reduce((sum, c) => sum + c.totalUnits, 0);
+  }, [data.categoryBreakdown]);
 
   return (
     <ReportShell
@@ -122,19 +159,21 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
         </div>
 
         {/* Collections Chart + Reversals Summary */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
           <div className="card rounded-[12px] p-4 lg:col-span-2">
             <div className="mb-2 flex items-center justify-between">
               <div>
                 <h3 className="text-[14px] font-semibold text-ink">
-                  Monthly Collections Trend
+                  Collections by Month
                 </h3>
                 <p className="text-[11px] text-ink-muted">
                   Gross payment inflow over the past 12 months
                 </p>
               </div>
             </div>
-            <CollectionsAreaChart data={data.monthlyCollections} />
+            <div className="h-[240px] w-full">
+              <CollectionsAreaChart data={data.monthlyCollections} />
+            </div>
           </div>
 
           <div className="card flex flex-col justify-between rounded-[12px] p-4">
@@ -184,8 +223,8 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
           </div>
         </div>
 
-        {/* Floor Breakdown Table */}
-        <div className="card overflow-hidden rounded-[12px]">
+        {/* Floor Breakdown Table with bold total row */}
+        <div className="overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--surface)]">
           <div className="border-b border-line px-4 py-3">
             <h3 className="text-[14px] font-semibold text-ink">Floor Ledger Summary</h3>
             <p className="text-[11px] text-ink-muted">
@@ -194,33 +233,36 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans text-[12px]">
-              <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+              <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
                 <tr>
-                  <th className="px-4 py-2.5">Floor</th>
-                  <th className="px-3 py-2.5">Block</th>
-                  <th className="px-3 py-2.5 text-right">Units</th>
-                  <th className="px-3 py-2.5 text-right">Available</th>
-                  <th className="px-3 py-2.5 text-right">Booked</th>
-                  <th className="px-3 py-2.5 text-right">Sold</th>
-                  <th className="px-4 py-2.5 text-right">Total Unit Value</th>
-                  <th className="px-4 py-2.5 text-right">Total Sold Value</th>
+                  <th className="px-4 font-medium">Floor</th>
+                  <th className="px-3 font-medium">Block</th>
+                  <th className="px-3 text-right font-medium">Units</th>
+                  <th className="px-3 text-right font-medium">Available</th>
+                  <th className="px-3 text-right font-medium">Booked</th>
+                  <th className="px-3 text-right font-medium">Sold</th>
+                  <th className="px-4 text-right font-medium">Total Unit Value</th>
+                  <th className="px-4 text-right font-medium">Total Sold Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line/60">
+              <tbody className="divide-y divide-[var(--line)]">
                 {data.floorBreakdown.map((f) => (
-                  <tr key={f.floorId} className="transition-colors hover:bg-subtle/40">
+                  <tr
+                    key={f.floorId}
+                    className="h-[44px] transition-colors hover:bg-[#F8FAFC]"
+                  >
                     <td className="px-4 py-2 font-medium text-ink">{f.floorName}</td>
                     <td className="px-3 py-2 text-ink-muted">{f.blockName}</td>
                     <td className="px-3 py-2 text-right text-ink tabular-nums">
                       {f.totalUnits}
                     </td>
-                    <td className="px-3 py-2 text-right text-available tabular-nums">
+                    <td className="px-3 py-2 text-right font-medium text-available tabular-nums">
                       {f.availableCount}
                     </td>
-                    <td className="px-3 py-2 text-right text-primary tabular-nums">
+                    <td className="px-3 py-2 text-right font-medium text-primary tabular-nums">
                       {f.bookedCount}
                     </td>
-                    <td className="px-3 py-2 text-right text-sold tabular-nums">
+                    <td className="px-3 py-2 text-right font-medium text-sold tabular-nums">
                       {f.soldCount}
                     </td>
                     <td className="px-4 py-2 text-right font-medium text-ink tabular-nums">
@@ -232,57 +274,65 @@ export function SummaryReportScreen({ data, filterOptions }: SummaryReportScreen
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="h-[44px] border-t-2 border-[var(--line)] bg-[#FAFBFC] font-semibold text-ink">
+                <tr>
+                  <td className="px-4 py-2">Total</td>
+                  <td className="px-3 py-2 text-ink-muted">—</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {floorTotals.units}
+                  </td>
+                  <td className="px-3 py-2 text-right text-available tabular-nums">
+                    {floorTotals.available}
+                  </td>
+                  <td className="px-3 py-2 text-right text-primary tabular-nums">
+                    {floorTotals.booked}
+                  </td>
+                  <td className="px-3 py-2 text-right text-sold tabular-nums">
+                    {floorTotals.sold}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums">
+                    {formatPkrCompact(floorTotals.totalVal.toString())}
+                  </td>
+                  <td className="px-4 py-2 text-right text-sold tabular-nums">
+                    {formatPkrCompact(floorTotals.soldVal.toString())}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
 
-        {/* Category Breakdown Table */}
-        <div className="card overflow-hidden rounded-[12px]">
-          <div className="border-b border-line px-4 py-3">
+        {/* Category Breakdown Horizontal Bars */}
+        <div className="overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--surface)] p-5">
+          <div className="mb-4">
             <h3 className="text-[14px] font-semibold text-ink">Category Mix</h3>
             <p className="text-[11px] text-ink-muted">
               Commercial, retail, food court, and office space utilization
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left font-sans text-[12px]">
-              <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                <tr>
-                  <th className="px-4 py-2.5">Category</th>
-                  <th className="px-3 py-2.5 text-right">Units</th>
-                  <th className="px-3 py-2.5 text-right">Available</th>
-                  <th className="px-3 py-2.5 text-right">Booked</th>
-                  <th className="px-3 py-2.5 text-right">Sold</th>
-                  <th className="px-4 py-2.5 text-right">Total Unit Value</th>
-                  <th className="px-4 py-2.5 text-right">Total Sold Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/60">
-                {data.categoryBreakdown.map((c) => (
-                  <tr key={c.categoryId} className="transition-colors hover:bg-subtle/40">
-                    <td className="px-4 py-2 font-medium text-ink">{c.categoryName}</td>
-                    <td className="px-3 py-2 text-right text-ink tabular-nums">
-                      {c.totalUnits}
-                    </td>
-                    <td className="px-3 py-2 text-right text-available tabular-nums">
-                      {c.availableCount}
-                    </td>
-                    <td className="px-3 py-2 text-right text-primary tabular-nums">
-                      {c.bookedCount}
-                    </td>
-                    <td className="px-3 py-2 text-right text-sold tabular-nums">
-                      {c.soldCount}
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium text-ink tabular-nums">
-                      {formatPkrCompact(c.totalValuePkr)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-semibold text-sold tabular-nums">
-                      {formatPkrCompact(c.soldValuePkr)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {data.categoryBreakdown.map((c) => {
+              const pct =
+                totalCategoryUnits > 0
+                  ? Math.round((c.totalUnits / totalCategoryUnits) * 100)
+                  : 0;
+              return (
+                <div key={c.categoryId} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="font-medium text-ink">{c.categoryName}</span>
+                    <span className="text-muted tabular-nums">
+                      {c.totalUnits} units · {pct}% · {formatPkrCompact(c.totalValuePkr)}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-[4px] bg-[#EDF0F3]">
+                    <div
+                      className="h-full rounded-[4px] bg-primary transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

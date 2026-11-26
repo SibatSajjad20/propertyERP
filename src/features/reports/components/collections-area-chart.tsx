@@ -112,7 +112,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
       >
         <defs>
           <linearGradient id="collections-area-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0B558B" stopOpacity={0.14} />
+            <stop offset="0%" stopColor="#0B558B" stopOpacity={0.08} />
             <stop offset="100%" stopColor="#0B558B" stopOpacity={0} />
           </linearGradient>
         </defs>
@@ -121,7 +121,7 @@ function ChartInner({ data, width, height }: ChartInnerProps) {
           <GridRows
             scale={yScale}
             width={innerWidth}
-            stroke="#EEF1F4"
+            stroke="#EDF0F3"
             strokeOpacity={1}
             strokeDasharray="2,3"
             numTicks={4}

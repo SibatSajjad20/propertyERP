@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DotsThreeVertical, Printer } from "@phosphor-icons/react";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,63 +56,63 @@ function TxTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left text-[12px]">
-        <thead className="border-b border-line bg-subtle/50 text-[11px] font-medium text-ink-muted">
+        <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
           <tr>
-            <th className="px-4 py-2.5">Date</th>
-            <th className="px-4 py-2.5">Receipt #</th>
-            <th className="px-4 py-2.5">Customer</th>
-            <th className="px-4 py-2.5">Unit</th>
-            {showCategory && <th className="px-4 py-2.5">Category</th>}
-            <th className="px-4 py-2.5">Method</th>
-            {showTokenStatus && <th className="px-4 py-2.5">Adjustment</th>}
-            <th className="px-4 py-2.5 text-right">Amount (PKR)</th>
+            <th className="px-4 font-medium">Date</th>
+            <th className="px-4 font-medium">Receipt #</th>
+            <th className="px-4 font-medium">Customer</th>
+            <th className="px-4 font-medium">Unit</th>
+            {showCategory && <th className="px-4 font-medium">Category</th>}
+            <th className="px-4 font-medium">Method</th>
+            {showTokenStatus && <th className="px-4 font-medium">Adjustment</th>}
+            <th className="px-4 text-right font-medium">Amount (PKR)</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line/60">
+        <tbody className="divide-y divide-[var(--line)]">
           {rows.map((r) => (
-            <tr key={r.id} className="hover:bg-subtle/30">
-              <td className="px-4 py-2.5 text-ink tabular-nums">
+            <tr key={r.id} className="h-[44px] transition-colors hover:bg-[#F8FAFC]">
+              <td className="px-4 py-2 text-ink tabular-nums">
                 {new Date(r.date).toLocaleDateString("en-GB", {
                   day: "2-digit",
                   month: "short",
                   year: "numeric",
                 })}
               </td>
-              <td className="px-4 py-2.5 font-sans text-[11px] font-medium text-primary tabular-nums">
+              <td className="px-4 py-2 font-sans text-[11px] font-semibold text-primary tabular-nums">
                 {r.receiptNo || "—"}
               </td>
-              <td className="px-4 py-2.5">
+              <td className="px-4 py-2">
                 <p className="font-medium text-ink">{r.clientName}</p>
                 <p className="font-sans text-[10px] text-ink-muted tabular-nums">
                   {r.clientCnic} · {r.clientPhone}
                 </p>
               </td>
-              <td className="px-4 py-2.5">
+              <td className="px-4 py-2">
                 <span className="unit-code font-medium text-ink">{r.unitCode}</span>
                 <p className="text-[11px] text-ink-muted">
                   {r.floorName} · {r.categoryName}
                 </p>
               </td>
               {showCategory && (
-                <td className="px-4 py-2.5">
-                  <Badge tone="muted" className="text-[10px]">
+                <td className="px-4 py-2">
+                  <Pill tone="muted" className="text-[10px]">
                     {r.categoryLabel || "Collection"}
-                  </Badge>
+                  </Pill>
                 </td>
               )}
-              <td className="px-4 py-2.5 text-ink-muted">
-                {r.method ? r.method.replace("_", " ") : "—"}
+              <td className="px-4 py-2 text-ink-muted capitalize">
+                {r.method ? r.method.toLowerCase().replace("_", " ") : "—"}
               </td>
               {showTokenStatus && (
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-2">
                   {r.adjustedToBooking ? (
-                    <Badge tone="available">Adjusted to Booking</Badge>
+                    <Pill tone="available">Adjusted to Booking</Pill>
                   ) : (
-                    <Badge tone="accent">Held on Reservation</Badge>
+                    <Pill tone="accent">Held on Reservation</Pill>
                   )}
                 </td>
               )}
-              <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
+              <td className="px-4 py-2 text-right font-semibold text-ink tabular-nums">
                 {formatPkr(r.amountPkr)}
               </td>
             </tr>
@@ -256,37 +255,26 @@ export function CollectionsReportScreen({
       </div>
 
       <div className="space-y-4">
-        {/* Interactive Category Cards (Single Clean Non-Duplicating Row) */}
+        {/* Interactive Category Cards */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7 print:grid-cols-4 print:gap-2">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
-            const borderTone =
-              tab.tone === "available"
-                ? "border-l-available"
-                : tab.tone === "accent"
-                  ? "border-l-primary"
-                  : tab.tone === "primary"
-                    ? "border-l-primary"
-                    : tab.tone === "sold"
-                      ? "border-l-sold"
-                      : "border-l-line-strong";
-
             return (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`card flex cursor-pointer flex-col justify-between rounded-[12px] border-l-4 p-3.5 text-left transition-all ${borderTone} ${
+                className={`flex cursor-pointer flex-col justify-between rounded-[10px] border p-3 text-left transition-all ${
                   isActive
-                    ? "border-primary bg-primary-soft/40 shadow-card ring-2 ring-primary ring-offset-1"
-                    : "hover:-translate-y-0.5 hover:border-line-strong"
+                    ? "border-primary bg-primary/5 shadow-xs ring-2 ring-primary/30"
+                    : "border-line bg-surface hover:border-line-strong hover:bg-subtle/40"
                 }`}
               >
                 <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
                   {tab.label}
                 </span>
                 <div className="mt-1.5">
-                  <p className="font-sans text-[18px] font-semibold tracking-tight text-ink tabular-nums sm:text-[20px]">
+                  <p className="font-sans text-[17px] font-semibold tracking-tight text-ink tabular-nums">
                     {formatPkrCompact(tab.total)}
                   </p>
                   <p className="mt-0.5 font-sans text-[10px] text-ink-muted tabular-nums">
@@ -299,7 +287,7 @@ export function CollectionsReportScreen({
         </div>
 
         {/* Active Category Detail Table Card */}
-        <div className="card overflow-hidden rounded-[12px]">
+        <div className="overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--surface)]">
           <div className="flex items-center justify-between border-b border-line bg-subtle/40 px-4 py-3">
             <div>
               <h3 className="text-[14px] font-semibold text-ink">
@@ -351,119 +339,127 @@ export function CollectionsReportScreen({
             </div>
           </div>
 
-          {activeTab === "total" && (
-            <TxTable
-              rows={allCollections}
-              emptyLabel="No collections recorded in this period."
-              showCategory
-            />
-          )}
-          {activeTab === "tokens" && (
-            <TxTable
-              rows={data.tokens}
-              emptyLabel="No reservation token payments recorded in this period."
-              showTokenStatus
-            />
-          )}
-          {activeTab === "downPayments" && (
-            <TxTable
-              rows={data.downPayments}
-              emptyLabel="No down payment transactions recorded in this period."
-            />
-          )}
-          {activeTab === "installments" && (
-            <TxTable
-              rows={data.installments}
-              emptyLabel="No installment collections recorded in this period."
-            />
-          )}
-          {activeTab === "possessions" && (
-            <TxTable
-              rows={data.possessions}
-              emptyLabel="No possession payments recorded in this period."
-            />
-          )}
-          {activeTab === "balloons" && (
-            <TxTable
-              rows={data.balloons}
-              emptyLabel="No annual balloon payments recorded in this period."
-            />
-          )}
-          {activeTab === "surcharges" && (
-            <div className="overflow-x-auto">
-              {data.surcharges.length === 0 ? (
-                <div className="py-12 text-center text-[13px] text-ink-muted">
-                  No overdue surcharges accrued.
-                </div>
-              ) : (
+          <div className="p-0">
+            {activeTab === "total" && (
+              <TxTable
+                rows={allCollections}
+                emptyLabel="No collections recorded in this period."
+                showCategory={true}
+              />
+            )}
+            {activeTab === "tokens" && (
+              <TxTable
+                rows={data.tokens}
+                emptyLabel="No token deposits recorded."
+                showTokenStatus={true}
+              />
+            )}
+            {activeTab === "downPayments" && (
+              <TxTable
+                rows={data.downPayments}
+                emptyLabel="No down payments recorded in this period."
+              />
+            )}
+            {activeTab === "installments" && (
+              <TxTable
+                rows={data.installments}
+                emptyLabel="No installment receipts recorded in this period."
+              />
+            )}
+            {activeTab === "possessions" && (
+              <TxTable
+                rows={data.possessions}
+                emptyLabel="No possession receipts recorded."
+              />
+            )}
+            {activeTab === "balloons" && (
+              <TxTable rows={data.balloons} emptyLabel="No balloon payments recorded." />
+            )}
+            {activeTab === "surcharges" && (
+              <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-[12px]">
-                  <thead className="border-b border-line bg-subtle/50 text-[11px] font-medium text-ink-muted">
+                  <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
                     <tr>
-                      <th className="px-4 py-2.5">Customer</th>
-                      <th className="px-4 py-2.5">Unit / Booking</th>
-                      <th className="px-4 py-2.5">Installment</th>
-                      <th className="px-4 py-2.5 text-right">Days &gt; 30d</th>
-                      <th className="px-4 py-2.5 text-right">Accrued</th>
-                      <th className="px-4 py-2.5 text-right">Waived</th>
-                      <th className="px-4 py-2.5 text-right">Paid</th>
-                      <th className="px-4 py-2.5 text-right">Net Due</th>
+                      <th className="px-4 font-medium">Customer</th>
+                      <th className="px-4 font-medium">Unit</th>
+                      <th className="px-4 text-center font-medium">Inst #</th>
+                      <th className="px-4 font-medium">Due Date</th>
+                      <th className="px-4 text-right font-medium">Overdue Days</th>
+                      <th className="px-4 text-right font-medium">Calculated</th>
+                      <th className="px-4 text-right font-medium">Waived</th>
+                      <th className="px-4 text-right font-medium">Net Surcharge</th>
+                      <th className="px-4 text-center font-medium">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line/60">
-                    {data.surcharges.map((row) => (
-                      <tr key={row.installmentId} className="hover:bg-subtle/30">
-                        <td className="px-4 py-2.5">
-                          <p className="font-medium text-ink">{row.clientName}</p>
-                          <p className="font-sans text-[10px] text-ink-muted tabular-nums">
-                            {row.clientCnic}
-                          </p>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Link
-                            href={`/bookings/${row.bookingId}` as never}
-                            className="unit-code font-medium text-primary hover:underline"
-                          >
-                            {row.unitCode}
-                          </Link>
-                          <p className="text-[11px] text-ink-muted">{row.bookingNo}</p>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <p className="text-ink">{row.installmentLabel}</p>
-                          <p className="text-[10px] text-ink-muted tabular-nums">
-                            Due{" "}
-                            {new Date(row.dueDate).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </p>
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
-                          {row.chargeableDays}d
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
-                          {formatPkr(row.rawAccruedPkr)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-ink-muted tabular-nums">
-                          {formatPkr(row.waivedPkr)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-available tabular-nums">
-                          {formatPkr(row.paidPkr)}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-sold tabular-nums">
-                          {row.isExemptOrWaived ? (
-                            <Badge tone="muted">Waived</Badge>
-                          ) : (
-                            formatPkr(row.netDuePkr)
-                          )}
+                  <tbody className="divide-y divide-[var(--line)]">
+                    {data.surcharges.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="py-12 text-center text-[13px] text-ink-muted"
+                        >
+                          No outstanding surcharges found for this period.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      data.surcharges.map((s) => {
+                        const isPaid = Number(s.paidPkr) > 0 && Number(s.netDuePkr) <= 0;
+                        const isWaived = s.isExemptOrWaived;
+                        return (
+                          <tr
+                            key={s.installmentId}
+                            className="h-[44px] transition-colors hover:bg-[#F8FAFC]"
+                          >
+                            <td className="px-4 py-2">
+                              <p className="font-medium text-ink">{s.clientName}</p>
+                              <p className="font-sans text-[10px] text-ink-muted tabular-nums">
+                                {s.clientCnic}
+                              </p>
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className="unit-code font-medium text-ink">
+                                {s.unitCode}
+                              </span>
+                              <p className="text-[11px] text-ink-muted">{s.floorName}</p>
+                            </td>
+                            <td className="px-4 py-2 text-center font-sans text-ink-muted tabular-nums">
+                              {s.installmentLabel}
+                            </td>
+                            <td className="px-4 py-2 text-ink tabular-nums">
+                              {new Date(s.dueDate).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-sold tabular-nums">
+                              {s.chargeableDays}d
+                            </td>
+                            <td className="px-4 py-2 text-right text-ink tabular-nums">
+                              {formatPkr(s.rawAccruedPkr)}
+                            </td>
+                            <td className="px-4 py-2 text-right text-available tabular-nums">
+                              {s.waivedPkr !== "0.00" ? formatPkr(s.waivedPkr) : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-right font-bold text-sold tabular-nums">
+                              {formatPkr(s.netDuePkr)}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <Pill
+                                tone={isPaid ? "available" : isWaived ? "muted" : "sold"}
+                              >
+                                {isPaid ? "Paid" : isWaived ? "Waived" : "Outstanding"}
+                              </Pill>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </ReportShell>
