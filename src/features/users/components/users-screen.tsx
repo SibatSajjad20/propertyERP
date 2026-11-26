@@ -4,10 +4,19 @@ import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { DotsThree, Plus } from "@phosphor-icons/react";
-import { Badge } from "@/components/ui/badge";
+import {
+  DotsThree,
+  MagnifyingGlass,
+  Plus,
+  ShieldCheck,
+  UserCheck,
+  Users as UsersIcon,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { Panel } from "@/components/ui/panel";
+import { Pill, StatusDot } from "@/components/ui/badge";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   Dialog,
   DialogContent,
@@ -79,11 +88,11 @@ function roleLabel(role: string) {
 function roleBadge(role: string) {
   switch (role) {
     case "ADMIN":
-      return <Badge tone="primary">{roleLabel(role)}</Badge>;
+      return <Pill tone="blue">{roleLabel(role)}</Pill>;
     case "INVENTORY_MANAGER":
-      return <Badge tone="accent">{roleLabel(role)}</Badge>;
+      return <Pill tone="neutral">{roleLabel(role)}</Pill>;
     default:
-      return <Badge tone="muted">{roleLabel(role)}</Badge>;
+      return <Pill tone="muted">{roleLabel(role)}</Pill>;
   }
 }
 
@@ -99,6 +108,8 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
   const [pending, setPending] = useState(false);
   const [roleValue, setRoleValue] = useState<UserRole>("SALES");
   const [createRole, setCreateRole] = useState<UserRole>("SALES");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
 
   const createForm = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
@@ -116,6 +127,31 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
   });
 
   const activeCount = useMemo(() => users.filter((row) => !row.disabled).length, [users]);
+  const adminCount = useMemo(
+    () => users.filter((row) => row.role === "ADMIN").length,
+    [users],
+  );
+  const inventoryCount = useMemo(
+    () => users.filter((row) => row.role === "INVENTORY_MANAGER").length,
+    [users],
+  );
+  const salesCount = useMemo(
+    () => users.filter((row) => row.role === "SALES").length,
+    [users],
+  );
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      if (roleFilter !== "ALL" && user.role !== roleFilter) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = user.name.toLowerCase().includes(query);
+        const emailMatch = user.email.toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch) return false;
+      }
+      return true;
+    });
+  }, [users, roleFilter, searchQuery]);
 
   function closeDialog() {
     setDialog(null);
@@ -143,7 +179,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         description="Staff accounts, roles, and sign-in status."
         actions={
           <div className="flex items-center gap-2">
-            <span className="rounded-[6px] bg-primary-soft px-2 py-0.5 font-sans text-[12px] font-medium text-primary tabular-nums">
+            <span className="rounded-[6px] bg-primary-soft px-2.5 py-1 font-sans text-[12px] font-medium text-primary tabular-nums">
               {activeCount} active
             </span>
             <Button variant="secondary" size="md" asChild>
@@ -153,6 +189,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
               type="button"
               variant="primary"
               size="md"
+              leftIcon={<Plus weight="regular" className="size-4" />}
               onClick={() => {
                 createForm.reset({
                   name: "",
@@ -164,100 +201,218 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                 setDialog({ type: "create" });
               }}
             >
-              <Plus weight="light" className="mr-1.5 size-4" />
               New user
             </Button>
           </div>
         }
       />
 
-      <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr className="h-9 border-b border-line-strong bg-subtle/40 text-left text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              <th className="px-4">Name</th>
-              <th className="px-4">Email</th>
-              <th className="px-4">Role</th>
-              <th className="px-4">Status</th>
-              <th className="px-4 text-right">Last login</th>
-              <th className="w-12 px-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {users.map((row) => {
-              const isSelf = row.id === currentUserId;
-              return (
-                <tr
-                  key={row.id}
-                  className="group h-12 transition-colors hover:bg-subtle/50"
-                >
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong bg-subtle text-[12px] font-semibold text-primary">
-                        {getInitials(row.name)}
-                      </div>
-                      <span className="truncate font-medium text-ink">{row.name}</span>
-                    </div>
-                  </td>
-                  <td className="truncate px-4 py-2 font-sans text-[12px] text-ink-muted">
-                    {row.email}
-                  </td>
-                  <td className="px-4 py-2">{roleBadge(row.role)}</td>
-                  <td className="px-4 py-2">
-                    {row.disabled ? (
-                      <Badge tone="sold">Disabled</Badge>
-                    ) : (
-                      <Badge tone="available">Active</Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right font-sans text-[12px] text-ink-muted tabular-nums">
-                    {row.lastLoginAt ? formatKarachiDateTime(row.lastLoginAt) : "Never"}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${row.name}`}
-                          className="flex size-8 items-center justify-center rounded-[8px] text-ink-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-                        >
-                          <DotsThree weight="bold" className="size-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem
-                          disabled={isSelf}
-                          onClick={() => {
-                            setRoleValue(row.role);
-                            setDialog({ type: "role", user: row });
-                          }}
-                        >
-                          Edit role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={isSelf}
-                          onClick={() => setDialog({ type: "disable", user: row })}
-                        >
-                          {row.disabled ? "Enable" : "Disable"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            resetForm.reset({ temporaryPassword: "" });
-                            setDialog({ type: "reset", user: row });
-                          }}
-                        >
-                          Reset password
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left column (8 cols): Users Table & Filter Toolbar */}
+        <div className="space-y-4 lg:col-span-8">
+          {/* Toolbar */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-xs">
+              <MagnifyingGlass
+                weight="regular"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                placeholder="Search name or email…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 text-[13px]"
+              />
+            </div>
+
+            <SegmentedControl
+              value={roleFilter}
+              onValueChange={setRoleFilter}
+              options={[
+                { value: "ALL", label: `All (${users.length})` },
+                { value: "ADMIN", label: `Admin (${adminCount})` },
+                { value: "INVENTORY_MANAGER", label: `Inventory (${inventoryCount})` },
+                { value: "SALES", label: `Sales (${salesCount})` },
+              ]}
+              size="sm"
+            />
+          </div>
+
+          {/* Table */}
+          <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-left text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+                  <th className="px-4">Name</th>
+                  <th className="px-4">Role</th>
+                  <th className="px-4">Status</th>
+                  <th className="px-4 text-right">Last login</th>
+                  <th className="w-12 px-2" />
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="h-32 text-center text-[13px] text-ink-muted"
+                    >
+                      No users match your filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((row) => {
+                    const isSelf = row.id === currentUserId;
+                    return (
+                      <tr
+                        key={row.id}
+                        className="group h-[44px] transition-colors hover:bg-subtle/50"
+                      >
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line-strong bg-subtle text-[11px] font-semibold text-primary">
+                              {getInitials(row.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block truncate font-medium text-ink">
+                                {row.name}
+                                {isSelf && (
+                                  <span className="ml-1.5 rounded bg-subtle px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">
+                                    You
+                                  </span>
+                                )}
+                              </span>
+                              <span className="block truncate font-sans text-[12px] text-ink-muted">
+                                {row.email}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {roleBadge(row.role)}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {row.disabled ? (
+                            <Pill tone="bad">
+                              <StatusDot status="SOLD">Disabled</StatusDot>
+                            </Pill>
+                          ) : (
+                            <Pill tone="ok">
+                              <StatusDot status="AVAILABLE">Active</StatusDot>
+                            </Pill>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right font-sans text-[12px] whitespace-nowrap text-ink-muted tabular-nums">
+                          {row.lastLoginAt
+                            ? formatKarachiDateTime(row.lastLoginAt)
+                            : "Never"}
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={`Actions for ${row.name}`}
+                                className="flex size-7 items-center justify-center rounded-[6px] text-ink-muted transition-colors hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                              >
+                                <DotsThree weight="bold" className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem
+                                disabled={isSelf}
+                                onClick={() => {
+                                  setRoleValue(row.role);
+                                  setDialog({ type: "role", user: row });
+                                }}
+                              >
+                                Edit role
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={isSelf}
+                                onClick={() => setDialog({ type: "disable", user: row })}
+                              >
+                                {row.disabled ? "Enable" : "Disable"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  resetForm.reset({ temporaryPassword: "" });
+                                  setDialog({ type: "reset", user: row });
+                                }}
+                              >
+                                Reset password
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right column (4 cols): Roles & Access Explainer */}
+        <div className="space-y-4 lg:col-span-4">
+          <Panel title="Roles & Access" hint="System permission scopes for team members">
+            <div className="divide-y divide-line">
+              <div className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck weight="regular" className="size-4 text-primary" />
+                    <span className="font-semibold text-ink">Administrator</span>
+                  </div>
+                  <span className="rounded bg-primary-soft px-2 py-0.5 font-sans text-[11px] font-medium text-primary tabular-nums">
+                    {adminCount} {adminCount === 1 ? "user" : "users"}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+                  Full system access. Manage staff accounts, system settings, financial
+                  adjustments, discounts, and approvals.
+                </p>
+              </div>
+
+              <div className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UsersIcon weight="regular" className="size-4 text-ink-muted" />
+                    <span className="font-semibold text-ink">Inventory Manager</span>
+                  </div>
+                  <span className="rounded bg-subtle px-2 py-0.5 font-sans text-[11px] font-medium text-ink-muted tabular-nums">
+                    {inventoryCount} {inventoryCount === 1 ? "user" : "users"}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+                  Unit catalog management, floor rate configurations, data imports,
+                  structure updates, and inventory summaries.
+                </p>
+              </div>
+
+              <div className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCheck weight="regular" className="size-4 text-ok" />
+                    <span className="font-semibold text-ink">Sales</span>
+                  </div>
+                  <span className="rounded bg-ok-soft px-2 py-0.5 font-sans text-[11px] font-medium text-ok tabular-nums">
+                    {salesCount} {salesCount === 1 ? "user" : "users"}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+                  Daily sales operations. Search inventory, create reservations and
+                  bookings, record installments, and issue receipts.
+                </p>
+              </div>
+            </div>
+          </Panel>
+        </div>
       </div>
 
+      {/* Create User Dialog */}
       <Dialog
         open={dialog?.type === "create"}
         onOpenChange={(open) => !open && closeDialog()}
@@ -342,6 +497,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Role Dialog */}
       <Dialog
         open={dialog?.type === "role"}
         onOpenChange={(open) => !open && closeDialog()}
@@ -350,7 +506,9 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
           <DialogHeader>
             <DialogTitle>Edit role</DialogTitle>
             <DialogDescription>
-              {dialog?.type === "role" ? `Change access for ${dialog.user.name}.` : null}
+              {dialog?.type === "role"
+                ? `Change access level for ${dialog.user.name}.`
+                : null}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -393,6 +551,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Disable/Enable Dialog */}
       <Dialog
         open={dialog?.type === "disable"}
         onOpenChange={(open) => !open && closeDialog()}
@@ -435,6 +594,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Reset Password Dialog */}
       <Dialog
         open={dialog?.type === "reset"}
         onOpenChange={(open) => !open && closeDialog()}
