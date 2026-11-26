@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, withTransientDbRetry } from "@/db";
 import { auditLog } from "@/db/schema/audit";
 import { user } from "@/db/schema/auth";
@@ -8,6 +8,7 @@ import { blocks, categories, floors, properties } from "@/db/schema/property";
 import {
   bookings,
   buybacks,
+  clients,
   installments,
   payments,
   refunds,
@@ -413,6 +414,62 @@ export async function getSalesOverTime(filter?: {
   });
 }
 
+export async function getCollectionsOverTime(): Promise<SalesOverTimePoint[]> {
+  const rows = await db
+    .select({
+      month: sql<string>`to_char(date_trunc('month', ${payments.paidAt}), 'YYYY-MM')`,
+      count: sql<number>`count(${payments.id})::int`,
+      volumePkr: sql<string>`coalesce(sum(${payments.amount}), 0)::text`,
+    })
+    .from(payments)
+    .where(
+      and(
+        eq(payments.isVoided, false),
+        gte(payments.paidAt, sql`now() - interval '12 months'`),
+      ),
+    )
+    .groupBy(sql`date_trunc('month', ${payments.paidAt})`)
+    .orderBy(sql`date_trunc('month', ${payments.paidAt}) asc`);
+
+  const last12 = getLast12Months();
+  const rowMap = new Map(rows.map((r) => [r.month, r]));
+
+  return last12.map(({ month, label }) => {
+    const r = rowMap.get(month);
+    return {
+      month,
+      label,
+      count: r ? Number(r.count) : 0,
+      volumePkr: r?.volumePkr ?? "0",
+    };
+  });
+}
+
+export interface RecentBookingItem {
+  id: string;
+  bookingNo: string;
+  clientName: string;
+  unitCode: string;
+  netPrice: string;
+  paidTotal: string;
+  paidPercent: number;
+  createdAt: Date;
+}
+
+export interface DashboardInstallmentItem {
+  id: string;
+  bookingId: string;
+  bookingNo: string;
+  seq: number;
+  dueDate: Date;
+  amount: string;
+  paidAmount: string;
+  balancePkr: string;
+  unitCode: string;
+  clientName: string;
+  daysLate: number;
+}
+
 export interface DashboardNeedsAttention {
   overdueCount: number;
   overduePkr: string;
@@ -427,6 +484,14 @@ export interface DashboardBundle {
   floors: FloorLedgerRow[];
   blocks: BlockBreakdownRow[];
   salesOverTime: SalesOverTimePoint[];
+  collectionsByMonth: SalesOverTimePoint[];
+  receivablePkr: string;
+  activeBookingsCount: number;
+  monthCollectedPkr: string;
+  lastMonthCollectedPkr: string;
+  recentBookings: RecentBookingItem[];
+  overdueInstallments: DashboardInstallmentItem[];
+  dueNext7DaysInstallments: DashboardInstallmentItem[];
 }
 
 const dashboardBundleCache = new Map<
@@ -463,9 +528,85 @@ export async function getDashboardBundle(filter?: {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     ).toISOString();
 
-    const [floorsData, salesOverTime, sumsRows] = await Promise.all([
+    const [
+      floorsData,
+      salesOverTime,
+      collectionsByMonth,
+      recentBookingRows,
+      overdueInstallmentRows,
+      dueNext7DaysRows,
+      sumsRows,
+    ] = await Promise.all([
       getFloorsLedger(filter),
       getSalesOverTime(filter),
+      getCollectionsOverTime(),
+      db
+        .select({
+          id: bookings.id,
+          bookingNo: bookings.bookingNo,
+          clientName: clients.fullName,
+          unitCode: units.unitCode,
+          netPrice: bookings.netPrice,
+          paidTotal: bookings.paidTotal,
+          createdAt: bookings.createdAt,
+        })
+        .from(bookings)
+        .innerJoin(units, eq(bookings.unitId, units.id))
+        .innerJoin(clients, eq(bookings.clientId, clients.id))
+        .where(eq(bookings.status, "ACTIVE"))
+        .orderBy(desc(bookings.createdAt))
+        .limit(5),
+      db
+        .select({
+          id: installments.id,
+          bookingId: bookings.id,
+          bookingNo: bookings.bookingNo,
+          seq: installments.seq,
+          dueDate: installments.dueDate,
+          amount: installments.amount,
+          paidAmount: installments.paidAmount,
+          unitCode: units.unitCode,
+          clientName: clients.fullName,
+        })
+        .from(installments)
+        .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+        .innerJoin(units, eq(bookings.unitId, units.id))
+        .innerJoin(clients, eq(bookings.clientId, clients.id))
+        .where(
+          and(
+            eq(bookings.status, "ACTIVE"),
+            sql`${installments.paidAmount} < ${installments.amount}`,
+            sql`${installments.dueDate} < now()`,
+          ),
+        )
+        .orderBy(asc(installments.dueDate), asc(installments.seq))
+        .limit(5),
+      db
+        .select({
+          id: installments.id,
+          bookingId: bookings.id,
+          bookingNo: bookings.bookingNo,
+          seq: installments.seq,
+          dueDate: installments.dueDate,
+          amount: installments.amount,
+          paidAmount: installments.paidAmount,
+          unitCode: units.unitCode,
+          clientName: clients.fullName,
+        })
+        .from(installments)
+        .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+        .innerJoin(units, eq(bookings.unitId, units.id))
+        .innerJoin(clients, eq(bookings.clientId, clients.id))
+        .where(
+          and(
+            eq(bookings.status, "ACTIVE"),
+            sql`${installments.paidAmount} < ${installments.amount}`,
+            sql`${installments.dueDate} >= now()`,
+            sql`${installments.dueDate} <= now() + interval '7 days'`,
+          ),
+        )
+        .orderBy(asc(installments.dueDate), asc(installments.seq))
+        .limit(5),
       db.execute(sql`
         select
           (select coalesce(sum(${payments.amount}), 0)::text from ${payments}) as payments_total,
@@ -478,7 +619,11 @@ export async function getDashboardBundle(filter?: {
           (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_pkr,
           (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_count,
           (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_pkr,
-          (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count
+          (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count,
+          (select coalesce(sum(${bookings.netPrice} - ${bookings.paidTotal}), 0)::text from ${bookings} where ${bookings.status} = 'ACTIVE') as receivable_pkr,
+          (select count(*)::int from ${bookings} where ${bookings.status} = 'ACTIVE') as active_bookings_count,
+          (select coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${payments}) as month_collected_pkr,
+          (select coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= date_trunc('month', ${startOfMonth}::timestamptz - interval '1 month') and ${payments.paidAt} < ${startOfMonth}::timestamptz), 0)::text from ${payments}) as last_month_collected_pkr
       `),
     ]);
 
@@ -496,6 +641,10 @@ export async function getDashboardBundle(filter?: {
       due_this_week_count: Number(sumsRow.due_this_week_count ?? 0),
       due_this_week_pkr: String(sumsRow.due_this_week_pkr ?? "0"),
       expiring_reservations_count: Number(sumsRow.expiring_reservations_count ?? 0),
+      receivable_pkr: String(sumsRow.receivable_pkr ?? "0"),
+      active_bookings_count: Number(sumsRow.active_bookings_count ?? 0),
+      month_collected_pkr: String(sumsRow.month_collected_pkr ?? "0"),
+      last_month_collected_pkr: String(sumsRow.last_month_collected_pkr ?? "0"),
     };
 
     let totalUnits = 0;
@@ -625,6 +774,52 @@ export async function getDashboardBundle(filter?: {
       expiringReservationsCount: Number(sums?.expiring_reservations_count ?? 0),
     };
 
+    const recentBookings: RecentBookingItem[] = recentBookingRows.map((r) => {
+      const netPaisa = parseDecimal(r.netPrice);
+      const paidPaisa = parseDecimal(r.paidTotal);
+      const percent = netPaisa > 0n ? Number((paidPaisa * 100n) / netPaisa) : 0;
+      return {
+        id: r.id,
+        bookingNo: r.bookingNo,
+        clientName: r.clientName,
+        unitCode: r.unitCode,
+        netPrice: r.netPrice,
+        paidTotal: r.paidTotal,
+        paidPercent: Math.round(percent),
+        createdAt: r.createdAt,
+      };
+    });
+
+    const formatInst = (
+      r: (typeof overdueInstallmentRows)[number],
+    ): DashboardInstallmentItem => {
+      const amtPaisa = parseDecimal(r.amount);
+      const paidPaisa = parseDecimal(r.paidAmount);
+      const balPaisa = amtPaisa - paidPaisa;
+      const daysLate = Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(r.dueDate).getTime()) / (1000 * 60 * 60 * 24),
+        ),
+      );
+      return {
+        id: r.id,
+        bookingId: r.bookingId,
+        bookingNo: r.bookingNo,
+        seq: r.seq,
+        dueDate: r.dueDate,
+        amount: r.amount,
+        paidAmount: r.paidAmount,
+        balancePkr: formatDecimal(balPaisa),
+        unitCode: r.unitCode,
+        clientName: r.clientName,
+        daysLate,
+      };
+    };
+
+    const overdueInstallments = overdueInstallmentRows.map(formatInst);
+    const dueNext7DaysInstallments = dueNext7DaysRows.map(formatInst);
+
     const durationMs = Math.round(performance.now() - t0);
     logger.info({ durationMs, filter }, "server timing: dashboard bundle");
 
@@ -634,6 +829,14 @@ export async function getDashboardBundle(filter?: {
       floors: floorsData,
       blocks: blocksData,
       salesOverTime,
+      collectionsByMonth,
+      receivablePkr: sums.receivable_pkr,
+      activeBookingsCount: sums.active_bookings_count,
+      monthCollectedPkr: sums.month_collected_pkr,
+      lastMonthCollectedPkr: sums.last_month_collected_pkr,
+      recentBookings,
+      overdueInstallments,
+      dueNext7DaysInstallments,
     };
 
     dashboardBundleCache.set(cacheKey, {

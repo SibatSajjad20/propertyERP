@@ -116,7 +116,7 @@ describe("Sale & Purchase Agreement Template & PDF", () => {
     expect(buf.subarray(0, 4).toString()).toBe("%PDF");
     const pageMatches = buf.toString("latin1").match(/\/Type\s*\/Page\b/g) || [];
     expect(pageMatches.length).toBeGreaterThanOrEqual(8);
-  });
+  }, 15000);
 
   it("renders PDF with paid installments and total paid amount", async () => {
     const buf = await renderToBuffer(

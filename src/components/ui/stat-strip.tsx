@@ -3,11 +3,15 @@ import { cn } from "@/lib/cn";
 
 export interface StatStripProps {
   children: React.ReactNode;
-  columns?: number;
+  columns?: number | string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function StatStrip({ children, columns = 4, className }: StatStripProps) {
+export function StatStrip({ children, columns = 4, className, style }: StatStripProps) {
+  const gridTemplate =
+    typeof columns === "string" ? columns : `repeat(${columns}, minmax(0, 1fr))`;
+
   return (
     <div
       className={cn(
@@ -15,7 +19,8 @@ export function StatStrip({ children, columns = 4, className }: StatStripProps) 
         className,
       )}
       style={{
-        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+        gridTemplateColumns: gridTemplate,
+        ...style,
       }}
     >
       {children}

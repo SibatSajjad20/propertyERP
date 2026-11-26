@@ -1,27 +1,41 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowRight, Plus } from "@phosphor-icons/react";
+import { Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { StatCard } from "@/components/ui/stat-card";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { ActivityList, type ActivityItem } from "@/components/ui/activity-list";
+import { PageHeader } from "@/components/page-header";
 import type { UserRole } from "@/db/schema/enums";
-import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
+import { formatPkrCompact } from "@/lib/money";
 import type {
   BlockBreakdownRow,
   DashboardFilterOptions,
+  DashboardInstallmentItem,
   DashboardNeedsAttention,
   DashboardStats,
   FloorLedgerRow,
   RecentActivityItem,
+  RecentBookingItem,
   SalesOverTimePoint,
 } from "../queries";
-import { PageHeader } from "@/components/page-header";
 import { DashboardFilters } from "./dashboard-filters";
-import { FloorStack } from "./floor-stack";
-import { InventoryMixDonut } from "./inventory-mix-donut";
-import { SalesOverTimeChart } from "./sales-over-time-chart";
+import { FloorAvailabilityPanel } from "./floor-availability-panel";
+import { DashboardInstallmentsPanel } from "./dashboard-installments-panel";
+import { DashboardRecentBookingsPanel } from "./dashboard-recent-bookings-panel";
+import { CollectionsChartSkeleton } from "./collections-chart";
 import { useDashboardQuery } from "../hooks/use-dashboard-query";
+
+const DynamicCollectionsChart = dynamic(
+  () => import("./collections-chart").then((mod) => mod.CollectionsChart),
+  {
+    loading: () => <CollectionsChartSkeleton />,
+    ssr: false,
+  },
+);
 
 function formatRelativeTime(date: Date): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -34,32 +48,29 @@ function formatRelativeTime(date: Date): string {
   return `${days}d ago`;
 }
 
-function humanAction(action: string): {
-  label: string;
-  tone: "primary" | "available" | "sold" | "muted";
-} {
+function humanAction(action: string): { label: string } {
   switch (action) {
     case "UNIT_CREATED":
     case "CREATE":
-      return { label: "created", tone: "primary" };
+      return { label: "created" };
     case "UNIT_UPDATED":
     case "UPDATE":
-      return { label: "updated", tone: "muted" };
+      return { label: "updated" };
     case "STATUS_CHANGED":
     case "STATUS_CHANGE":
-      return { label: "changed status of", tone: "primary" };
+      return { label: "changed status of" };
     case "SOLD":
     case "SALE":
-      return { label: "sold", tone: "sold" };
+      return { label: "sold" };
     case "REVERSED":
     case "REVERSE_SALE":
-      return { label: "reversed sale of", tone: "available" };
+      return { label: "reversed sale of" };
     case "FLOOR_CREATED":
-      return { label: "added floor", tone: "primary" };
+      return { label: "added floor" };
     case "DELETE":
-      return { label: "deleted", tone: "sold" };
+      return { label: "deleted" };
     default:
-      return { label: action.replaceAll("_", " ").toLowerCase(), tone: "muted" };
+      return { label: action.replaceAll("_", " ").toLowerCase() };
   }
 }
 
@@ -69,12 +80,21 @@ export interface DashboardScreenProps {
   floors: FloorLedgerRow[];
   blocks: BlockBreakdownRow[];
   salesOverTime: SalesOverTimePoint[];
+  collectionsByMonth: SalesOverTimePoint[];
+  receivablePkr: string;
+  activeBookingsCount: number;
+  monthCollectedPkr: string;
+  lastMonthCollectedPkr: string;
+  recentBookings: RecentBookingItem[];
+  overdueInstallments: DashboardInstallmentItem[];
+  dueNext7DaysInstallments: DashboardInstallmentItem[];
   activities: RecentActivityItem[];
   filterOptions: DashboardFilterOptions;
   selectedPropertyId?: string;
   selectedBlockId?: string;
   role: UserRole;
   canManage: boolean;
+  canCreateBooking?: boolean;
 }
 
 export function DashboardScreen({
@@ -83,12 +103,20 @@ export function DashboardScreen({
   floors: initialFloors,
   blocks: initialBlocks,
   salesOverTime: initialSalesOverTime,
+  collectionsByMonth: initialCollectionsByMonth,
+  receivablePkr: initialReceivablePkr,
+  activeBookingsCount: initialActiveBookingsCount,
+  monthCollectedPkr: initialMonthCollectedPkr,
+  lastMonthCollectedPkr: initialLastMonthCollectedPkr,
+  recentBookings: initialRecentBookings,
+  overdueInstallments: initialOverdueInstallments,
+  dueNext7DaysInstallments: initialDueNext7DaysInstallments,
   activities: initialActivities,
   filterOptions: initialFilterOptions,
   selectedPropertyId,
   selectedBlockId,
   role,
-  canManage,
+  canCreateBooking = false,
 }: DashboardScreenProps) {
   const canSeeAudit = role !== "SALES";
 
@@ -106,6 +134,14 @@ export function DashboardScreen({
     floors: initialFloors,
     blocks: initialBlocks,
     salesOverTime: initialSalesOverTime,
+    collectionsByMonth: initialCollectionsByMonth,
+    receivablePkr: initialReceivablePkr,
+    activeBookingsCount: initialActiveBookingsCount,
+    monthCollectedPkr: initialMonthCollectedPkr,
+    lastMonthCollectedPkr: initialLastMonthCollectedPkr,
+    recentBookings: initialRecentBookings,
+    overdueInstallments: initialOverdueInstallments,
+    dueNext7DaysInstallments: initialDueNext7DaysInstallments,
     activities: initialActivities,
     filterOptions: initialFilterOptions,
   });
@@ -121,295 +157,237 @@ export function DashboardScreen({
     };
   const floors = dashboardData?.floors ?? initialFloors;
   const salesOverTime = dashboardData?.salesOverTime ?? initialSalesOverTime;
-  const activities = (dashboardData?.activities ?? initialActivities).slice(0, 8);
+  const collectionsByMonth =
+    dashboardData?.collectionsByMonth ?? initialCollectionsByMonth;
+  const receivablePkr = dashboardData?.receivablePkr ?? initialReceivablePkr;
+  const activeBookingsCount =
+    dashboardData?.activeBookingsCount ?? initialActiveBookingsCount;
+  const monthCollectedPkr = dashboardData?.monthCollectedPkr ?? initialMonthCollectedPkr;
+  const lastMonthCollectedPkr =
+    dashboardData?.lastMonthCollectedPkr ?? initialLastMonthCollectedPkr;
+  const recentBookings = dashboardData?.recentBookings ?? initialRecentBookings;
+  const overdueInstallments =
+    dashboardData?.overdueInstallments ?? initialOverdueInstallments;
+  const dueNext7DaysInstallments =
+    dashboardData?.dueNext7DaysInstallments ?? initialDueNext7DaysInstallments;
+  const activities = (dashboardData?.activities ?? initialActivities).slice(0, 5);
   const filterOptions = dashboardData?.filterOptions ?? initialFilterOptions;
+
+  // Format today's date in Asia/Karachi
+  const todayFormatted = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Karachi",
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date());
+    } catch {
+      return new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    }
+  }, []);
+
+  // Filter scope string
+  const filterScope = React.useMemo(() => {
+    if (selectedBlockId) {
+      const block = filterOptions.blocks.find((b) => b.id === selectedBlockId);
+      if (block) return `${block.name} · All floors`;
+    }
+    if (selectedPropertyId) {
+      const prop = filterOptions.properties.find((p) => p.id === selectedPropertyId);
+      if (prop) return `${prop.name} · All floors`;
+    }
+    return "All blocks · All floors";
+  }, [selectedBlockId, selectedPropertyId, filterOptions]);
+
+  // Delta calculation for Collected this month
+  const monthCollected = Number(monthCollectedPkr) || 0;
+  const lastMonthCollected = Number(lastMonthCollectedPkr) || 0;
+  const hasLastMonthData = lastMonthCollected > 0;
+  const deltaPct = hasLastMonthData
+    ? Math.round(((monthCollected - lastMonthCollected) / lastMonthCollected) * 100)
+    : null;
+
+  // Month names for sub-line
+  const lastMonthName = React.useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toLocaleString("en-US", { month: "short" });
+  }, []);
+
+  // Activity list items
+  const activityItems: ActivityItem[] = React.useMemo(() => {
+    return activities.map((act) => {
+      const info = humanAction(act.action);
+      return {
+        id: act.id,
+        title: (
+          <span>
+            <span className="font-medium text-ink">{act.actorName}</span>{" "}
+            <span className="text-muted">{info.label}</span>{" "}
+            <span className="font-sans font-medium text-primary">{act.targetName}</span>
+          </span>
+        ),
+        time: formatRelativeTime(act.createdAt),
+      };
+    });
+  }, [activities]);
+
+  const bookedPlusSold = stats.booked + stats.sold;
+  const totalUnits = stats.total || 1;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Commercial inventory, real-time asking value, and floor-level absorption."
+        meta={[todayFormatted, filterScope]}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <DashboardFilters
               options={filterOptions}
               selectedPropertyId={selectedPropertyId}
               selectedBlockId={selectedBlockId}
             />
-            <Button variant="secondary" size="md" asChild>
-              <Link href="/structure">View structure</Link>
-            </Button>
-            {canManage && (
+            {canCreateBooking && (
               <Button variant="primary" size="md" asChild>
-                <Link href="/units/new">
+                <Link href="/bookings/new">
                   <Plus weight="light" className="size-4" />
-                  New unit
+                  <span>New booking</span>
                 </Link>
               </Button>
             )}
-          </>
+          </div>
         }
       />
 
-      {/* Row 1: 6 Stat Cards (dots match status colours, count-up animation, Lac/Cr) */}
-      <div className="grid auto-rows-fr grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <StatCard
-          label="Available"
-          value={stats.available}
-          indicator="available"
-          caption={formatPkrCompact(stats.availableValuePkr)}
-          captionTooltip={`${stats.available} available (${formatPkrLedger(stats.availableValuePkr)})`}
+      {/* Row 1: StatStrip, 5 cells */}
+      <StatStrip columns="1.15fr 1.2fr 1fr 1fr 1fr" className="mb-0">
+        {/* 1. Collected this month */}
+        <StatCell
+          label="Collected this month"
+          value={formatPkrCompact(monthCollectedPkr)}
+          prefixRs
+          rightLabel={
+            deltaPct !== null ? (
+              <span
+                className={`text-[11.5px] font-semibold tabular-nums ${
+                  deltaPct >= 0 ? "text-good" : "text-muted"
+                }`}
+              >
+                {deltaPct >= 0 ? `+${deltaPct}%` : `${deltaPct}%`}
+              </span>
+            ) : undefined
+          }
+          subLine={
+            hasLastMonthData
+              ? `Rs ${formatPkrCompact(lastMonthCollectedPkr)} in ${lastMonthName}`
+              : undefined
+          }
         />
-        <StatCard
-          label="Reserved"
-          value={stats.reserved}
-          indicator="reserved"
-          caption={formatPkrCompact(stats.reservedValuePkr)}
-          captionTooltip={`${stats.reserved} reserved (${formatPkrLedger(stats.reservedValuePkr)})`}
+
+        {/* 2. Booked & sold */}
+        <StatCell
+          label="Booked & sold"
+          value={`${bookedPlusSold}`}
+          suffix={`of ${stats.total}`}
+          subLine={`${stats.total > 0 ? Math.round((bookedPlusSold / stats.total) * 100) : 0}% of units`}
+          progress={[
+            {
+              percent: (stats.sold / totalUnits) * 100,
+              color: "#0B3F66",
+            },
+            {
+              percent: (stats.booked / totalUnits) * 100,
+              color: "#0B558B",
+            },
+            {
+              percent: (stats.reserved / totalUnits) * 100,
+              color: "#7FA6C6",
+            },
+          ]}
         />
-        <StatCard
-          label="Booked"
-          value={stats.booked}
-          indicator="booked"
-          caption={formatPkrCompact(stats.bookedValuePkr)}
-          captionTooltip={`${stats.booked} booked (${formatPkrLedger(stats.bookedValuePkr)})`}
+
+        {/* 3. Receivable */}
+        <StatCell
+          label="Receivable"
+          value={formatPkrCompact(receivablePkr)}
+          prefixRs
+          subLine={`Across ${activeBookingsCount} active bookings`}
         />
-        <StatCard
-          label="Sold"
-          value={stats.sold}
-          indicator="sold"
-          caption={`${stats.soldPercent.toFixed(1)}% (${formatPkrCompact(stats.soldValuePkr)})`}
-          captionTooltip={`${stats.sold} sold (${formatPkrLedger(stats.soldValuePkr)})`}
+
+        {/* 4. Due next 7 days */}
+        <StatCell
+          label="Due next 7 days"
+          value={formatPkrCompact(attention.dueThisWeekPkr)}
+          prefixRs
+          subLine={`${attention.dueThisWeekCount} installments`}
         />
-        <StatCard
-          label="Net collected"
-          value={formatPkrCompact(stats.netCollectedPkr)}
-          caption="net of refunds"
-          captionTooltip={`Collected net of refunds: ${formatPkrLedger(stats.netCollectedPkr)}`}
+
+        {/* 5. Overdue */}
+        <StatCell
+          label="Overdue"
+          value={formatPkrCompact(attention.overduePkr)}
+          prefixRs
+          valueClassName="text-bad"
+          subLine={`${attention.overdueCount} installments`}
         />
-        <StatCard
-          label="Reversals this month"
-          value={formatPkrCompact(stats.monthReversalsPkr)}
-          caption="refunds & buybacks"
-          captionTooltip={`Refunds & buybacks this month: ${formatPkrLedger(stats.monthReversalsPkr)}`}
-        />
+      </StatStrip>
+
+      {/* Row 2: Collections chart (1fr) + Availability by floor (452px) */}
+      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[1fr_452px]">
+        <Panel
+          title="Collections & bookings value"
+          hint="Absorption and cash inflows over 12 months"
+          className="flex flex-col"
+          bodyClassName="p-5 flex-1"
+        >
+          <DynamicCollectionsChart
+            collectionsData={collectionsByMonth}
+            salesData={salesOverTime}
+          />
+        </Panel>
+
+        <FloorAvailabilityPanel floors={floors} />
       </div>
 
-      {/* Row 2: "Needs attention" Cards (Overdue installments, Due this week, Reservations expiring in 48h) */}
-      <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-3">
-        {/* Overdue installments */}
-        <Link
-          href="/reports/installments?quickFilter=overdue"
-          className="card card-interactive group flex flex-col justify-between border-l-4 border-l-sold p-5"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-sold" aria-hidden="true" />
-              <p className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
-                Overdue Installments
-              </p>
-            </div>
-            <ArrowRight
-              weight="light"
-              className="size-3.5 text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-sold"
-            />
-          </div>
-          <div className="mt-3">
-            <span className="text-[26px] leading-none font-bold text-sold tabular-nums sm:text-[28px]">
-              {attention.overdueCount}
-            </span>
-            <p className="mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums">
-              {formatPkrCompact(attention.overduePkr)} past due
-            </p>
-          </div>
-        </Link>
+      {/* Row 3: Installments (1.12fr) + Recent bookings (1fr) + Activity (0.86fr) */}
+      <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-[1.12fr_1fr_0.86fr]">
+        <DashboardInstallmentsPanel
+          overdueInstallments={overdueInstallments}
+          dueNext7DaysInstallments={dueNext7DaysInstallments}
+        />
 
-        {/* Due this week */}
-        <Link
-          href="/reports/installments?quickFilter=due_this_week"
-          className="card card-interactive group flex flex-col justify-between border-l-4 border-l-booked p-5"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-booked" aria-hidden="true" />
-              <p className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
-                Due This Week
-              </p>
-            </div>
-            <ArrowRight
-              weight="light"
-              className="size-3.5 text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
-            />
-          </div>
-          <div className="mt-3">
-            <span className="text-[26px] leading-none font-bold text-primary tabular-nums sm:text-[28px]">
-              {attention.dueThisWeekCount}
-            </span>
-            <p className="mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums">
-              {formatPkrCompact(attention.dueThisWeekPkr)} scheduled next 7d
-            </p>
-          </div>
-        </Link>
+        <DashboardRecentBookingsPanel bookings={recentBookings} />
 
-        {/* Reservations expiring in 48h */}
-        <Link
-          href="/reports/reserved"
-          className="card card-interactive group flex flex-col justify-between border-l-4 border-l-reserved p-5"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-reserved" aria-hidden="true" />
-              <p className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
-                Reservations Expiring in 48h
-              </p>
-            </div>
-            <ArrowRight
-              weight="light"
-              className="size-3.5 text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-reserved"
-            />
-          </div>
-          <div className="mt-3">
-            <span className="text-[26px] leading-none font-bold text-reserved tabular-nums sm:text-[28px]">
-              {attention.expiringReservationsCount}
-            </span>
-            <p className="mt-1 truncate font-sans text-[11px] text-ink-muted tabular-nums">
-              Active holds nearing cutoff
-            </p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Row 3: Sales over time (2/3) + Inventory mix (1/3) with equal card heights */}
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
-        {/* Sales Chart: 8 cols */}
-        <div className="card flex min-h-[340px] flex-col justify-between p-5 lg:col-span-8">
-          <div className="flex items-center justify-between border-b border-line pb-3">
-            <div>
-              <h2 className="text-[14px] font-semibold text-ink">Sales over time</h2>
-              <p className="text-[12px] text-ink-muted">
-                Absorption volume &amp; unit velocity
-              </p>
-            </div>
-            <span className="text-[11px] font-medium text-ink-muted">
-              Monthly PKR volume
-            </span>
-          </div>
-          <div className="mt-4 flex-1">
-            <SalesOverTimeChart data={salesOverTime} />
-          </div>
-        </div>
-
-        {/* Donut: 4 cols */}
-        <div className="card flex min-h-[340px] flex-col justify-between p-5 lg:col-span-4">
-          <div className="border-b border-line pb-3">
-            <h2 className="text-[14px] font-semibold text-ink">Inventory mix</h2>
-            <p className="text-[12px] text-ink-muted">
-              Absorption by commercial book value
-            </p>
-          </div>
-          <div className="mt-4 flex-1">
-            <InventoryMixDonut
-              availableValuePkr={stats.availableValuePkr}
-              reservedValuePkr={stats.reservedValuePkr}
-              bookedValuePkr={stats.bookedValuePkr}
-              soldValuePkr={stats.soldValuePkr}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Floor stack (2/3) + Recent activity (1/3) with equal card heights */}
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
-        {/* Floor Stack: 8 cols */}
-        <div className="card flex min-h-[360px] flex-col justify-between p-5 lg:col-span-8">
-          <div className="flex items-center justify-between border-b border-line pb-3">
-            <div>
-              <h2 className="text-[14px] font-semibold text-ink">Floor stack</h2>
-              <p className="text-[12px] text-ink-muted">
-                Building absorption from top floor to ground
-              </p>
-            </div>
-            <Link
-              href="/inventory"
-              className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:text-accent-bright hover:underline"
-            >
-              Browse all units
-              <ArrowRight
-                weight="light"
-                className="size-3 transition-transform group-hover:translate-x-0.5"
-              />
-            </Link>
-          </div>
-          <div className="mt-4 flex-1">
-            <FloorStack floors={floors} />
-          </div>
-        </div>
-
-        {/* Recent Activity: 4 cols */}
-        <div className="card flex min-h-[360px] flex-col justify-between p-5 lg:col-span-4">
-          <div className="flex items-center justify-between border-b border-line pb-3">
-            <div>
-              <h2 className="text-[14px] font-semibold text-ink">Recent activity</h2>
-              <p className="text-[12px] text-ink-muted">Audit trail events (last 8)</p>
-            </div>
-            {canSeeAudit && (
+        <Panel
+          title="Recent activity"
+          hint="Audit trail events"
+          actions={
+            canSeeAudit ? (
               <Link
                 href="/audit"
-                className="group flex items-center gap-1 text-[12px] font-medium text-primary hover:text-accent-bright hover:underline"
+                className="text-[12.5px] font-medium text-primary transition-colors hover:text-primary-hover"
               >
-                View all
-                <ArrowRight
-                  weight="light"
-                  className="size-3 transition-transform group-hover:translate-x-0.5"
-                />
+                Audit log
               </Link>
-            )}
-          </div>
-
-          <div className="mt-3 flex-1 overflow-y-auto">
-            {canSeeAudit ? (
-              activities.length === 0 ? (
-                <div className="flex h-36 items-center justify-center text-[12px] text-ink-muted">
-                  No activity recorded yet.
-                </div>
-              ) : (
-                <ul className="divide-y divide-line/60">
-                  {activities.map((act) => {
-                    const info = humanAction(act.action);
-                    return (
-                      <li key={act.id} className="py-2.5 first:pt-0 last:pb-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className="truncate font-sans text-[12px] text-ink">
-                            <span className="font-semibold">{act.actorName}</span>{" "}
-                            <span className="text-ink-muted">{info.label}</span>{" "}
-                            <span className="unit-code font-semibold text-primary">
-                              {act.targetName}
-                            </span>
-                          </p>
-                          <span
-                            suppressHydrationWarning
-                            className="shrink-0 text-[10px] text-ink-muted"
-                          >
-                            {formatRelativeTime(act.createdAt)}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )
-            ) : (
-              <div className="flex h-36 flex-col items-center justify-center text-center text-[12px] text-ink-muted">
-                <p>Audit trail is visible to Administrators and Inventory Managers.</p>
-                <div className="mt-4 flex gap-2">
-                  <Button variant="secondary" size="sm" asChild>
-                    <Link href="/inventory">Inventory</Link>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            ) : null
+          }
+          bodyClassName="p-5"
+        >
+          {canSeeAudit ? (
+            <ActivityList items={activityItems} />
+          ) : (
+            <div className="py-8 text-center text-[12.5px] text-muted">
+              Audit trail is visible to Administrators and Inventory Managers.
+            </div>
+          )}
+        </Panel>
       </div>
     </div>
   );

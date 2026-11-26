@@ -6,10 +6,12 @@ import { getDashboardData } from "../actions";
 import type {
   BlockBreakdownRow,
   DashboardFilterOptions,
+  DashboardInstallmentItem,
   DashboardNeedsAttention,
   DashboardStats,
   FloorLedgerRow,
   RecentActivityItem,
+  RecentBookingItem,
   SalesOverTimePoint,
 } from "../queries";
 
@@ -19,6 +21,14 @@ export interface DashboardData {
   floors: FloorLedgerRow[];
   blocks: BlockBreakdownRow[];
   salesOverTime: SalesOverTimePoint[];
+  collectionsByMonth?: SalesOverTimePoint[];
+  receivablePkr?: string;
+  activeBookingsCount?: number;
+  monthCollectedPkr?: string;
+  lastMonthCollectedPkr?: string;
+  recentBookings?: RecentBookingItem[];
+  overdueInstallments?: DashboardInstallmentItem[];
+  dueNext7DaysInstallments?: DashboardInstallmentItem[];
   activities: RecentActivityItem[];
   filterOptions: DashboardFilterOptions;
 }

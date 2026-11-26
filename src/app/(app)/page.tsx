@@ -87,6 +87,14 @@ export default async function DashboardPage({
       floors: [],
       blocks: [],
       salesOverTime: [],
+      collectionsByMonth: [],
+      receivablePkr: "0",
+      activeBookingsCount: 0,
+      monthCollectedPkr: "0",
+      lastMonthCollectedPkr: "0",
+      recentBookings: [],
+      overdueInstallments: [],
+      dueNext7DaysInstallments: [],
     };
   }
 
@@ -97,12 +105,21 @@ export default async function DashboardPage({
       floors={bundle.floors}
       blocks={bundle.blocks}
       salesOverTime={bundle.salesOverTime}
+      collectionsByMonth={bundle.collectionsByMonth}
+      receivablePkr={bundle.receivablePkr}
+      activeBookingsCount={bundle.activeBookingsCount}
+      monthCollectedPkr={bundle.monthCollectedPkr}
+      lastMonthCollectedPkr={bundle.lastMonthCollectedPkr}
+      recentBookings={bundle.recentBookings}
+      overdueInstallments={bundle.overdueInstallments}
+      dueNext7DaysInstallments={bundle.dueNext7DaysInstallments}
       activities={activities}
       filterOptions={filterOptions}
       selectedPropertyId={filter?.propertyId}
       selectedBlockId={filter?.blockId}
       role={session.user.role}
       canManage={can(session.user.role, "units.manage")}
+      canCreateBooking={can(session.user.role, "bookings.create")}
     />
   );
 }
