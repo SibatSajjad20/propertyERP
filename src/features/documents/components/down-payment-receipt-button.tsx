@@ -53,6 +53,7 @@ export function DownPaymentReceiptButton({
       size="md"
       disabled={!hasPayments || signatories.length === 0}
       onClick={() => hasPayments && setOpen(true)}
+      className="h-9 gap-1.5 text-[13px] font-medium"
     >
       <DownloadSimple weight="light" className="size-4" />
       Down payment receipt
@@ -67,7 +68,7 @@ export function DownPaymentReceiptButton({
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex">{trigger}</span>
+              <span className="inline-flex items-center">{trigger}</span>
             </TooltipTrigger>
             <TooltipContent>Record a down payment first</TooltipContent>
           </Tooltip>

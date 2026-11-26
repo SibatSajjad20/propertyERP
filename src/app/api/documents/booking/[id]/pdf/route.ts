@@ -21,7 +21,10 @@ export async function GET(
     const data = await getBookingDetail(id);
     if (!data) return new NextResponse("Not found", { status: 404 });
 
-    const includeAppendix = new URL(request.url).searchParams.get("appendix") !== "0";
+    const url = new URL(request.url);
+    const includeAppendix = url.searchParams.get("appendix") !== "0";
+    const download = url.searchParams.get("download") === "1";
+    const disposition = download ? "attachment" : "inline";
     const downPayment = [...data.payments]
       .filter((p) => !p.isVoided)
       .sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime())[0];
@@ -116,7 +119,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${data.booking.applicationFormNo}-booking-form.pdf"`,
+        "Content-Disposition": `${disposition}; filename="${data.booking.applicationFormNo}-booking-form.pdf"`,
       },
     });
   } catch (error) {

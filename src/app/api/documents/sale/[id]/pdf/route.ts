@@ -21,7 +21,10 @@ export async function GET(
     const data = await getSoldDetail(id);
     if (!data) return new NextResponse("Not found", { status: 404 });
 
-    const includeAppendix = new URL(request.url).searchParams.get("appendix") !== "0";
+    const url = new URL(request.url);
+    const includeAppendix = url.searchParams.get("appendix") !== "0";
+    const download = url.searchParams.get("download") === "1";
+    const disposition = download ? "attachment" : "inline";
 
     if (data.type === "DIRECT_SALE") {
       const sale = data.data;
@@ -83,7 +86,7 @@ export async function GET(
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${sale.applicationFormNo}-sale-form.pdf"`,
+          "Content-Disposition": `${disposition}; filename="${sale.applicationFormNo}-sale-form.pdf"`,
         },
       });
     }
@@ -164,7 +167,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${booking.applicationFormNo}-sale-form.pdf"`,
+        "Content-Disposition": `${disposition}; filename="${booking.applicationFormNo}-sale-form.pdf"`,
       },
     });
   } catch (error) {

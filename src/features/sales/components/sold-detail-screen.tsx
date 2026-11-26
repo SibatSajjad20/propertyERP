@@ -146,7 +146,7 @@ export function SoldDetailScreen({
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="unit-code font-sans tabular-nums text-[18px] font-bold text-sold">
+              <span className="unit-code font-sans text-[18px] font-bold text-sold tabular-nums">
                 {item.unitCode}
               </span>
               <Badge tone={isBoughtBack ? "muted" : "sold"}>
@@ -163,7 +163,6 @@ export function SoldDetailScreen({
           <PdfDownloadBar
             href={`/api/documents/sale/${isDirect ? data.data.id : data.data.booking.id}/pdf`}
             printLabel="Print"
-            onPrint={() => window.print()}
           />
           <DownPaymentReceiptButton
             href={
@@ -180,7 +179,12 @@ export function SoldDetailScreen({
                   )
             }
           />
-          <Button variant="secondary" size="md" asChild className="gap-1.5">
+          <Button
+            variant="secondary"
+            size="md"
+            asChild
+            className="h-9 gap-1.5 text-[13px] font-medium"
+          >
             <Link
               href={
                 (isDirect
@@ -192,12 +196,15 @@ export function SoldDetailScreen({
               Agreement
             </Link>
           </Button>
+
+          <div className="hidden h-5 w-px bg-line sm:block" />
+
           {!isBoughtBack && isAdmin && (
             <Button
               variant="secondary"
               size="md"
               onClick={() => setBuybackOpen(true)}
-              className="gap-1.5 text-primary hover:bg-primary/10"
+              className="h-9 gap-1.5 text-[13px] font-medium text-primary hover:bg-primary/10"
             >
               <ArrowUUpLeft weight="light" className="size-4" />
               Unit Buyback
@@ -236,7 +243,7 @@ export function SoldDetailScreen({
             <h4 className="text-[13px] font-semibold text-ink">Property Unit</h4>
             <Link
               href={`/units/${item.unitId}`}
-              className="unit-code font-sans tabular-nums text-[13px] font-bold text-primary hover:text-accent-bright hover:underline"
+              className="unit-code font-sans text-[13px] font-bold text-primary tabular-nums hover:text-accent-bright hover:underline"
             >
               {formatUnitDisplayCode(item.unitCode, item.categoryName)}
             </Link>
@@ -265,7 +272,7 @@ export function SoldDetailScreen({
         <div className="card space-y-3 p-5">
           <div className="flex items-center justify-between border-b border-line pb-2">
             <h4 className="text-[13px] font-semibold text-ink">Registered Buyer</h4>
-            <span className="font-sans tabular-nums text-[11px] text-ink-muted">
+            <span className="font-sans text-[11px] text-ink-muted tabular-nums">
               {item.clientCnic}
             </span>
           </div>

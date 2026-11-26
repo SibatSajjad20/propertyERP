@@ -54,10 +54,7 @@ import {
 import { DocumentsSection } from "@/features/documents/components/documents-section";
 import { PdfDownloadBar } from "@/features/documents/components/pdf-download-bar";
 import { DownPaymentReceiptButton } from "@/features/documents/components/down-payment-receipt-button";
-import {
-  PrintableReceiptDialog,
-  PrintableBookingFormDialog,
-} from "./printable-documents";
+import { PrintableReceiptDialog } from "./printable-documents";
 
 interface BookingDetailScreenProps {
   data: any;
@@ -76,7 +73,6 @@ export function BookingDetailScreen({
   // Dialog states
   const [recordPaymentOpen, setRecordPaymentOpen] = React.useState(false);
   const [returnBookingOpen, setReturnBookingOpen] = React.useState(false);
-  const [bookingFormOpen, setBookingFormOpen] = React.useState(false);
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null);
 
   // Surcharge Waive / Remove Policy state (ADMIN)
@@ -293,26 +289,32 @@ export function BookingDetailScreen({
           <PdfDownloadBar
             href={`/api/documents/booking/${booking.id}/pdf`}
             printLabel="Print"
-            onPrint={() => setBookingFormOpen(true)}
           />
           <DownPaymentReceiptButton
             href={`/api/documents/booking/${booking.id}/receipt.pdf`}
             signatories={signatories}
             hasPayments={payments.some((p: { isVoided?: boolean }) => !p.isVoided)}
           />
-          <Button variant="secondary" size="md" asChild className="gap-1.5">
+          <Button
+            variant="secondary"
+            size="md"
+            asChild
+            className="h-9 gap-1.5 text-[13px] font-medium"
+          >
             <Link href={`/agreements?bookingId=${booking.id}` as never}>
               <FileText weight="light" className="size-4" />
               Agreement
             </Link>
           </Button>
 
+          <div className="hidden h-5 w-px bg-line sm:block" />
+
           {isActive && (
             <Button
               variant="primary"
               size="md"
               onClick={() => setRecordPaymentOpen(true)}
-              className="gap-1.5"
+              className="h-9 gap-1.5 text-[13px] font-medium"
             >
               <Plus weight="bold" className="size-4" />
               Record Payment
@@ -324,7 +326,7 @@ export function BookingDetailScreen({
               variant="secondary"
               size="md"
               onClick={() => setReturnBookingOpen(true)}
-              className="gap-1.5 text-sold hover:bg-sold/10"
+              className="h-9 gap-1.5 text-[13px] font-medium text-sold hover:border-sold/40 hover:bg-sold/10"
             >
               <ArrowUUpLeft weight="light" className="size-4" />
               Return Booking
@@ -1067,13 +1069,6 @@ export function BookingDetailScreen({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Printable Booking Form Dialog */}
-      <PrintableBookingFormDialog
-        open={bookingFormOpen}
-        onOpenChange={setBookingFormOpen}
-        bookingDetail={data}
-      />
 
       {/* Printable Receipt Dialog */}
       <PrintableReceiptDialog
