@@ -901,3 +901,40 @@ export async function getExportFloorSummaryData(filter?: {
     totalValuePkr: f.totalValuePkr,
   }));
 }
+
+export interface NavCounts {
+  unitsTotal: number;
+  bookingsActive: number;
+  reservationsActive: number;
+  soldTotal: number;
+  installmentsOverdue: number;
+}
+
+export async function getNavCounts(): Promise<NavCounts> {
+  return withTransientDbRetry(async () => {
+    const res = await db.execute<{
+      units_total: number;
+      sold_total: number;
+      active_bookings: number;
+      active_reservations: number;
+      overdue_installments: number;
+    }>(sql`
+      select
+        count(*) filter (where ${units.archivedAt} is null)::int as units_total,
+        count(*) filter (where ${units.archivedAt} is null and ${units.status} = 'SOLD')::int as sold_total,
+        (select count(*)::int from ${bookings} where ${bookings.status} = 'ACTIVE') as active_bookings,
+        (select count(*)::int from ${reservations} where ${reservations.status} = 'ACTIVE') as active_reservations,
+        (select count(*)::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id} where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int as overdue_installments
+      from ${units}
+    `);
+
+    const row = res[0];
+    return {
+      unitsTotal: Number(row?.units_total ?? 0),
+      soldTotal: Number(row?.sold_total ?? 0),
+      bookingsActive: Number(row?.active_bookings ?? 0),
+      reservationsActive: Number(row?.active_reservations ?? 0),
+      installmentsOverdue: Number(row?.overdue_installments ?? 0),
+    };
+  });
+}

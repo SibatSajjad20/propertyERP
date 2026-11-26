@@ -6,21 +6,64 @@ export type AppNavItem = {
   href: Route;
   label: string;
   action: Action;
+  countKey?:
+    | "unitsTotal"
+    | "bookingsActive"
+    | "reservationsActive"
+    | "soldTotal"
+    | "installmentsOverdue";
 };
 
-export const inventoryNav: AppNavItem[] = [
+export type NavGroup = {
+  label: string;
+  items: AppNavItem[];
+};
+
+export const overviewNav: AppNavItem[] = [
   { href: "/" as Route, label: "Dashboard", action: "dashboard.read" },
-  { href: "/inventory" as Route, label: "Inventory", action: "units.read" },
+];
+
+export const inventoryNav: AppNavItem[] = [
+  {
+    href: "/inventory" as Route,
+    label: "Units",
+    action: "units.read",
+    countKey: "unitsTotal",
+  },
   { href: "/structure" as Route, label: "Structure", action: "structure.read" },
   { href: "/import" as Route, label: "Import", action: "units.import" },
 ];
 
 export const salesNav: AppNavItem[] = [
-  { href: "/bookings" as Route, label: "Bookings", action: "bookings.read" },
-  { href: "/reservations" as Route, label: "Reservations", action: "reservations.read" },
-  { href: "/installments" as Route, label: "Installments", action: "installments.read" },
+  {
+    href: "/bookings" as Route,
+    label: "Bookings",
+    action: "bookings.read",
+    countKey: "bookingsActive",
+  },
+  {
+    href: "/reservations" as Route,
+    label: "Reservations",
+    action: "reservations.read",
+    countKey: "reservationsActive",
+  },
+  {
+    href: "/installments" as Route,
+    label: "Installments",
+    action: "installments.read",
+    countKey: "installmentsOverdue",
+  },
   { href: "/agreements" as Route, label: "Agreements", action: "agreements.read" },
-  { href: "/sold" as Route, label: "Sold", action: "sales.read" },
+  { href: "/sold" as Route, label: "Sold", action: "sales.read", countKey: "soldTotal" },
+];
+
+export const insightsNav: AppNavItem[] = [
+  { href: "/reports" as Route, label: "Reports", action: "reports.read" },
+  {
+    href: "/reports/client-ledger" as Route,
+    label: "Client ledger",
+    action: "reports.read",
+  },
 ];
 
 export const reportsNav: AppNavItem[] = [
@@ -33,13 +76,31 @@ export const adminNav: AppNavItem[] = [
   { href: "/audit" as Route, label: "Audit log", action: "audit.read" },
 ];
 
+export const navGroups: NavGroup[] = [
+  { label: "Overview", items: overviewNav },
+  { label: "Inventory", items: inventoryNav },
+  { label: "Sales", items: salesNav },
+  { label: "Insights", items: insightsNav },
+  { label: "Admin", items: adminNav },
+];
+
 export const allNavItems: AppNavItem[] = [
+  ...overviewNav,
   ...inventoryNav,
   ...salesNav,
-  ...reportsNav,
+  ...insightsNav,
   ...adminNav,
 ];
 
 export function visibleNav(role: UserRole, items: AppNavItem[]): AppNavItem[] {
   return items.filter((item) => can(role, item.action));
+}
+
+export function visibleNavGroups(role: UserRole): NavGroup[] {
+  return navGroups
+    .map((group) => ({
+      label: group.label,
+      items: visibleNav(role, group.items),
+    }))
+    .filter((group) => group.items.length > 0);
 }

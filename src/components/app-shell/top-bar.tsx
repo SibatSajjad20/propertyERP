@@ -1,160 +1,132 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { List, MagnifyingGlass, SignOut, UserCircle } from "@phosphor-icons/react";
+import { usePathname } from "next/navigation";
+import { List, MagnifyingGlass, SidebarSimple } from "@phosphor-icons/react";
 import type { UserRole } from "@/db/schema/enums";
 import { CommandMenu } from "./command-menu";
 import { useBreadcrumbOverride } from "./breadcrumb-context";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 
-interface TopBarProps {
+export interface TopBarProps {
   title?: string;
-  userName?: string;
   role: UserRole;
   navLocked?: boolean;
+  collapsed?: boolean;
+  onToggleSidebar?: () => void;
   onOpenNav?: () => void;
 }
 
-function getInitials(name: string): string {
-  if (!name) return "U";
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0];
-  if (!first) return "U";
-  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
-  const last = parts[parts.length - 1];
-  if (!last) return first.slice(0, 2).toUpperCase();
-  return (first[0]! + last[0]!).toUpperCase();
-}
-
-function formatRole(role: string): string {
-  switch (role) {
-    case "ADMIN":
-      return "Administrator";
-    case "INVENTORY_MANAGER":
-      return "Inventory Manager";
-    case "SALES":
-      return "Sales";
-    default:
-      return role.replaceAll("_", " ");
-  }
-}
-
-function getBreadcrumbName(pathname: string): { parent?: string; current: string } {
+function getBreadcrumbSegments(pathname: string): { parents: string[]; current: string } {
   if (
     pathname === "/" ||
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard")
   ) {
-    return { current: "Dashboard" };
+    return { parents: [], current: "Dashboard" };
   }
   if (pathname === "/inventory") {
-    return { current: "Inventory" };
+    return { parents: [], current: "Units" };
   }
   if (pathname.startsWith("/inventory/merges")) {
-    return { parent: "Inventory", current: "Merge Requests" };
+    return { parents: ["Units"], current: "Merge Requests" };
   }
   if (pathname === "/units/new") {
-    return { parent: "Inventory", current: "New Unit" };
+    return { parents: ["Units"], current: "New Unit" };
   }
   if (pathname.includes("/edit")) {
-    return { parent: "Inventory", current: "Edit Unit" };
+    return { parents: ["Units"], current: "Edit Unit" };
   }
   if (pathname.startsWith("/units/")) {
-    return { parent: "Inventory", current: "Unit" };
+    return { parents: ["Units"], current: "Unit" };
   }
   if (pathname === "/structure" || pathname.startsWith("/structure")) {
-    return { current: "Structure" };
+    return { parents: [], current: "Structure" };
   }
   if (pathname === "/import" || pathname.startsWith("/import")) {
-    return { current: "Import" };
+    return { parents: [], current: "Import" };
   }
   if (pathname === "/bookings") {
-    return { parent: "Sales", current: "Bookings" };
+    return { parents: ["Sales"], current: "Bookings" };
   }
   if (pathname.startsWith("/bookings/new")) {
-    return { parent: "Bookings", current: "New Booking" };
+    return { parents: ["Sales", "Bookings"], current: "New Booking" };
   }
   if (pathname.startsWith("/bookings/")) {
-    return { parent: "Sales", current: "Booking Detail" };
+    return { parents: ["Sales", "Bookings"], current: "Booking Detail" };
   }
   if (pathname === "/reservations") {
-    return { parent: "Sales", current: "Reservations" };
+    return { parents: ["Sales"], current: "Reservations" };
   }
   if (pathname.startsWith("/reservations/new")) {
-    return { parent: "Reservations", current: "New Reservation" };
+    return { parents: ["Sales", "Reservations"], current: "New Reservation" };
   }
   if (pathname.startsWith("/reservations/")) {
-    return { parent: "Sales", current: "Reservation Detail" };
+    return { parents: ["Sales", "Reservations"], current: "Reservation Detail" };
   }
   if (pathname === "/installments" || pathname.startsWith("/installments")) {
-    return { parent: "Sales", current: "Installments" };
+    return { parents: ["Sales"], current: "Installments" };
   }
   if (pathname === "/agreements") {
-    return { parent: "Sales", current: "Agreements" };
+    return { parents: ["Sales"], current: "Agreements" };
   }
   if (pathname.startsWith("/agreements/")) {
-    return { parent: "Agreements", current: "Agreement Detail" };
+    return { parents: ["Sales", "Agreements"], current: "Agreement Detail" };
   }
   if (pathname === "/sold") {
-    return { parent: "Sales", current: "Sold" };
+    return { parents: ["Sales"], current: "Sold" };
   }
   if (pathname.startsWith("/sold/")) {
-    return { parent: "Sales", current: "Sold Unit Detail" };
+    return { parents: ["Sales", "Sold"], current: "Sold Unit Detail" };
   }
   if (pathname === "/reports" || pathname === "/reports/summary") {
-    return { parent: "Reports", current: "Summary" };
+    return { parents: ["Reports"], current: "Summary" };
   }
   if (pathname === "/reports/sold") {
-    return { parent: "Reports", current: "Sold" };
+    return { parents: ["Reports"], current: "Sold" };
   }
   if (pathname === "/reports/booked") {
-    return { parent: "Reports", current: "Booked" };
+    return { parents: ["Reports"], current: "Booked" };
   }
   if (pathname === "/reports/reserved") {
-    return { parent: "Reports", current: "Reserved" };
+    return { parents: ["Reports"], current: "Reserved" };
   }
   if (pathname === "/reports/installments") {
-    return { parent: "Reports", current: "Installments" };
+    return { parents: ["Reports"], current: "Installments" };
   }
   if (pathname === "/reports/collections") {
-    return { parent: "Reports", current: "Collections" };
+    return { parents: ["Reports"], current: "Collections" };
   }
   if (pathname === "/reports/client-ledger") {
-    return { parent: "Reports", current: "Client Ledger" };
+    return { parents: ["Reports"], current: "Client Ledger" };
   }
   if (pathname.startsWith("/settings/users") || pathname === "/users") {
-    return { parent: "Administration", current: "Users" };
+    return { parents: ["Admin"], current: "Users" };
+  }
+  if (pathname.startsWith("/settings/company")) {
+    return { parents: ["Admin"], current: "Company" };
   }
   if (pathname.startsWith("/settings/profile")) {
-    return { parent: "Account", current: "Profile" };
+    return { parents: ["Account"], current: "Profile" };
   }
   if (pathname === "/audit" || pathname.startsWith("/audit")) {
-    return { parent: "Administration", current: "Audit log" };
+    return { parents: ["Admin"], current: "Audit log" };
   }
   if (pathname.startsWith("/dev/ui")) {
-    return { parent: "Dev", current: "UI Controls" };
+    return { parents: ["Dev"], current: "UI Controls" };
   }
-  return { current: "Dashboard" };
+  return { parents: [], current: "Dashboard" };
 }
 
 export function TopBar({
-  userName = "Staff",
   role,
   navLocked = false,
+  collapsed = false,
+  onToggleSidebar,
   onOpenNav,
 }: TopBarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [commandOpen, setCommandOpen] = useState(false);
   const [modKey] = useState(() => {
     if (typeof navigator === "undefined") {
@@ -165,45 +137,68 @@ export function TopBar({
     return mac ? "⌘" : "Ctrl";
   });
   const { override } = useBreadcrumbOverride();
-  const breadcrumb = override ?? getBreadcrumbName(pathname);
 
-  async function handleSignOut() {
-    await authClient.signOut();
-    window.location.replace("/login");
+  let parents: string[] = [];
+  let currentTitle = "Dashboard";
+
+  if (override) {
+    if (Array.isArray(override.parent)) {
+      parents = override.parent;
+    } else if (override.parent) {
+      parents = [override.parent];
+    }
+    currentTitle = override.current;
+  } else {
+    const auto = getBreadcrumbSegments(pathname);
+    parents = auto.parents;
+    currentTitle = auto.current;
   }
 
-  const initials = getInitials(userName);
+  // Normalize any old "Inventory" root to "Units"
+  parents = parents.map((p) => (p === "Inventory" ? "Units" : p));
 
   return (
-    <header className="sticky top-0 z-30 flex h-[52px] items-center justify-between gap-3 border-b border-[#E3E7EC] bg-surface px-4 select-none lg:px-6">
+    <header className="sticky top-0 z-30 flex h-[56px] shrink-0 items-center justify-between border-b border-border bg-surface px-5 select-none sm:px-7">
       <div className="flex min-w-0 items-center gap-2">
-        {onOpenNav ? (
+        {onOpenNav && (
           <button
             type="button"
-            className="flex size-8 items-center justify-center rounded-[6px] border border-line bg-surface text-ink-muted focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] lg:hidden"
+            className="flex size-8 items-center justify-center rounded-[6px] border border-border bg-surface text-muted hover:text-ink lg:hidden"
             aria-label="Open navigation"
             onClick={onOpenNav}
           >
-            <List weight="light" className="size-4" />
+            <List weight="regular" className="size-4" />
           </button>
-        ) : null}
+        )}
+
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="mr-2 hidden size-7 cursor-pointer items-center justify-center rounded-[6px] border border-border bg-surface text-subtle transition-colors hover:border-line-strong hover:text-ink lg:flex"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <SidebarSimple weight="regular" className="size-3.5" />
+          </button>
+        )}
+
         <nav
           aria-label="Breadcrumb"
-          className="flex min-w-0 items-center gap-1.5 text-[13px] text-ink-muted"
+          className="flex min-w-0 items-center gap-2 text-[13px] text-muted"
         >
-          {breadcrumb.parent ? (
-            <>
-              <span className="hidden text-ink-muted sm:inline">{breadcrumb.parent}</span>
-              <span className="hidden text-line-strong select-none sm:inline">/</span>
-              <span className="truncate font-medium text-ink">{breadcrumb.current}</span>
-            </>
-          ) : (
-            <span className="truncate font-medium text-ink">{breadcrumb.current}</span>
-          )}
+          {parents.map((p, idx) => (
+            <span key={idx} className="flex shrink-0 items-center gap-2">
+              <span className="transition-colors hover:text-ink">{p}</span>
+              <span className="text-[#CBD2DA] select-none" aria-hidden="true">
+                /
+              </span>
+            </span>
+          ))}
+          <span className="truncate font-medium text-ink">{currentTitle}</span>
         </nav>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => {
@@ -213,54 +208,21 @@ export function TopBar({
             }
             setCommandOpen(true);
           }}
-          className="flex h-9 w-10 cursor-pointer items-center justify-center rounded-[8px] border border-line bg-surface px-2.5 text-[13px] text-ink-muted transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] hover:border-line-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] sm:w-52 sm:justify-between lg:w-64"
-          aria-label="Search or jump to page"
+          className={cn(
+            "flex h-[34px] w-10 cursor-pointer items-center justify-center rounded-[8px] border border-border bg-sidebar-bg px-2.5 text-[13px] text-subtle transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] hover:border-line-strong focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] sm:w-[280px] sm:justify-between md:w-[340px]",
+          )}
+          aria-label="Search units, clients, bookings"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <MagnifyingGlass weight="light" className="size-4 shrink-0 text-ink-muted" />
-            <span className="hidden truncate text-ink-faint sm:inline">
-              Search or jump to…
+            <MagnifyingGlass weight="regular" className="size-3.5 shrink-0 text-subtle" />
+            <span className="hidden truncate text-subtle sm:inline">
+              Search units, clients, bookings…
             </span>
           </div>
-          <kbd className="hidden rounded border border-line bg-surface px-1.5 py-0.5 text-[11px] font-medium text-ink-muted sm:inline-flex">
+          <kbd className="hidden rounded border border-border bg-white px-1.5 py-0.5 font-sans text-[11px] font-medium text-muted shadow-2xs sm:inline-flex">
             {modKey}K
           </kbd>
         </button>
-
-        {/* User menu dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Account menu"
-              className="flex size-9 cursor-pointer items-center justify-center rounded-full border border-line-strong bg-subtle text-[11px] font-semibold text-primary transition-colors hover:bg-subtle/80 focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-            >
-              {initials}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>
-              <div className="text-[12px] font-medium text-ink">{userName}</div>
-              <div className="text-[11px] text-ink-muted">{formatRole(role)}</div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => router.push("/settings/profile" as never)}
-              className="cursor-pointer"
-            >
-              <UserCircle weight="light" className="size-4 text-ink-muted" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="danger"
-              onClick={() => void handleSignOut()}
-              className="cursor-pointer"
-            >
-              <SignOut weight="light" className="size-4 text-sold" />
-              <span>Sign out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <CommandMenu

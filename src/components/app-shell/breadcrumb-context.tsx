@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type Breadcrumb = { parent?: string; current: string };
+export type Breadcrumb = { parent?: string | string[]; current: string };
 
 const BreadcrumbContext = createContext<{
   override: Breadcrumb | null;

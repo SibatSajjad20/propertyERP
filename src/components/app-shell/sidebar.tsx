@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  CaretUpDown,
   ClipboardText,
   Package,
   SignOut,
@@ -21,11 +22,11 @@ import {
   CalendarDots,
   ChartPie,
   FileText,
+  SidebarSimple,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { UserRole } from "@/db/schema/enums";
-import { adminNav, inventoryNav, reportsNav, salesNav, visibleNav } from "@/lib/nav";
-import { toast } from "sonner";
+import { visibleNavGroups, type AppNavItem } from "@/lib/nav";
 import { authClient } from "@/lib/auth-client";
 import {
   DropdownMenu,
@@ -35,6 +36,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { NavCounts } from "@/features/dashboard/queries";
 
 const navIcons: Record<
   string,
@@ -54,6 +62,7 @@ const navIcons: Record<
   "/agreements": FileText,
   "/sold": Tag,
   "/reports": ChartPie,
+  "/reports/client-ledger": ClipboardText,
 };
 
 function getInitials(name: string): string {
@@ -67,31 +76,84 @@ function getInitials(name: string): string {
   return (first[0]! + last[0]!).toUpperCase();
 }
 
-function formatRole(role: string): string {
-  switch (role) {
-    case "ADMIN":
-      return "Administrator";
-    case "INVENTORY_MANAGER":
-      return "Inventory Manager";
-    case "SALES":
-      return "Sales";
-    default:
-      return role.replaceAll("_", " ");
-  }
-}
-
 export interface SidebarProps {
   role: UserRole;
   userName?: string;
+  userEmail?: string;
   navLocked?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   onNavigate?: () => void;
+  countsPromise?: Promise<NavCounts>;
+}
+
+function NavCountDisplay({
+  countKey,
+  countsPromise,
+  collapsed,
+}: {
+  countKey?: AppNavItem["countKey"];
+  countsPromise?: Promise<NavCounts>;
+  collapsed?: boolean;
+}) {
+  if (!countKey || !countsPromise) return null;
+
+  return (
+    <React.Suspense fallback={null}>
+      <NavCountValue countKey={countKey} promise={countsPromise} collapsed={collapsed} />
+    </React.Suspense>
+  );
+}
+
+function NavCountValue({
+  countKey,
+  promise,
+  collapsed,
+}: {
+  countKey: NonNullable<AppNavItem["countKey"]>;
+  promise: Promise<NavCounts>;
+  collapsed?: boolean;
+}) {
+  const counts = React.use(promise);
+  const val = counts[countKey];
+
+  if (val === undefined || val === null || val === 0) return null;
+
+  if (collapsed) {
+    if (countKey === "installmentsOverdue" && val > 0) {
+      return (
+        <span
+          className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-bad ring-2 ring-sidebar-bg"
+          aria-hidden="true"
+        />
+      );
+    }
+    return null;
+  }
+
+  const isAlert = countKey === "installmentsOverdue";
+
+  return (
+    <span
+      className={cn(
+        "ml-auto text-[11.5px] font-normal tabular-nums",
+        isAlert ? "font-medium text-bad" : "text-muted",
+      )}
+    >
+      {val.toLocaleString()}
+    </span>
+  );
 }
 
 export function Sidebar({
   role,
   userName = "Staff",
+  userEmail,
   navLocked = false,
+  collapsed = false,
+  onToggleCollapse,
   onNavigate,
+  countsPromise,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -99,7 +161,12 @@ export function Sidebar({
 
   function isCurrent(href: string): boolean {
     if (href === "/") return pathname === "/" || pathname === "/dashboard";
-    if (href === "/reports") return pathname.startsWith("/reports");
+    if (href === "/reports")
+      return (
+        pathname === "/reports" ||
+        (pathname.startsWith("/reports") &&
+          !pathname.startsWith("/reports/client-ledger"))
+      );
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -107,185 +174,278 @@ export function Sidebar({
     setPendingHref(null);
   }
 
-  const visibleInventory = visibleNav(role, inventoryNav);
-  const visibleSales = visibleNav(role, salesNav);
-  const visibleReports = visibleNav(role, reportsNav);
-  const visibleAdmin = visibleNav(role, adminNav);
+  const groups = visibleNavGroups(role);
+  const initials = getInitials(userName);
 
   async function handleSignOut() {
     await authClient.signOut();
     window.location.replace("/login");
   }
 
-  const initials = getInitials(userName);
-
-  const renderNavGroup = (
-    title: string,
-    items: typeof inventoryNav,
-    ariaLabel: string,
-  ) => {
-    if (items.length === 0) return null;
-    return (
-      <div className="space-y-1">
-        <p className="px-2 pb-1 text-[11px] font-medium tracking-[0.08em] text-ink-faint uppercase">
-          {title}
-        </p>
-        <nav className="flex flex-col gap-0.5" aria-label={ariaLabel}>
-          {items.map((item) => {
-            const current = isCurrent(item.href);
-            const pending = pendingHref === item.href;
-            const active = pending || (current && pendingHref === null);
-            const Icon = navIcons[item.href] ?? Package;
-            const itemClassName = cn(
-              "group relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] transition-colors duration-150 ease-[var(--ease-ledger)]",
-              navLocked && "cursor-not-allowed opacity-50",
-              active
-                ? "bg-primary font-medium text-white"
-                : "text-[#334155] hover:bg-primary-soft hover:text-primary",
-            );
-            const itemBody = (
-              <>
-                <Icon
-                  weight="regular"
-                  className={cn(
-                    "size-4 shrink-0 transition-colors duration-150",
-                    active ? "text-white" : "text-primary/80 group-hover:text-primary",
-                  )}
-                  aria-hidden="true"
-                />
-                <span className="truncate">{item.label}</span>
-              </>
-            );
-            if (navLocked) {
-              return (
-                <button
-                  key={item.href}
-                  type="button"
-                  className={itemClassName}
-                  onClick={() => {
-                    toast.error("Set a new password before using the ledger.");
-                  }}
-                >
-                  {itemBody}
-                </button>
-              );
-            }
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={(event) => {
-                  if (
-                    event.defaultPrevented ||
-                    event.metaKey ||
-                    event.ctrlKey ||
-                    event.shiftKey ||
-                    event.altKey ||
-                    event.button !== 0
-                  ) {
-                    return;
-                  }
-                  setPendingHref(item.href);
-                  onNavigate?.();
-                }}
-                className={itemClassName}
-              >
-                {itemBody}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-    );
-  };
-
   return (
-    <aside className="sticky top-0 z-40 flex h-screen w-[232px] shrink-0 flex-col justify-between overflow-hidden border-r border-[#E3E7EC] bg-surface select-none">
-      <div className="flex min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#c8d0d8_transparent] flex-col overflow-y-auto">
-        <div className="flex h-[56px] shrink-0 items-center px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-primary/5 p-1">
-              <Image
-                src="/images/logo-mark.png"
-                alt="Sardar's Mall logo"
-                width={32}
-                height={32}
-                className="size-full object-contain"
-                priority
-              />
-            </div>
-            <div className="flex flex-col">
-              <span className="wordmark text-[15px] leading-tight font-semibold tracking-tight text-[#0F172A]">
-                Sardar&apos;s Mall
-              </span>
-              <span className="text-[10px] font-medium tracking-wide text-ink-faint uppercase">
-                Property ERP
-              </span>
-            </div>
-          </div>
+    <TooltipProvider delayDuration={150}>
+      <aside
+        className={cn(
+          "flex h-full flex-col border-r border-border bg-sidebar-bg transition-[width] duration-[var(--duration-panel)] ease-[var(--ease-ledger)] select-none motion-reduce:transition-none",
+          collapsed ? "w-[68px]" : "w-[248px]",
+        )}
+      >
+        {/* Brand block */}
+        <div className="shrink-0 p-3 pb-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex h-[48px] w-full cursor-pointer items-center gap-2.5 rounded-[10px] border border-transparent p-2 transition-colors hover:border-border",
+                  collapsed && "justify-center p-0",
+                )}
+                aria-label="Organization menu"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+                  <Image
+                    src="/images/logo-mark.png"
+                    alt="Logo"
+                    width={22}
+                    height={22}
+                    className="size-[22px] object-contain"
+                  />
+                </div>
+                {!collapsed && (
+                  <>
+                    <div className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-[13.5px] leading-tight font-semibold tracking-[-0.01em] text-ink">
+                        Sardar&apos;s Mall
+                      </div>
+                      <div className="truncate text-[11.5px] leading-tight text-muted">
+                        Property ERP
+                      </div>
+                    </div>
+                    <CaretUpDown
+                      weight="regular"
+                      className="size-3.5 shrink-0 text-subtle"
+                    />
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={6} className="w-52">
+              <DropdownMenuLabel className="font-semibold text-ink">
+                Sardar&apos;s Mall ERP
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {role === "ADMIN" && (
+                <DropdownMenuItem asChild>
+                  <Link href="/settings/company" className="cursor-pointer">
+                    <Bank weight="regular" className="mr-2 size-4 text-muted" />
+                    Company Settings
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem asChild>
+                <Link href="/settings/profile" className="cursor-pointer">
+                  <UserCircle weight="regular" className="mr-2 size-4 text-muted" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="cursor-pointer text-bad focus:text-bad"
+              >
+                <SignOut weight="regular" className="mr-2 size-4 text-bad" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* Navigation */}
-        <div className="flex flex-col gap-4 p-2.5">
-          {renderNavGroup("Inventory", visibleInventory, "Inventory Navigation")}
-          {renderNavGroup("Sales", visibleSales, "Sales Navigation")}
-          {renderNavGroup("Reports", visibleReports, "Reports Navigation")}
-          {renderNavGroup("Administration", visibleAdmin, "Administration Navigation")}
-        </div>
-      </div>
+        {/* Navigation list */}
+        <nav
+          className={cn(
+            "flex flex-1 flex-col gap-4.5 overflow-y-auto px-3 py-2",
+            collapsed && "items-center gap-2.5 px-2",
+          )}
+          aria-label="Main navigation"
+        >
+          {groups.map((group, groupIdx) => (
+            <div
+              key={group.label}
+              className={cn("w-full", collapsed && "flex flex-col items-center")}
+            >
+              {collapsed ? (
+                groupIdx > 0 ? (
+                  <div className="my-1.5 h-[1px] w-8 bg-line" aria-hidden="true" />
+                ) : null
+              ) : (
+                <p className="px-2.5 pb-1.5 text-[11px] font-medium tracking-[0.01em] text-subtle">
+                  {group.label}
+                </p>
+              )}
 
-      {/* Bottom: user footer pinned at the bottom (mt-auto), no blank strip below */}
-      <div className="mt-auto shrink-0 border-t border-[#E3E7EC] bg-surface p-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+              <div className="flex w-full flex-col gap-1">
+                {group.items.map((item) => {
+                  const current = isCurrent(item.href);
+                  const pending = pendingHref === item.href;
+                  const active = pending || (current && pendingHref === null);
+                  const Icon = navIcons[item.href] ?? Package;
+
+                  const navItemContent = (
+                    <Link
+                      href={navLocked ? "#" : item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={(e) => {
+                        if (navLocked) {
+                          e.preventDefault();
+                          return;
+                        }
+                        if (current) return;
+                        setPendingHref(item.href);
+                        onNavigate?.();
+                      }}
+                      className={cn(
+                        "group relative flex cursor-pointer items-center transition-colors duration-150",
+                        collapsed
+                          ? "mx-auto h-[36px] w-[42px] justify-center rounded-[7px]"
+                          : "h-[32px] w-full gap-2.5 rounded-[7px] px-2.5 text-[13px]",
+                        navLocked && "cursor-not-allowed opacity-50",
+                        active
+                          ? "border border-border bg-surface font-medium text-ink shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
+                          : "border border-transparent text-text-secondary hover:bg-[#F1F3F6]",
+                      )}
+                    >
+                      <Icon
+                        weight="regular"
+                        className={cn(
+                          "size-4 shrink-0 transition-colors",
+                          active ? "text-primary" : "text-[#8391A2] group-hover:text-ink",
+                        )}
+                      />
+
+                      {!collapsed && (
+                        <>
+                          <span className="truncate">{item.label}</span>
+                          <NavCountDisplay
+                            countKey={item.countKey}
+                            countsPromise={countsPromise}
+                            collapsed={false}
+                          />
+                        </>
+                      )}
+
+                      {collapsed && (
+                        <NavCountDisplay
+                          countKey={item.countKey}
+                          countsPromise={countsPromise}
+                          collapsed={true}
+                        />
+                      )}
+                    </Link>
+                  );
+
+                  if (collapsed) {
+                    return (
+                      <Tooltip key={item.href}>
+                        <TooltipTrigger asChild>{navItemContent}</TooltipTrigger>
+                        <TooltipContent side="right">
+                          <span>{item.label}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return (
+                    <React.Fragment key={item.href}>{navItemContent}</React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="mt-auto shrink-0 border-t border-border p-3 pt-2.5">
+          {/* Collapse button */}
+          {onToggleCollapse && (
             <button
               type="button"
-              aria-label="Account menu"
-              className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md p-1.5 text-left transition-colors duration-150 ease-[var(--ease-ledger)] hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+              onClick={onToggleCollapse}
+              className={cn(
+                "mb-1.5 flex h-[30px] w-full cursor-pointer items-center gap-2.5 rounded-[7px] text-[12.5px] text-muted transition-colors hover:bg-[#F1F3F6] hover:text-ink",
+                collapsed ? "mx-auto w-[42px] justify-center px-0" : "px-2.5",
+              )}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-white">
+              <SidebarSimple weight="regular" className="size-4 text-[#8391A2]" />
+              {!collapsed && (
+                <>
+                  <span>Collapse</span>
+                  <kbd className="ml-auto rounded border border-border bg-white px-1.5 font-sans text-[11px] text-subtle">
+                    [
+                  </kbd>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* User profile dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex w-full cursor-pointer items-center gap-2.5 rounded-[8px] p-1.5 transition-colors hover:bg-[#F1F3F6]",
+                  collapsed && "mx-auto w-[42px] justify-center p-1",
+                )}
+                aria-label="User account menu"
+              >
+                <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold tracking-[0.02em] text-white">
                   {initials}
                 </div>
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-[12px] leading-tight font-medium text-ink">
-                    {userName}
-                  </p>
-                  <p className="truncate text-[11px] leading-tight text-ink-muted">
-                    {formatRole(role)}
-                  </p>
-                </div>
-              </div>
-              <DotsThreeVertical
-                weight="light"
-                className="size-4 shrink-0 text-ink-faint"
-              />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-52">
-            <DropdownMenuLabel>
-              <div className="text-[12px] font-medium text-ink">{userName}</div>
-              <div className="text-[11px] text-ink-muted">{formatRole(role)}</div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => router.push("/settings/profile" as never)}
-              className="cursor-pointer"
-            >
-              <UserCircle weight="light" className="size-4 text-ink-muted" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="danger"
-              onClick={() => void handleSignOut()}
-              className="cursor-pointer"
-            >
-              <SignOut weight="light" className="size-4 text-sold" />
-              <span>Sign out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </aside>
+                {!collapsed && (
+                  <>
+                    <div className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-[12.5px] leading-tight font-medium text-ink">
+                        {userName}
+                      </div>
+                      <div className="truncate text-[11.5px] leading-tight text-muted">
+                        {userEmail || "staff@sardarsmall.com"}
+                      </div>
+                    </div>
+                    <DotsThreeVertical
+                      weight="bold"
+                      className="ml-auto size-4 shrink-0 text-subtle"
+                    />
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+              <DropdownMenuLabel>
+                <div className="text-[13px] font-medium text-ink">{userName}</div>
+                {userEmail && (
+                  <div className="text-[12px] font-normal text-muted">{userEmail}</div>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings/profile" className="cursor-pointer">
+                  <UserCircle weight="regular" className="mr-2 size-4 text-muted" />
+                  Profile settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="cursor-pointer text-bad focus:text-bad"
+              >
+                <SignOut weight="regular" className="mr-2 size-4 text-bad" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
