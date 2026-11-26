@@ -108,6 +108,7 @@ export interface PaymentSchedule {
   possessionPercent: number;
   balloonAmountPerYearPkr: string;
   balloonPercentPerYear: number;
+  balloonPercent: number;
   balloonCount: number;
   balloonTotalAmountPkr: string;
   totalInstallmentsPkr: string;
@@ -142,7 +143,7 @@ export function planIntervalMonths(plan: PaymentPlan): number {
 /**
  * Generates an installment payment schedule with:
  * - Down Payment (% or fixed PKR) with optional Token adjustment
- * - Annual Balloon Payments (% or fixed PKR per year, applied annually for each full year in plan)
+ * - Annual Balloon Payments (Total % or fixed PKR, divided equally across full 12-month years in plan)
  * - Possession Payment (% or fixed PKR, added as final possession milestone)
  * - Regular Installments (rounded to nearest Rs 100 with exact paisa remainder on last regular installment)
  *
@@ -198,14 +199,16 @@ export function generateSchedule(params: {
   const intervalMonths = planIntervalMonths(params.plan);
   const totalPlanMonths = count * intervalMonths;
 
-  // Annual balloon payments: each full 12-month year in the plan gets 1 annual balloon payment
+  // Balloon payments: total balloon allocation across plan, divided equally among full 12-month years
   const balloonResolved =
     params.balloonType && params.balloonValue !== undefined
       ? resolveChargeAmount(netPricePkr, params.balloonType, params.balloonValue)
       : { amountPkr: "0.00", effectivePercent: 0 };
-  const balloonPerYearPaisa = parseDecimal(balloonResolved.amountPkr);
-  const balloonCount = balloonPerYearPaisa > 0n ? Math.floor(totalPlanMonths / 12) : 0;
-  const balloonTotalPaisa = balloonPerYearPaisa * BigInt(balloonCount);
+  const rawBalloonTotalPaisa = parseDecimal(balloonResolved.amountPkr);
+  const balloonCount = rawBalloonTotalPaisa > 0n ? Math.floor(totalPlanMonths / 12) : 0;
+  const balloonTotalPaisa = balloonCount > 0 ? rawBalloonTotalPaisa : 0n;
+  const balloonPerYearPaisa =
+    balloonCount > 0 ? balloonTotalPaisa / BigInt(balloonCount) : 0n;
 
   const fixedComponentsPaisa = downPaisa + possessionPaisa + balloonTotalPaisa;
   let isValid = true;
@@ -270,13 +273,19 @@ export function generateSchedule(params: {
   }
 
   // Annual balloon schedule rows (Year 1 at month 12, Year 2 at month 24, ...)
+  let allocatedBalloonPaisa = 0n;
   for (let year = 1; year <= balloonCount; year++) {
     const dueDate = addMonths(params.startDate, year * 12 - 1);
+    const amountPaisa =
+      year === balloonCount
+        ? balloonTotalPaisa - allocatedBalloonPaisa
+        : balloonPerYearPaisa;
+    allocatedBalloonPaisa += amountPaisa;
     rawEntries.push({
       type: "BALLOON",
       label: `Year ${year} Balloon Payment`,
       dueDate,
-      amountPaisa: balloonPerYearPaisa,
+      amountPaisa,
       sortOrder: 1,
     });
   }
@@ -328,7 +337,11 @@ export function generateSchedule(params: {
     possessionAmountPkr: formatDecimal(possessionPaisa),
     possessionPercent: possessionResolved.effectivePercent,
     balloonAmountPerYearPkr: formatDecimal(balloonPerYearPaisa),
-    balloonPercentPerYear: balloonResolved.effectivePercent,
+    balloonPercentPerYear:
+      balloonCount > 0
+        ? Math.round((balloonResolved.effectivePercent / balloonCount) * 100) / 100
+        : 0,
+    balloonPercent: balloonResolved.effectivePercent,
     balloonCount,
     balloonTotalAmountPkr: formatDecimal(balloonTotalPaisa),
     totalInstallmentsPkr: formatDecimal(

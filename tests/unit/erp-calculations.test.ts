@@ -62,7 +62,7 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     });
   });
 
-  it("applies 10% balloon payment annually (3-year plan = 3 × 10% = 30%), 25% down, 15% possession, and preserves exact paisa invariant", () => {
+  it("applies 10% balloon payment divided across years (3-year plan = 10% total, Rs 1M total, Rs 333,333.33/yr), 25% down, 15% possession, and preserves exact paisa invariant", () => {
     const schedule = generateSchedule({
       listPricePkr: "10000000.00",
       downPaymentType: "PERCENT",
@@ -80,10 +80,11 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     expect(schedule.downPaymentPkr).toBe("2500000.00");
     expect(schedule.possessionAmountPkr).toBe("1500000.00");
     expect(schedule.balloonCount).toBe(3);
-    expect(schedule.balloonAmountPerYearPkr).toBe("1000000.00");
-    expect(schedule.balloonTotalAmountPkr).toBe("3000000.00");
-    // Remaining regular installments = 10M - 2.5M - 1.5M - 3.0M = 3.0M
-    expect(schedule.totalInstallmentsPkr).toBe("3000000.00");
+    expect(schedule.balloonPercent).toBe(10);
+    expect(schedule.balloonAmountPerYearPkr).toBe("333333.33");
+    expect(schedule.balloonTotalAmountPkr).toBe("1000000.00");
+    // Remaining regular installments = 10M - 2.5M - 1.5M - 1.0M = 5.0M (50% of net price!)
+    expect(schedule.totalInstallmentsPkr).toBe("5000000.00");
 
     const regular = schedule.installments.filter((i) => i.type === "REGULAR");
     const balloons = schedule.installments.filter((i) => i.type === "BALLOON");
@@ -92,6 +93,10 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     expect(regular).toHaveLength(36);
     expect(balloons).toHaveLength(3);
     expect(possessions).toHaveLength(1);
+
+    // Verify balloon installments sum to exact total balloon amount
+    const balloonSum = balloons.reduce((acc, i) => acc + parseDecimal(i.amountPkr), 0n);
+    expect(balloonSum).toBe(parseDecimal("1000000.00"));
 
     const scheduleSum = schedule.installments.reduce(
       (acc, i) => acc + parseDecimal(i.amountPkr),
@@ -102,7 +107,45 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     );
   });
 
-  it("supports fixed PKR amounts for down payment, possession, and annual balloon, plus token deduction", () => {
+  it("calculates Rs 300,000 example: 25% down (75k), 15% possession (45k), 10% balloon (30k = 10k/yr), remaining 50% installments (150k)", () => {
+    const schedule = generateSchedule({
+      listPricePkr: "300000.00",
+      downPaymentType: "PERCENT",
+      downPaymentValue: "25",
+      possessionType: "PERCENT",
+      possessionValue: "15",
+      balloonType: "PERCENT",
+      balloonValue: "10",
+      plan: "MONTHLY",
+      installmentCount: 36,
+      startDate: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    expect(schedule.isValid).toBe(true);
+    expect(schedule.downPaymentPkr).toBe("75000.00");
+    expect(schedule.possessionAmountPkr).toBe("45000.00");
+    expect(schedule.balloonCount).toBe(3);
+    expect(schedule.balloonPercent).toBe(10);
+    expect(schedule.balloonTotalAmountPkr).toBe("30000.00");
+    expect(schedule.balloonAmountPerYearPkr).toBe("10000.00");
+    expect(schedule.totalInstallmentsPkr).toBe("150000.00");
+
+    const balloons = schedule.installments.filter((i) => i.type === "BALLOON");
+    expect(balloons).toHaveLength(3);
+    expect(balloons[0]?.amountPkr).toBe("10000.00");
+    expect(balloons[1]?.amountPkr).toBe("10000.00");
+    expect(balloons[2]?.amountPkr).toBe("10000.00");
+
+    const scheduleSum = schedule.installments.reduce(
+      (acc, i) => acc + parseDecimal(i.amountPkr),
+      0n,
+    );
+    expect(scheduleSum + parseDecimal(schedule.downPaymentPkr)).toBe(
+      parseDecimal("300000.00"),
+    );
+  });
+
+  it("supports fixed PKR amounts for down payment, possession, and total balloon, plus token deduction", () => {
     const schedule = generateSchedule({
       listPricePkr: "15576000.00",
       discountType: "PERCENT",
@@ -125,7 +168,8 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     expect(schedule.tokenAdjustedPkr).toBe("500000.00");
     expect(schedule.payableDownPaymentNowPkr).toBe("2500000.00");
     expect(schedule.balloonCount).toBe(2);
-    expect(schedule.balloonTotalAmountPkr).toBe("2000000.00");
+    expect(schedule.balloonTotalAmountPkr).toBe("1000000.00");
+    expect(schedule.balloonAmountPerYearPkr).toBe("500000.00");
     // Exact paisa invariant
     const scheduleSum = schedule.installments.reduce(
       (acc, i) => acc + parseDecimal(i.amountPkr),
@@ -140,13 +184,13 @@ describe("Booking Payment Schedule — Down Payment, Possession, Annual Balloon 
     const schedule = generateSchedule({
       listPricePkr: "10000000.00",
       downPaymentType: "PERCENT",
-      downPaymentValue: "40",
+      downPaymentValue: "50",
       possessionType: "PERCENT",
       possessionValue: "30",
       balloonType: "PERCENT",
-      balloonValue: "15",
+      balloonValue: "25", // 50% + 30% + 25% = 105% > 100%
       plan: "MONTHLY",
-      installmentCount: 36, // 3 * 15% = 45% -> total 115% > 100%
+      installmentCount: 36,
       startDate: new Date("2026-03-01T00:00:00Z"),
     });
     expect(schedule.isValid).toBe(false);
