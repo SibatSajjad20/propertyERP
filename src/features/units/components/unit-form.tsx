@@ -158,7 +158,7 @@ export function UnitForm({
 
   return (
     <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left column: FormSections in a Panel */}
         <div className="lg:col-span-8">
           <Panel bodyClassName="p-6 divide-y divide-line">
@@ -469,109 +469,111 @@ export function UnitForm({
           )}
         </div>
 
-        {/* Right column: Sticky Price preview, Sellable toggle & Actions */}
-        <div className="space-y-6 lg:sticky lg:top-6 lg:col-span-4">
-          {/* New price panel */}
-          <Panel title="Valuation summary">
-            <div className="space-y-3">
-              {mode === "edit" && unit && (
-                <div className="flex items-center justify-between text-[12.5px]">
-                  <span className="text-muted">Current price</span>
-                  <span className="font-medium text-ink tabular-nums">
-                    {formatPkrLedger(unit.bookPricePkr)}
+        {/* Right column: Sticky Valuation summary, Sellable toggle & Actions */}
+        <div className="lg:col-span-4">
+          <div className="space-y-6 lg:sticky lg:top-6">
+            {/* New price panel */}
+            <Panel title="Valuation summary">
+              <div className="space-y-3">
+                {mode === "edit" && unit && (
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-muted">Current price</span>
+                    <span className="font-medium text-ink tabular-nums">
+                      {formatPkrLedger(unit.bookPricePkr)}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t border-line pt-2 text-[12.5px]">
+                  <span className="font-medium text-ink">New computed price</span>
+                  <span className="text-[14px] font-semibold text-primary tabular-nums">
+                    {formatPkrCompact(computedTotal)}
                   </span>
                 </div>
-              )}
+                <p className="-mt-1 text-right text-[11px] text-muted tabular-nums">
+                  {formatPkrLedger(computedTotal)}
+                </p>
 
-              <div className="flex items-center justify-between border-t border-line pt-2 text-[12.5px]">
-                <span className="font-medium text-ink">New computed price</span>
-                <span className="text-[14px] font-semibold text-primary tabular-nums">
-                  {formatPkrCompact(computedTotal)}
-                </span>
+                {mode === "edit" && priceDiff !== 0 && (
+                  <div className="flex items-center justify-between border-t border-line pt-2 text-[12px]">
+                    <span className="text-muted">Price delta</span>
+                    <span
+                      className={`font-medium tabular-nums ${
+                        priceDiff > 0 ? "text-good" : "text-bad"
+                      }`}
+                    >
+                      {priceDiff > 0
+                        ? `+${formatPkrCompact(String(priceDiff))}`
+                        : formatPkrCompact(String(priceDiff))}
+                      {priceDiffPct
+                        ? ` (${priceDiff > 0 ? `+${priceDiffPct}` : priceDiffPct}%)`
+                        : null}
+                    </span>
+                  </div>
+                )}
               </div>
-              <p className="-mt-1 text-right text-[11px] text-muted tabular-nums">
-                {formatPkrLedger(computedTotal)}
-              </p>
+            </Panel>
 
-              {mode === "edit" && priceDiff !== 0 && (
-                <div className="flex items-center justify-between border-t border-line pt-2 text-[12px]">
-                  <span className="text-muted">Price delta</span>
-                  <span
-                    className={`font-medium tabular-nums ${
-                      priceDiff > 0 ? "text-good" : "text-bad"
-                    }`}
-                  >
-                    {priceDiff > 0
-                      ? `+${formatPkrCompact(String(priceDiff))}`
-                      : formatPkrCompact(String(priceDiff))}
-                    {priceDiffPct
-                      ? ` (${priceDiff > 0 ? `+${priceDiffPct}` : priceDiffPct}%)`
-                      : null}
+            {/* Sellable inventory toggle */}
+            <Panel title="Inventory status">
+              <label className="flex cursor-pointer items-start gap-3">
+                <Checkbox
+                  checked={Boolean(isSellable)}
+                  onCheckedChange={(checked) =>
+                    form.setValue("isSellable", Boolean(checked))
+                  }
+                  className="mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-[13px] font-medium text-ink select-none">
+                    Sellable inventory
                   </span>
+                  <p className="text-[11.5px] leading-relaxed text-muted select-none">
+                    When enabled, this unit is listed as available for reservations and
+                    bookings.
+                  </p>
+                </div>
+              </label>
+            </Panel>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2.5">
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                loading={pending}
+              >
+                {pending ? "Saving…" : mode === "create" ? "Create unit" : "Save changes"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                className="w-full"
+                onClick={onCancel}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
+
+              {mode === "edit" && onArchive && (
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    className="w-full"
+                    disabled={pending}
+                    onClick={() => void onArchive()}
+                  >
+                    Archive unit
+                  </Button>
                 </div>
               )}
             </div>
-          </Panel>
-
-          {/* Sellable inventory toggle */}
-          <Panel title="Inventory status">
-            <label className="flex cursor-pointer items-start gap-3">
-              <Checkbox
-                checked={Boolean(isSellable)}
-                onCheckedChange={(checked) =>
-                  form.setValue("isSellable", Boolean(checked))
-                }
-                className="mt-0.5"
-              />
-              <div className="space-y-0.5">
-                <span className="text-[13px] font-medium text-ink select-none">
-                  Sellable inventory
-                </span>
-                <p className="text-[11.5px] leading-relaxed text-muted select-none">
-                  When enabled, this unit is listed as available for reservations and
-                  bookings.
-                </p>
-              </div>
-            </label>
-          </Panel>
-
-          {/* Action buttons */}
-          <div className="flex flex-col gap-2.5">
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full"
-              loading={pending}
-            >
-              {pending ? "Saving…" : mode === "create" ? "Create unit" : "Save changes"}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              className="w-full"
-              onClick={onCancel}
-              disabled={pending}
-            >
-              Cancel
-            </Button>
-
-            {mode === "edit" && onArchive && (
-              <div className="pt-2">
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  className="w-full"
-                  disabled={pending}
-                  onClick={() => void onArchive()}
-                >
-                  Archive unit
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </div>

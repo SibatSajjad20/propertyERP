@@ -355,7 +355,7 @@ export function DirectSaleScreen({
       </div>
 
       {/* Two-Column Grid: Form Sections (Left) & Sticky Summary (Right) */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: 8 cols */}
         <div className="space-y-5 lg:col-span-8">
           {/* Step 1: Unit Selector */}
@@ -570,139 +570,141 @@ export function DirectSaleScreen({
         </div>
 
         {/* Right Column: 4 cols (Sticky Sale Summary) */}
-        <div className="space-y-4 lg:sticky lg:top-6 lg:col-span-4">
-          <Panel title="Sale Summary" hint="Live overview of transaction state">
-            <div className="space-y-4">
-              <DefinitionList>
-                <DefinitionRow
-                  label="Unit Code"
-                  value={
-                    selectedUnit ? (
-                      <span className="unit-code font-semibold text-primary">
-                        {selectedUnit.unitCode}
-                      </span>
-                    ) : (
-                      "—"
-                    )
-                  }
-                />
-                <DefinitionRow
-                  label="Floor & Category"
-                  value={
-                    selectedUnit
-                      ? `${selectedUnit.categoryName} · ${selectedUnit.floorName}`
-                      : "—"
-                  }
-                />
-                <DefinitionRow
-                  label="Gross Area"
-                  value={
-                    selectedUnit?.grossAreaSqft
-                      ? `${selectedUnit.grossAreaSqft} sq ft`
-                      : "—"
-                  }
-                />
-                <DefinitionRow
-                  label="List Asking Price"
-                  value={
-                    selectedUnit?.computedPricePkr
-                      ? formatPkr(selectedUnit.computedPricePkr)
-                      : "—"
-                  }
-                />
-                <DefinitionRow
-                  label="Agreed Sale Price"
-                  value={
-                    salePrice ? (
-                      <span className="font-semibold text-ink">
-                        {formatPkr(salePrice)}
-                      </span>
-                    ) : (
-                      "—"
-                    )
-                  }
-                />
-                {isCustomPrice && (
+        <div className="lg:col-span-4">
+          <div className="space-y-4 lg:sticky lg:top-6">
+            <Panel title="Sale Summary" hint="Live overview of transaction state">
+              <div className="space-y-4">
+                <DefinitionList>
                   <DefinitionRow
-                    label={concessionDelta > 0 ? "Concession" : "Premium"}
+                    label="Unit Code"
                     value={
-                      <span
-                        className={
-                          concessionDelta > 0
-                            ? "font-semibold text-sold"
-                            : "font-semibold text-available"
-                        }
-                      >
-                        {concessionDelta > 0 ? "-" : "+"}{" "}
-                        {formatPkr(Math.abs(concessionDelta).toString())}
-                      </span>
+                      selectedUnit ? (
+                        <span className="unit-code font-semibold text-primary">
+                          {selectedUnit.unitCode}
+                        </span>
+                      ) : (
+                        "—"
+                      )
                     }
                   />
-                )}
-                <DefinitionRow label="Buyer Name" value={client.fullName || "—"} />
-                <DefinitionRow label="Nominee Name" value={nextOfKin.name || "—"} />
-                <DefinitionRow
-                  label="Status Transition"
-                  value={
-                    <span className="font-semibold text-sold">AVAILABLE → SOLD</span>
-                  }
-                />
-              </DefinitionList>
-
-              <div className="border-t border-line/60 pt-4">
-                <div className="flex flex-col gap-2">
-                  {currentStep < 3 ? (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="md"
-                      onClick={() => void handleNextStep()}
-                      loading={isAdvancing}
-                      disabled={
-                        isAdvancing ||
-                        (currentStep === 1 && !selectedUnit) ||
-                        (currentStep === 2 &&
-                          (!client.fullName.trim() ||
-                            !client.cnic.trim() ||
-                            !nextOfKin.name.trim() ||
-                            !nextOfKin.cnic?.trim()))
+                  <DefinitionRow
+                    label="Floor & Category"
+                    value={
+                      selectedUnit
+                        ? `${selectedUnit.categoryName} · ${selectedUnit.floorName}`
+                        : "—"
+                    }
+                  />
+                  <DefinitionRow
+                    label="Gross Area"
+                    value={
+                      selectedUnit?.grossAreaSqft
+                        ? `${selectedUnit.grossAreaSqft} sq ft`
+                        : "—"
+                    }
+                  />
+                  <DefinitionRow
+                    label="List Asking Price"
+                    value={
+                      selectedUnit?.computedPricePkr
+                        ? formatPkr(selectedUnit.computedPricePkr)
+                        : "—"
+                    }
+                  />
+                  <DefinitionRow
+                    label="Agreed Sale Price"
+                    value={
+                      salePrice ? (
+                        <span className="font-semibold text-ink">
+                          {formatPkr(salePrice)}
+                        </span>
+                      ) : (
+                        "—"
+                      )
+                    }
+                  />
+                  {isCustomPrice && (
+                    <DefinitionRow
+                      label={concessionDelta > 0 ? "Concession" : "Premium"}
+                      value={
+                        <span
+                          className={
+                            concessionDelta > 0
+                              ? "font-semibold text-sold"
+                              : "font-semibold text-available"
+                          }
+                        >
+                          {concessionDelta > 0 ? "-" : "+"}{" "}
+                          {formatPkr(Math.abs(concessionDelta).toString())}
+                        </span>
                       }
-                      className="w-full justify-center"
-                    >
-                      Next Step
-                      <ArrowRight weight="light" className="ml-1.5 size-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="md"
-                      onClick={handleConfirmSale}
-                      disabled={isSubmitting}
-                      className="w-full justify-center bg-sold hover:bg-sold/90"
-                    >
-                      <Check weight="bold" className="mr-1.5 size-4" />
-                      {isSubmitting ? "Finalizing Sale..." : "Confirm & Mark Unit SOLD"}
-                    </Button>
+                    />
                   )}
+                  <DefinitionRow label="Buyer Name" value={client.fullName || "—"} />
+                  <DefinitionRow label="Nominee Name" value={nextOfKin.name || "—"} />
+                  <DefinitionRow
+                    label="Status Transition"
+                    value={
+                      <span className="font-semibold text-sold">AVAILABLE → SOLD</span>
+                    }
+                  />
+                </DefinitionList>
 
-                  {currentStep > 1 && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="md"
-                      onClick={() => setCurrentStep((prev) => prev - 1)}
-                      disabled={isAdvancing || isSubmitting}
-                      className="w-full justify-center"
-                    >
-                      <ArrowLeft weight="light" className="mr-1.5 size-4" />
-                      Previous Step
-                    </Button>
-                  )}
+                <div className="border-t border-line/60 pt-4">
+                  <div className="flex flex-col gap-2">
+                    {currentStep < 3 ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="md"
+                        onClick={() => void handleNextStep()}
+                        loading={isAdvancing}
+                        disabled={
+                          isAdvancing ||
+                          (currentStep === 1 && !selectedUnit) ||
+                          (currentStep === 2 &&
+                            (!client.fullName.trim() ||
+                              !client.cnic.trim() ||
+                              !nextOfKin.name.trim() ||
+                              !nextOfKin.cnic?.trim()))
+                        }
+                        className="w-full justify-center"
+                      >
+                        Next Step
+                        <ArrowRight weight="light" className="ml-1.5 size-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="md"
+                        onClick={handleConfirmSale}
+                        disabled={isSubmitting}
+                        className="w-full justify-center bg-sold hover:bg-sold/90"
+                      >
+                        <Check weight="bold" className="mr-1.5 size-4" />
+                        {isSubmitting ? "Finalizing Sale..." : "Confirm & Mark Unit SOLD"}
+                      </Button>
+                    )}
+
+                    {currentStep > 1 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="md"
+                        onClick={() => setCurrentStep((prev) => prev - 1)}
+                        disabled={isAdvancing || isSubmitting}
+                        className="w-full justify-center"
+                      >
+                        <ArrowLeft weight="light" className="mr-1.5 size-4" />
+                        Previous Step
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Panel>
+            </Panel>
+          </div>
         </div>
       </div>
     </div>
