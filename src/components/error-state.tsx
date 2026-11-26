@@ -40,7 +40,7 @@ export function NotFoundState({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-start gap-3 py-6">
-      <p className="font-mono text-[12px] tracking-widest text-ink-muted uppercase">
+      <p className="text-[12px] font-medium tracking-widest text-ink-muted uppercase">
         404
       </p>
       <h1 className="text-[20px] font-semibold tracking-tight text-ink">{title}</h1>

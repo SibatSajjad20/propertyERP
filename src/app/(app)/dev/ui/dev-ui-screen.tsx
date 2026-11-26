@@ -210,7 +210,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Available</span>
               <span className="size-2.5 rounded-full bg-available" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#1F7A4D</div>
+            <div className="mt-2 text-[11px] text-ink-muted tabular-nums">#1F7A4D</div>
             <div className="mt-3 flex items-center gap-2">
               <UnitStatusBadge status="AVAILABLE" />
             </div>
@@ -222,7 +222,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Reserved</span>
               <span className="size-2.5 rounded-full bg-reserved" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#B7791F</div>
+            <div className="mt-2 text-[11px] text-ink-muted tabular-nums">#B7791F</div>
             <div className="mt-3 flex items-center gap-2">
               <UnitStatusBadge status="RESERVED" />
             </div>
@@ -234,7 +234,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Booked</span>
               <span className="size-2.5 rounded-full bg-booked" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#64748B</div>
+            <div className="mt-2 text-[11px] text-ink-muted tabular-nums">#64748B</div>
             <div className="mt-3 flex items-center gap-2">
               <UnitStatusBadge status="BOOKED" paidPercent={60} />
             </div>
@@ -246,7 +246,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Sold</span>
               <span className="size-2.5 rounded-full bg-sold" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#9B2C2C</div>
+            <div className="mt-2 text-[11px] text-ink-muted tabular-nums">#9B2C2C</div>
             <div className="mt-3 flex items-center gap-2">
               <UnitStatusBadge status="SOLD" />
             </div>
@@ -257,7 +257,7 @@ export function DevUiScreen() {
               <span className="text-[12px] font-semibold text-ink">Brand</span>
               <span className="size-2.5 rounded-[2px] bg-primary" />
             </div>
-            <div className="mt-2 font-mono text-[11px] text-ink-muted">#0B558B</div>
+            <div className="mt-2 text-[11px] text-ink-muted tabular-nums">#0B558B</div>
             <p className="mt-2 text-[10px] text-ink-muted">
               Buttons, active nav, links, focus
             </p>

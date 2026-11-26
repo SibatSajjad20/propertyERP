@@ -87,7 +87,7 @@ function renderHumanAction(row: AuditLogRow) {
     row.entity === "unit" ? (
       <Link
         href={`/units/${row.entityId}`}
-        className="unit-code mx-1 inline-flex items-center gap-1 font-sans tabular-nums font-medium text-primary hover:text-accent-bright hover:underline"
+        className="unit-code mx-1 inline-flex items-center gap-1 font-sans font-medium text-primary tabular-nums hover:text-accent-bright hover:underline"
       >
         {label}
       </Link>
@@ -526,7 +526,7 @@ export function AuditScreen({ initialResult }: AuditScreenProps) {
                                     {changes.map((c) => (
                                       <div
                                         key={c.key}
-                                        className="flex items-center gap-2 font-mono text-[11px]"
+                                        className="flex items-center gap-2 text-[11px] tabular-nums"
                                       >
                                         <span className="font-medium text-ink">
                                           {fieldLabel(c.key)}:
@@ -543,7 +543,7 @@ export function AuditScreen({ initialResult }: AuditScreenProps) {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="grid grid-cols-2 gap-4 font-mono text-[10px]">
+                                <div className="grid grid-cols-2 gap-4 text-[10px] tabular-nums">
                                   <div>
                                     <p className="font-semibold text-ink-muted">
                                       Before:

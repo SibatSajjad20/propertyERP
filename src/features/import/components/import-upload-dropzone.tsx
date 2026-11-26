@@ -114,9 +114,9 @@ export function ImportUploadDropzone({
           {loading ? "Parsing spreadsheet..." : "Choose a spreadsheet or drag & drop"}
         </h3>
         <p className="mt-1 max-w-sm text-[12px] text-ink-muted">
-          Upload an Excel (<span className="font-mono">.xlsx</span>,{" "}
-          <span className="font-mono">.xls</span>) or{" "}
-          <span className="font-mono">.csv</span> schedule. Max file size: 5 MB.
+          Upload an Excel (<span className="font-medium">.xlsx</span>,{" "}
+          <span className="font-medium">.xls</span>) or{" "}
+          <span className="font-medium">.csv</span> schedule. Max file size: 5 MB.
         </p>
 
         <div className="mt-4 flex items-center gap-3">

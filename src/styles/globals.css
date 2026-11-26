@@ -7,34 +7,46 @@
   --primary-hover: #084572;
   --primary-active: #063a61;
   --primary-foreground: #ffffff;
-  --primary-soft: #e8f0f7;
-  --primary-muted: #a3bed2;
-  --accent-bright: #0274be;
-  --bg: #f3f5f7;
+  --primary-soft: #eaf1f7;
+  --primary-muted: #a9c4da;
+  --accent-bright: #084572;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --border: #e3e7ec;
+  --sidebar-bg: #fafbfc;
+  --border: #e4e7ec;
   --text: #0f172a;
   --text-secondary: #334155;
   --muted: #64748b;
   --subtle: #94a3b8;
   --ring: #0b558b;
-  --wash: #e9eef2;
-  --line: #dde3e8;
-  --line-strong: #c8d0d8;
+  --wash: #edeff2;
+  --line: #edeff2;
+  --line-strong: #cbd2da;
   --ink: var(--text);
   --ink-muted: var(--muted);
   --ink-faint: var(--subtle);
+  --ok: #1f7a4d;
+  --ok-soft: #e9f4ee;
+  --bad: #b42318;
+  --bad-soft: #fdf0ef;
+  --warn-dot: #d99a1e;
   --available: #1f7a4d;
-  --reserved: #b7791f;
-  --booked: #64748b;
-  --sold: #9b2c2c;
-  --focus-ring: color-mix(in srgb, var(--primary) 30%, transparent);
+  --reserved: #d99a1e;
+  --booked: #0b558b;
+  --sold: #475569;
+  --chart-sold: #0b3f66;
+  --chart-booked: #0b558b;
+  --chart-reserved: #7fa6c6;
+  --chart-available: #e3e9ef;
+  --chart-secondary: #b9cee0;
+  --focus-ring: rgba(11, 85, 139, 0.35);
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-subtle: var(--wash);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-subtle: var(--subtle);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--text);
@@ -52,13 +64,23 @@
   --color-accent-bright: var(--accent-bright);
   --color-ring: var(--ring);
   --color-border: var(--border);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn-dot: var(--warn-dot);
   --color-available: var(--available);
   --color-reserved: var(--reserved);
   --color-booked: var(--booked);
   --color-sold: var(--sold);
+  --color-chart-sold: var(--chart-sold);
+  --color-chart-booked: var(--chart-booked);
+  --color-chart-reserved: var(--chart-reserved);
+  --color-chart-available: var(--chart-available);
+  --color-chart-secondary: var(--chart-secondary);
 
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -80,9 +102,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.003em;
+  font-feature-settings: "tnum", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -107,7 +130,7 @@ textarea {
 /* Card utility */
 .card {
   background-color: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
@@ -131,14 +154,14 @@ textarea {
 }
 
 /* Single unified number and code font across the entire app */
-.unit-code {
+.unit-code,
+.id {
   font-family: var(--font-sans);
-  font-feature-settings: "tnum", "ss01", "cv11";
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  letter-spacing: 0.012em;
 }
 
-/* Enable font-feature-settings "tnum", "ss01", "cv11" and font-variant-numeric: tabular-nums on tables, KPIs, prices, areas, inputs */
+/* Enable font-feature-settings "tnum", "cv11" and font-variant-numeric: tabular-nums on tables, KPIs, prices, areas, inputs */
 table,
 th,
 td,
@@ -147,9 +170,10 @@ td,
 .price,
 .area,
 .unit-code,
+.id,
 input[type="number"],
 .number-font {
-  font-feature-settings: "tnum", "ss01", "cv11";
+  font-feature-settings: "tnum", "cv11";
   font-variant-numeric: tabular-nums;
   font-family: var(--font-sans);
 }

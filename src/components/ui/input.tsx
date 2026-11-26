@@ -16,24 +16,24 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       return (
         <div
           className={cn(
-            "flex w-full items-center rounded-[8px] border border-line bg-surface transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus-ring)]",
-            sizeVariant === "sm" ? "h-8 text-[13px]" : "h-9 text-[13px]",
+            "flex w-full items-center overflow-hidden rounded-[8px] border border-border bg-surface transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)] focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(11,85,139,0.12)]",
+            sizeVariant === "sm" ? "h-[32px] text-[12.5px]" : "h-[38px] text-[13px]",
             className,
           )}
         >
           {prefixText && (
-            <span className="shrink-0 px-2.5 text-[13px] font-medium text-ink-muted select-none">
+            <span className="flex h-full shrink-0 items-center border-r border-border bg-sidebar-bg px-3 text-[12.5px] font-medium text-muted select-none">
               {prefixText}
             </span>
           )}
           <input
             ref={ref}
             type={type}
-            className="h-full min-w-0 flex-1 bg-transparent px-3 text-[13px] text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-full min-w-0 flex-1 bg-transparent px-3 text-[13px] text-ink outline-none placeholder:text-subtle disabled:cursor-not-allowed disabled:opacity-50"
             {...props}
           />
           {suffixText && (
-            <span className="shrink-0 px-2.5 text-[13px] font-medium text-ink-muted select-none">
+            <span className="flex h-full shrink-0 items-center border-l border-border bg-sidebar-bg px-3 text-[12.5px] font-medium text-muted select-none">
               {suffixText}
             </span>
           )}
@@ -46,8 +46,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         className={cn(
-          "w-full rounded-[8px] border border-line bg-surface text-ink transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-ink-faint hover:border-line-strong focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
-          sizeVariant === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-3 text-[13px]",
+          "w-full rounded-[8px] border border-border bg-surface text-ink transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)] placeholder:text-subtle hover:border-line-strong focus:border-primary focus:shadow-[0_0_0_3px_rgba(11,85,139,0.12)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          sizeVariant === "sm"
+            ? "h-[32px] px-2.5 text-[12.5px]"
+            : "h-[38px] px-3 text-[13px]",
           className,
         )}
         {...props}

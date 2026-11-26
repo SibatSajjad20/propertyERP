@@ -183,7 +183,7 @@ export function ImportMappingStep({
             Uploaded file
           </span>
           <div className="mt-0.5 flex items-center gap-2">
-            <span className="font-mono text-[13px] font-medium text-ink">{fileName}</span>
+            <span className="id text-[13px] font-medium text-ink">{fileName}</span>
             <span className="text-[12px] text-ink-muted">({totalRows} data rows)</span>
           </div>
           <p className="mt-1 text-[11px] text-ink-muted">
@@ -319,7 +319,7 @@ export function ImportMappingStep({
 
                 <div className="truncate text-[12px] md:col-span-3">
                   {sampleValue !== null && sampleValue !== "" ? (
-                    <span className="rounded-[4px] border border-line bg-subtle px-1.5 py-0.5 font-mono text-ink-muted">
+                    <span className="rounded-[4px] border border-line bg-subtle px-1.5 py-0.5 text-ink-muted tabular-nums">
                       Sample:{" "}
                       {sampleValue.length > 24
                         ? `${sampleValue.slice(0, 24)}…`

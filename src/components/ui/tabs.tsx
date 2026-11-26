@@ -13,7 +13,7 @@ export const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex items-center gap-4 border-b border-line text-ink-muted",
+      "mb-4.5 flex items-center gap-6 overflow-x-auto border-b border-border text-muted",
       className,
     )}
     {...props}
@@ -21,18 +21,31 @@ export const TabsList = React.forwardRef<
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
+export interface TabsTriggerProps extends React.ComponentPropsWithoutRef<
+  typeof TabsPrimitive.Trigger
+> {
+  count?: React.ReactNode;
+}
+
 export const TabsTrigger = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
+  TabsTriggerProps
+>(({ className, children, count, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "relative inline-flex h-9 cursor-pointer items-center justify-center px-1 text-[13px] font-medium transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-ink data-[state=active]:after:absolute data-[state=active]:after:right-0 data-[state=active]:after:bottom-0 data-[state=active]:after:left-0 data-[state=active]:after:h-[2px] data-[state=active]:after:bg-primary",
+      "relative -mb-[1px] inline-flex cursor-pointer items-center justify-center gap-1.5 pb-2.5 text-[13.5px] font-medium whitespace-nowrap text-muted transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:pb-2 data-[state=active]:text-ink",
       className,
     )}
     {...props}
-  />
+  >
+    <span>{children}</span>
+    {count !== undefined && count !== null && (
+      <span className="rounded-[5px] bg-[#EEF1F4] px-1.5 py-0.5 text-[11.5px] font-medium text-muted">
+        {count}
+      </span>
+    )}
+  </TabsPrimitive.Trigger>
 ));
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
@@ -43,7 +56,7 @@ export const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]",
+      "focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]",
       className,
     )}
     {...props}

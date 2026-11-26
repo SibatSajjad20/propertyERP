@@ -77,9 +77,7 @@ export function ImportPreviewTable({
               File &amp; Mode
             </span>
             <div className="mt-0.5 flex items-center gap-2">
-              <span className="font-mono text-[13px] font-medium text-ink">
-                {fileName}
-              </span>
+              <span className="id text-[13px] font-medium text-ink">{fileName}</span>
               <span className="text-[12px] text-ink-muted">
                 (
                 {mode === "CREATE_ONLY"

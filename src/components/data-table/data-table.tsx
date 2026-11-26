@@ -4,6 +4,7 @@ import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-tab
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/button";
 
 export const inventoryTableFeatures = tableFeatures({});
 
@@ -17,7 +18,7 @@ export type InventoryRow = {
   grossAreaSqft: string | null;
   ratePerSqftPkr: string;
   bookPricePkr: string;
-  status: "AVAILABLE" | "SOLD";
+  status: "AVAILABLE" | "SOLD" | "RESERVED" | "BOOKED";
   ownershipGroup: string | null;
 };
 
@@ -61,16 +62,32 @@ const numericAccessors = new Set([
   "bookPricePkr",
 ]);
 
-type DataTableProps = {
+export interface DataTablePaginationProps {
+  pageIndex?: number;
+  pageSize?: number;
+  totalCount?: number;
+  onPreviousPage?: () => void;
+  onNextPage?: () => void;
+  canPreviousPage?: boolean;
+  canNextPage?: boolean;
+}
+
+export type DataTableProps = {
   data: InventoryRow[];
   onRowClick?: (row: InventoryRow) => void;
   emptyMessage?: string;
+  toolbar?: React.ReactNode;
+  pagination?: DataTablePaginationProps;
+  className?: string;
 };
 
 export function DataTable({
   data,
   onRowClick,
   emptyMessage = "No units on the ledger yet.",
+  toolbar,
+  pagination,
+  className,
 }: DataTableProps) {
   const table = useTable({
     features: inventoryTableFeatures,
@@ -83,15 +100,32 @@ export function DataTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
+    estimateSize: () => 44,
     overscan: 12,
   });
 
+  const total = pagination?.totalCount ?? rows.length;
+  const pageIdx = pagination?.pageIndex ?? 0;
+  const size = pagination?.pageSize ?? rows.length;
+  const startRow = total === 0 ? 0 : pageIdx * size + 1;
+  const endRow = Math.min(total, (pageIdx + 1) * size);
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-border bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.03)]",
+        className,
+      )}
+    >
+      {toolbar && (
+        <div className="flex items-center gap-2 border-b border-line bg-surface px-4 py-3">
+          {toolbar}
+        </div>
+      )}
+
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-[13px]">
-          <thead className="sticky top-0 bg-bg">
+          <thead className="sticky top-0 z-10 bg-sidebar-bg">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id} className="border-b border-line">
                 {group.headers.map((header) => {
@@ -100,7 +134,7 @@ export function DataTable({
                     <th
                       key={header.id}
                       className={cn(
-                        "h-8 px-2 text-left text-[11px] font-medium tracking-wide text-ink-muted",
+                        "h-[38px] border-b border-line bg-sidebar-bg px-4 text-left text-[12px] font-medium whitespace-nowrap text-muted",
                         numeric && "text-right",
                       )}
                     >
@@ -116,7 +150,7 @@ export function DataTable({
               <tr>
                 <td
                   colSpan={inventoryColumns.length}
-                  className="h-24 px-2 text-center text-ink-muted"
+                  className="h-24 px-4 text-center text-[13px] text-muted"
                 >
                   {emptyMessage}
                 </td>
@@ -128,7 +162,7 @@ export function DataTable({
                     <td
                       colSpan={inventoryColumns.length}
                       style={{ height: virtualizer.getVirtualItems()[0]?.start ?? 0 }}
-                      className="p-0"
+                      className="border-0 p-0"
                     />
                   </tr>
                 ) : null}
@@ -140,7 +174,7 @@ export function DataTable({
                   return (
                     <tr
                       key={row.id}
-                      className="h-8 border-b border-line transition-colors duration-[var(--duration-fast)] ease-[var(--ease-ledger)] hover:bg-surface"
+                      className="h-[44px] cursor-pointer border-b border-line transition-colors duration-[var(--duration-hover)] hover:bg-[#FAFBFC]"
                       onClick={() => onRowClick?.(row.original)}
                     >
                       {row.getAllCells().map((cell) => {
@@ -150,7 +184,7 @@ export function DataTable({
                           <td
                             key={cell.id}
                             className={cn(
-                              "h-8 px-2 align-middle",
+                              "h-[44px] px-4 align-middle text-[13px] whitespace-nowrap text-text-secondary",
                               numeric && "text-right tabular-nums",
                               (cell.column.id === "netAreaSqft" ||
                                 cell.column.id === "grossAreaSqft") &&
@@ -158,7 +192,7 @@ export function DataTable({
                               (cell.column.id === "ratePerSqftPkr" ||
                                 cell.column.id === "bookPricePkr") &&
                                 "price",
-                              isCode && "unit-code",
+                              isCode && "id text-ink",
                             )}
                           >
                             <table.FlexRender cell={cell} />
@@ -173,6 +207,32 @@ export function DataTable({
           </tbody>
         </table>
       </div>
+
+      {pagination && (
+        <div className="flex items-center justify-between border-t border-line bg-surface px-4 py-2.5 text-[12.5px] text-muted">
+          <div>
+            Showing {startRow}–{endRow} of {total}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="default"
+              size="sm"
+              disabled={pagination.canPreviousPage === false}
+              onClick={pagination.onPreviousPage}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={pagination.canNextPage === false}
+              onClick={pagination.onNextPage}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

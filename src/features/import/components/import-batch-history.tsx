@@ -86,7 +86,7 @@ export function ImportBatchHistory({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[13px] font-medium text-ink">
+                      <span className="id text-[13px] font-medium text-ink">
                         {batch.originalFilePath}
                       </span>
                       {isRolledBack ? (
@@ -167,7 +167,7 @@ export function ImportBatchHistory({
             <DialogTitle>Rollback latest import batch?</DialogTitle>
             <DialogDescription>
               This will revert all changes made during this batch (
-              <span className="font-mono font-medium text-ink">
+              <span className="id font-medium text-ink">
                 {selectedBatch?.originalFilePath}
               </span>
               ).

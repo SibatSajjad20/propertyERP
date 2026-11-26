@@ -32,8 +32,8 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-between rounded-[8px] border border-line bg-surface text-ink shadow-xs transition-colors duration-[var(--duration-hover)] ease-[var(--ease-ledger)] select-none hover:border-line-strong focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
-      size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-3 text-[13px]",
+      "flex w-full items-center justify-between rounded-[8px] border border-border bg-surface text-ink transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)] select-none hover:border-line-strong focus:outline-none focus-visible:border-primary focus-visible:shadow-[0_0_0_3px_rgba(11,85,139,0.12)] disabled:cursor-not-allowed disabled:opacity-50",
+      size === "sm" ? "h-[32px] px-2.5 text-[12.5px]" : "h-[38px] px-3 text-[13px]",
       className,
     )}
     {...props}
@@ -41,8 +41,8 @@ export const SelectTrigger = React.forwardRef<
     {children}
     <SelectPrimitive.Icon asChild>
       <CaretDown
-        weight="light"
-        className="size-4 shrink-0 text-ink-muted opacity-80"
+        weight="regular"
+        className="size-3.5 shrink-0 text-muted opacity-80"
         aria-hidden="true"
       />
     </SelectPrimitive.Icon>

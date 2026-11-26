@@ -6,29 +6,32 @@ import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center font-medium transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 [&_svg]:size-4 [&_svg]:shrink-0",
+export const buttonVariants = cva(
+  "inline-flex items-center justify-center font-medium transition-all duration-[var(--duration-hover)] ease-[var(--ease-ledger)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 whitespace-nowrap [&_svg]:size-[15px] [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         primary:
-          "bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground border border-transparent shadow-xs",
+          "bg-primary hover:bg-primary-hover active:bg-primary-active text-white border border-primary shadow-[0_1px_2px_rgba(11,85,139,0.25)] [&_svg]:text-white",
+        default:
+          "bg-surface hover:bg-[#FAFBFC] active:bg-[#F1F3F6] text-ink border border-border shadow-[0_1px_1px_rgba(15,23,42,0.04)] [&_svg]:text-muted",
         secondary:
-          "bg-surface hover:bg-bg hover:border-primary/40 text-ink border border-border shadow-xs",
+          "bg-surface hover:bg-[#FAFBFC] active:bg-[#F1F3F6] text-ink border border-border shadow-[0_1px_1px_rgba(15,23,42,0.04)] [&_svg]:text-muted",
         outline:
-          "bg-surface hover:bg-bg hover:border-primary/40 text-ink border border-border",
-        ghost: "bg-transparent hover:bg-primary-soft text-ink border border-transparent",
+          "bg-surface hover:bg-[#FAFBFC] active:bg-[#F1F3F6] text-ink border border-border shadow-[0_1px_1px_rgba(15,23,42,0.04)] [&_svg]:text-muted",
+        ghost:
+          "bg-transparent hover:bg-primary-soft text-muted hover:text-ink border border-transparent shadow-none [&_svg]:text-muted",
         danger:
-          "bg-surface hover:bg-[color-mix(in_srgb,var(--sold)_10%,transparent)] text-sold border border-sold",
+          "bg-surface hover:bg-bad-soft active:bg-[#FCE8E6] text-bad border border-border shadow-[0_1px_1px_rgba(15,23,42,0.04)] [&_svg]:text-bad",
         dangerSolid:
-          "bg-sold hover:bg-[color-mix(in_srgb,var(--sold)_90%,black)] text-surface border border-transparent shadow-xs",
+          "bg-bad hover:bg-[#9B1C10] text-white border border-transparent shadow-[0_1px_2px_rgba(180,35,24,0.25)] [&_svg]:text-white",
       },
       size: {
-        sm: "h-8 px-3 text-[13px] gap-1.5 rounded-[8px]",
-        md: "h-9 px-3.5 text-[13px] font-medium gap-1.5 rounded-[8px]",
-        lg: "h-10 px-4 text-[13px] font-medium gap-1.5 rounded-[8px]",
-        icon: "size-9 p-0 rounded-[8px] justify-center",
-        iconSm: "size-8 p-0 rounded-[8px] justify-center",
+        sm: "h-[28px] px-[10px] text-[12.5px] gap-1.5 rounded-[7px]",
+        md: "h-[34px] px-[13px] text-[13px] gap-1.5 rounded-[8px]",
+        lg: "h-[40px] px-4 text-[13.5px] gap-2 rounded-[8px]",
+        icon: "size-[34px] p-0 rounded-[8px] justify-center",
+        iconSm: "size-[28px] p-0 rounded-[7px] justify-center",
       },
     },
     defaultVariants: {
@@ -87,8 +90,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <CircleNotch
-            weight="light"
-            className="size-4 animate-spin text-current"
+            weight="regular"
+            className="size-3.5 animate-spin text-current"
             aria-hidden="true"
           />
         ) : (
@@ -101,5 +104,3 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   },
 );
 Button.displayName = "Button";
-
-export { buttonVariants };

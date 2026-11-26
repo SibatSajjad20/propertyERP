@@ -222,7 +222,7 @@ export function TopBar({
               Search or jump to…
             </span>
           </div>
-          <kbd className="hidden rounded border border-line bg-subtle px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-muted sm:inline-flex">
+          <kbd className="hidden rounded border border-line bg-surface px-1.5 py-0.5 text-[11px] font-medium text-ink-muted sm:inline-flex">
             {modKey}K
           </kbd>
         </button>
