@@ -15,6 +15,9 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList } from "@/components/ui/definition-list";
+import { FormSection } from "@/components/ui/form-section";
 import { formatPkr, parseDecimal } from "@/lib/money";
 import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { cn } from "@/lib/cn";
@@ -32,11 +35,7 @@ import {
   type DocSlotMap,
 } from "@/features/documents/components/document-fields";
 import type { ExistingDocument } from "@/features/documents/components/document-upload";
-import {
-  collectPending,
-  flushPendingUploads,
-  isDocReady,
-} from "@/features/documents/upload-client";
+import { collectPending, flushPendingUploads } from "@/features/documents/upload-client";
 import { createBooking } from "../actions";
 import { CNIC_REGEX, formatCnic, type ClientInput, type NextOfKinInput } from "../schema";
 import { ClientForm } from "./client-form";
@@ -433,7 +432,20 @@ export function BookingWizard({
 
   function renderActionButtons() {
     return (
-      <>
+      <div className="flex items-center gap-2">
+        {currentStep > 1 && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={prevStep}
+            disabled={isSubmitting || isAdvancing}
+          >
+            <ArrowLeft weight="light" className="mr-1.5 size-4" />
+            Previous
+          </Button>
+        )}
+
         {currentStep === 1 && (
           <Button
             type="button"
@@ -502,331 +514,470 @@ export function BookingWizard({
             {isSubmitting ? "Processing Booking..." : "Confirm & Create Booking"}
           </Button>
         )}
-      </>
+      </div>
     );
   }
+
+  // Grouped installments for schedule preview
+  const regularInsts = React.useMemo(() => {
+    if (!liveSchedule) return [];
+    return liveSchedule.installments.filter((i) => i.type === "REGULAR");
+  }, [liveSchedule]);
+
+  const inst1 = regularInsts[0];
+  const inst2 = regularInsts[1];
+  const remainingRegular = regularInsts.slice(2);
+  const remainingRegularTotal = React.useMemo(() => {
+    return remainingRegular.reduce((acc, i) => acc + parseDecimal(i.amountPkr), 0n);
+  }, [remainingRegular]);
 
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
         title="New Booking"
-        description="Book a commercial unit with custom installment plan, down payment, and client registration."
+        back={{ label: "Bookings", href: "/bookings" }}
+        meta={
+          [
+            selectedUnit
+              ? `Unit ${formatUnitDisplayCode(selectedUnit.unitCode, selectedUnit.categoryName)}`
+              : null,
+            client.fullName.trim() ? client.fullName.trim() : null,
+          ].filter(Boolean) as React.ReactNode[]
+        }
+        actions={renderActionButtons()}
       />
 
-      {/* Step Indicators */}
-      <div className="card p-3">
-        <div className="flex items-center justify-between overflow-x-auto">
-          {STEPS.map((step) => {
-            const isDone = currentStep > step.id;
-            const isCurrent = currentStep === step.id;
-            const Icon = isDone ? Check : step.icon;
+      {/* 5-Step Stepper Panel */}
+      <div className="steps mb-6 flex overflow-x-auto rounded-[12px] border border-line bg-surface p-1">
+        {STEPS.map((step) => {
+          const isDone = currentStep > step.id;
+          const isCurrent = currentStep === step.id;
 
-            return (
-              <div
-                key={step.id}
-                onClick={() => {
-                  if (!isAdvancing && !isSubmitting && step.id < currentStep)
-                    setCurrentStep(step.id);
-                }}
+          return (
+            <button
+              key={step.id}
+              type="button"
+              disabled={isSubmitting || isAdvancing || (!isDone && !isCurrent)}
+              onClick={() => {
+                if (!isAdvancing && !isSubmitting && isDone) {
+                  setCurrentStep(step.id);
+                }
+              }}
+              className={cn(
+                "step relative flex flex-1 items-center gap-2.5 px-3.5 py-3 text-[13px] font-medium transition-colors select-none",
+                isDone && "cursor-pointer text-ink hover:text-primary",
+                isCurrent && "font-semibold text-primary",
+                !isDone && !isCurrent && "cursor-not-allowed text-ink-muted",
+              )}
+            >
+              <span
                 className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 text-[13px] whitespace-nowrap transition-colors",
-                  step.id < currentStep && "cursor-pointer hover:text-ink",
-                  isCurrent
-                    ? "font-semibold text-primary"
-                    : isDone
-                      ? "text-ink"
-                      : "text-ink-faint",
+                  "n flex size-5.5 shrink-0 items-center justify-center rounded-full text-[11.5px] transition-colors",
+                  isDone && "bg-primary font-bold text-white",
+                  isCurrent &&
+                    "border-[1.5px] border-primary bg-primary-soft/40 font-bold text-primary",
+                  !isDone &&
+                    !isCurrent &&
+                    "border border-line-strong bg-surface text-ink-muted",
                 )}
               >
-                <span
-                  className={cn(
-                    "flex size-6 items-center justify-center rounded-full text-[11px]",
-                    isCurrent
-                      ? "bg-primary text-white"
-                      : isDone
-                        ? "bg-primary/10 font-bold text-primary"
-                        : "bg-subtle text-ink-muted",
-                  )}
-                >
-                  {isDone ? <Check weight="bold" className="size-3.5" /> : step.id}
-                </span>
-                <span>{step.label}</span>
-                {step.id < STEPS.length && (
-                  <span className="mx-2 text-line-strong select-none">/</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                {isDone ? <Check weight="bold" className="size-3" /> : step.id}
+              </span>
+              <span className="truncate">{step.label}</span>
+              {isCurrent && (
+                <span className="absolute right-3.5 bottom-[-1px] left-3.5 h-[2px] bg-primary" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Step Content */}
-      <div className="min-h-[420px]">
-        <div className="mb-3 text-[12px] font-semibold tracking-wide text-ink-muted uppercase">
-          Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.label}
-        </div>
-        {/* Step 1: Unit Selector */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            <UnitSelector
-              units={units}
-              selectedUnitId={selectedUnit?.id}
-              onSelectUnit={(u) => {
-                setSelectedUnit(u);
-              }}
-              floors={floors}
-              categories={categories}
-            />
-          </div>
-        )}
+      {/* Step Label Tracker for test compatibility */}
+      <div className="mb-2 text-[12px] font-semibold tracking-wide text-ink-muted uppercase">
+        Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.label}
+      </div>
 
-        {/* Step 2: Payment Plan */}
-        {currentStep === 2 && selectedUnit && (
-          <PaymentPlanPanel
-            listPricePkr={selectedUnit.computedPricePkr || "0.00"}
-            role={role}
-            discountType={paymentState.discountType}
-            discountValue={paymentState.discountValue}
-            discountReason={paymentState.discountReason}
-            downPaymentType={paymentState.downPaymentType}
-            downPaymentValue={paymentState.downPaymentValue}
-            possessionType={paymentState.possessionType}
-            possessionValue={paymentState.possessionValue}
-            balloonType={paymentState.balloonType}
-            balloonValue={paymentState.balloonValue}
-            reservationTokenAmount={reservationTokenAmount}
-            reservationTokenReceiptNo={reservationTokenReceiptNo}
-            adjustTokenAmount={paymentState.adjustTokenAmount}
-            plan={paymentState.plan}
-            installmentCount={paymentState.installmentCount}
-            startDate={paymentState.startDate}
-            paymentMethod={paymentState.paymentMethod}
-            chequeNo={paymentState.chequeNo}
-            bank={paymentState.bank}
-            notes={paymentState.notes}
-            onChange={(fields) => setPaymentState((prev) => ({ ...prev, ...fields }))}
-          />
-        )}
-
-        {/* Step 3: Client Details */}
-        {currentStep === 3 && (
-          <div className="card space-y-6 p-6">
-            <ClientForm
-              client={client}
-              nextOfKin={nextOfKin}
-              onChangeClient={setClient}
-              onChangeNextOfKin={setNextOfKin}
-              showNextOfKin={false}
-              onMatched={applyMatchedDocs}
-            />
-            <div>
-              <h3 className="mb-3 text-[14px] font-semibold text-ink">
-                Client documents{" "}
-                <span className="font-normal text-ink-muted">(Optional)</span>
-              </h3>
-              <ClientDocumentFields
-                clientId={clientId}
-                docs={clientDocs}
-                errors={{
-                  PHOTO: docErrors.PHOTO,
-                  CNIC_FRONT: docErrors.CNIC_FRONT,
-                  CNIC_BACK: docErrors.CNIC_BACK,
-                }}
-                onChange={(docType, doc) => {
-                  setClientDocs((prev) => ({ ...prev, [docType]: doc }));
-                  setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
-                }}
+      {/* 2-Column Content Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (8 cols): Step Forms */}
+        <div
+          className={cn(selectedUnit ? "lg:col-span-8" : "lg:col-span-12", "space-y-6")}
+        >
+          {/* Step 1: Unit Selector */}
+          {currentStep === 1 && (
+            <Panel title="Select Unit" hint="Filter by floor, category, or code">
+              <UnitSelector
+                units={units}
+                selectedUnitId={selectedUnit?.id}
+                onSelectUnit={(u) => setSelectedUnit(u)}
+                floors={floors}
+                categories={categories}
               />
-            </div>
-          </div>
-        )}
+            </Panel>
+          )}
 
-        {/* Step 4: Next of Kin */}
-        {currentStep === 4 && (
-          <div className="card space-y-6 p-6">
-            <ClientForm
-              client={client}
-              nextOfKin={nextOfKin}
-              onChangeClient={setClient}
-              onChangeNextOfKin={setNextOfKin}
-              showNextOfKin={true}
-              kinCnicRequired
-              onMatched={applyMatchedDocs}
+          {/* Step 2: Payment Plan */}
+          {currentStep === 2 && selectedUnit && (
+            <PaymentPlanPanel
+              listPricePkr={selectedUnit.computedPricePkr || "0.00"}
+              role={role}
+              discountType={paymentState.discountType}
+              discountValue={paymentState.discountValue}
+              discountReason={paymentState.discountReason}
+              downPaymentType={paymentState.downPaymentType}
+              downPaymentValue={paymentState.downPaymentValue}
+              possessionType={paymentState.possessionType}
+              possessionValue={paymentState.possessionValue}
+              balloonType={paymentState.balloonType}
+              balloonValue={paymentState.balloonValue}
+              reservationTokenAmount={reservationTokenAmount}
+              reservationTokenReceiptNo={reservationTokenReceiptNo}
+              adjustTokenAmount={paymentState.adjustTokenAmount}
+              plan={paymentState.plan}
+              installmentCount={paymentState.installmentCount}
+              startDate={paymentState.startDate}
+              paymentMethod={paymentState.paymentMethod}
+              chequeNo={paymentState.chequeNo}
+              bank={paymentState.bank}
+              notes={paymentState.notes}
+              onChange={(fields) => setPaymentState((prev) => ({ ...prev, ...fields }))}
             />
-            <div>
-              <h3 className="mb-3 text-[14px] font-semibold text-ink">
-                Nominee documents{" "}
-                <span className="font-normal text-ink-muted">(Optional)</span>
-              </h3>
-              <KinDocumentFields
-                clientId={clientId}
-                kinId={kinId}
-                docs={kinDocs}
-                errors={{
-                  KIN_PHOTO: docErrors.KIN_PHOTO,
-                  CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
-                  CNIC_BACK: docErrors.KIN_CNIC_BACK,
-                }}
-                onChange={(docType, doc) => {
-                  setKinDocs((prev) => ({ ...prev, [docType]: doc }));
-                  setDocErrors((prev) => ({
-                    ...prev,
-                    [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]: undefined,
-                  }));
-                }}
-              />
+          )}
+
+          {/* Step 3: Client Details */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <FormSection
+                title="Applicant Identity"
+                description="Primary client personal and legal information."
+              >
+                <ClientForm
+                  client={client}
+                  nextOfKin={nextOfKin}
+                  onChangeClient={setClient}
+                  onChangeNextOfKin={setNextOfKin}
+                  showNextOfKin={false}
+                  onMatched={applyMatchedDocs}
+                />
+              </FormSection>
+
+              <FormSection
+                title="Client Documents"
+                description="Identification documents (Photo, CNIC front and back)."
+              >
+                <ClientDocumentFields
+                  clientId={clientId}
+                  docs={clientDocs}
+                  errors={{
+                    PHOTO: docErrors.PHOTO,
+                    CNIC_FRONT: docErrors.CNIC_FRONT,
+                    CNIC_BACK: docErrors.CNIC_BACK,
+                  }}
+                  onChange={(docType, doc) => {
+                    setClientDocs((prev) => ({ ...prev, [docType]: doc }));
+                    setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
+                  }}
+                />
+              </FormSection>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Step 5: Review & Confirm */}
-        {currentStep === 5 && selectedUnit && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Unit Card (Gross Area ONLY — never Net Sq Ft on booking form) */}
-              <div className="card space-y-3 p-5">
-                <div className="flex items-center justify-between border-b border-line pb-2">
-                  <h4 className="text-[14px] font-semibold text-ink">Unit Summary</h4>
-                  <span className="unit-code font-sans text-[14px] font-bold text-primary tabular-nums">
-                    {formatUnitDisplayCode(
-                      selectedUnit.unitCode,
-                      selectedUnit.categoryName,
-                    )}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[12px]">
-                  <div>
-                    <span className="text-ink-muted">Floor / Block:</span>
-                    <p className="font-medium text-ink">
-                      {selectedUnit.floorName} · {selectedUnit.blockName}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Category:</span>
-                    <p className="font-medium text-ink">{selectedUnit.categoryName}</p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Gross Area:</span>
-                    <p className="font-medium text-ink tabular-nums">
-                      {effectivePricingArea(
-                        selectedUnit.grossAreaSqft,
-                        selectedUnit.netAreaSqft,
-                      )}{" "}
-                      sq ft
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Rate / sq ft:</span>
-                    <p className="font-medium text-ink tabular-nums">
-                      {formatPkr(selectedUnit.ratePerSqftPkr)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+          {/* Step 4: Next of Kin */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <FormSection
+                title="Nominee Identity"
+                description="Next of kin designated as legal heir or representative."
+              >
+                <ClientForm
+                  client={client}
+                  nextOfKin={nextOfKin}
+                  onChangeClient={setClient}
+                  onChangeNextOfKin={setNextOfKin}
+                  showNextOfKin={true}
+                  kinCnicRequired
+                  onMatched={applyMatchedDocs}
+                />
+              </FormSection>
 
-              {/* Client & Kin Card */}
-              <div className="card space-y-3 p-5">
-                <div className="flex items-center justify-between border-b border-line pb-2">
-                  <h4 className="text-[14px] font-semibold text-ink">
-                    Applicant Details
-                  </h4>
-                  <span className="font-sans text-[12px] text-ink-muted tabular-nums">
-                    {client.cnic}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[12px]">
-                  <div>
-                    <span className="text-ink-muted">Name:</span>
-                    <p className="font-medium text-ink">{client.fullName}</p>
+              <FormSection
+                title="Nominee Documents"
+                description="Identification documents for designated next of kin."
+              >
+                <KinDocumentFields
+                  clientId={clientId}
+                  kinId={kinId}
+                  docs={kinDocs}
+                  errors={{
+                    KIN_PHOTO: docErrors.KIN_PHOTO,
+                    CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
+                    CNIC_BACK: docErrors.KIN_CNIC_BACK,
+                  }}
+                  onChange={(docType, doc) => {
+                    setKinDocs((prev) => ({ ...prev, [docType]: doc }));
+                    setDocErrors((prev) => ({
+                      ...prev,
+                      [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]:
+                        undefined,
+                    }));
+                  }}
+                />
+              </FormSection>
+            </div>
+          )}
+
+          {/* Step 5: Review & Confirm */}
+          {currentStep === 5 && selectedUnit && (
+            <div className="space-y-6">
+              <FormSection
+                title="Applicant & Nominee"
+                description="Confirmed ownership and identity information."
+              >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-[8px] border border-line bg-surface p-4">
+                    <span className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
+                      Applicant
+                    </span>
+                    <p className="mt-1 text-[14px] font-semibold text-ink">
+                      {client.title} {client.fullName}
+                    </p>
+                    <p className="text-[12.5px] text-ink-muted">
+                      {client.relationPrefix} {client.relationName}
+                    </p>
+                    <p className="mt-2 text-[12px] font-medium text-ink tabular-nums">
+                      CNIC: {client.cnic}
+                    </p>
+                    <p className="text-[12px] text-ink-muted tabular-nums">
+                      Phone: {client.phone}
+                    </p>
+                    <p className="mt-1 text-[12px] text-ink-muted">
+                      Address: {client.homeAddress}
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-ink-muted">Phone:</span>
-                    <p className="font-medium text-ink tabular-nums">{client.phone}</p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Nominee:</span>
-                    <p className="font-medium text-ink">
+
+                  <div className="rounded-[8px] border border-line bg-surface p-4">
+                    <span className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
+                      Designated Nominee
+                    </span>
+                    <p className="mt-1 text-[14px] font-semibold text-ink">
                       {nextOfKin.name} ({nextOfKin.relation})
                     </p>
-                  </div>
-                  <div>
-                    <span className="text-ink-muted">Nominee Phone:</span>
-                    <p className="font-medium text-ink tabular-nums">{nextOfKin.phone}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Financial Overview Card */}
-            <div className="card p-5">
-              <h4 className="mb-3 border-b border-line pb-2 text-[14px] font-semibold text-ink">
-                Financial Schedule & Deposit
-              </h4>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">Net Price</span>
-                  <p className="text-[14px] font-bold text-ink tabular-nums">
-                    {formatPkr(
-                      liveSchedule?.netPricePkr || selectedUnit.computedPricePkr || "0",
-                    )}
-                  </p>
-                </div>
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">
-                    Down Payment
-                  </span>
-                  <p className="text-[14px] font-bold text-primary tabular-nums">
-                    {formatPkr(liveSchedule?.downPaymentPkr || "0")}
-                  </p>
-                  {liveSchedule && liveSchedule.tokenAdjustedPkr !== "0.00" && (
-                    <p className="text-[11px] text-available tabular-nums">
-                      Payable now: {formatPkr(liveSchedule.payableDownPaymentNowPkr)}
+                    <p className="text-[12.5px] text-ink-muted">
+                      {nextOfKin.relationPrefix} {nextOfKin.relationName}
                     </p>
-                  )}
+                    <p className="mt-2 text-[12px] font-medium text-ink tabular-nums">
+                      CNIC: {nextOfKin.cnic}
+                    </p>
+                    <p className="text-[12px] text-ink-muted tabular-nums">
+                      Phone: {nextOfKin.phone}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">
-                    Annual Balloons ({liveSchedule?.balloonPercent ?? 0}%)
-                  </span>
-                  <p className="text-[14px] font-semibold text-ink tabular-nums">
-                    {formatPkr(liveSchedule?.balloonTotalAmountPkr || "0")}
-                  </p>
-                  <p className="text-[11px] text-ink-muted tabular-nums">
-                    {liveSchedule?.balloonCount ?? 0} ×{" "}
-                    {formatPkr(liveSchedule?.balloonAmountPerYearPkr || "0")} / yr
-                  </p>
+              </FormSection>
+
+              <FormSection
+                title="Financial Summary"
+                description="Breakdown of payment plan, down payment, and installments."
+              >
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] text-ink-muted uppercase">
+                      Net Price
+                    </span>
+                    <p className="text-[15px] font-bold text-ink tabular-nums">
+                      {formatPkr(liveSchedule?.netPricePkr || "0")}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] text-ink-muted uppercase">
+                      Down Payment
+                    </span>
+                    <p className="text-[15px] font-bold text-primary tabular-nums">
+                      {formatPkr(liveSchedule?.downPaymentPkr || "0")}
+                    </p>
+                    {liveSchedule && liveSchedule.tokenAdjustedPkr !== "0.00" && (
+                      <p className="text-[11px] text-available tabular-nums">
+                        Payable now: {formatPkr(liveSchedule.payableDownPaymentNowPkr)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] text-ink-muted uppercase">
+                      Possession
+                    </span>
+                    <p className="text-[15px] font-semibold text-ink tabular-nums">
+                      {formatPkr(liveSchedule?.possessionAmountPkr || "0")}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] text-ink-muted uppercase">
+                      Frequency
+                    </span>
+                    <p className="text-[14px] font-semibold text-ink">
+                      {paymentState.installmentCount} {paymentState.plan.toLowerCase()}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">Possession</span>
-                  <p className="text-[14px] font-semibold text-ink tabular-nums">
-                    {formatPkr(liveSchedule?.possessionAmountPkr || "0")}
-                  </p>
-                </div>
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">Frequency</span>
-                  <p className="text-[14px] font-semibold text-ink">
-                    {paymentState.installmentCount} {paymentState.plan.toLowerCase()}
-                  </p>
-                </div>
-                <div className="rounded-[8px] bg-subtle/50 p-3">
-                  <span className="text-[11px] text-ink-muted uppercase">
-                    Payment Mode
-                  </span>
-                  <p className="text-[14px] font-semibold text-ink">
-                    {paymentState.paymentMethod}
-                    {paymentState.chequeNo && ` (${paymentState.chequeNo})`}
-                  </p>
-                </div>
-              </div>
+              </FormSection>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column (4 cols): Sticky Unit Summary & Schedule Preview */}
+        {selectedUnit && (
+          <div className="space-y-5 lg:col-span-4">
+            <div className="sticky top-20 space-y-5">
+              {/* Unit Summary DefinitionList */}
+              <Panel title="Unit Summary" hint={selectedUnit.categoryName}>
+                <DefinitionList
+                  items={[
+                    {
+                      label: "Unit Code",
+                      value: (
+                        <span className="font-sans font-medium text-ink tabular-nums">
+                          {formatUnitDisplayCode(
+                            selectedUnit.unitCode,
+                            selectedUnit.categoryName,
+                          )}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "Floor / Block",
+                      value: `${selectedUnit.floorName} · ${selectedUnit.blockName}`,
+                    },
+                    {
+                      label: "Category",
+                      value: selectedUnit.categoryName,
+                    },
+                    {
+                      label: "Gross Area",
+                      value: (
+                        <span className="tabular-nums">
+                          {effectivePricingArea(
+                            selectedUnit.grossAreaSqft,
+                            selectedUnit.netAreaSqft,
+                          )}{" "}
+                          sq ft
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "Rate / sq ft",
+                      value: (
+                        <span className="tabular-nums">
+                          {formatPkr(selectedUnit.ratePerSqftPkr)}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "List Price",
+                      value: (
+                        <span className="font-semibold text-ink tabular-nums">
+                          {formatPkr(selectedUnit.computedPricePkr || "0")}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              </Panel>
+
+              {/* Schedule Preview Table */}
+              {liveSchedule && (
+                <Panel
+                  title="Schedule Preview"
+                  hint={`${liveSchedule.installmentCount} installments`}
+                >
+                  <table className="w-full border-collapse text-[12.5px]">
+                    <tbody className="divide-y divide-line/60">
+                      <tr>
+                        <td className="py-2 text-ink-muted">On Booking (Down Payment)</td>
+                        <td className="py-2 text-right font-medium text-primary tabular-nums">
+                          {formatPkr(liveSchedule.downPaymentPkr)}
+                        </td>
+                      </tr>
+                      {inst1 && (
+                        <tr>
+                          <td className="py-2 text-ink-muted">
+                            Inst #01 (
+                            {inst1.dueDate.toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                            })}
+                            )
+                          </td>
+                          <td className="py-2 text-right font-medium text-ink tabular-nums">
+                            {formatPkr(inst1.amountPkr)}
+                          </td>
+                        </tr>
+                      )}
+                      {inst2 && (
+                        <tr>
+                          <td className="py-2 text-ink-muted">
+                            Inst #02 (
+                            {inst2.dueDate.toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                            })}
+                            )
+                          </td>
+                          <td className="py-2 text-right font-medium text-ink tabular-nums">
+                            {formatPkr(inst2.amountPkr)}
+                          </td>
+                        </tr>
+                      )}
+                      {remainingRegular.length > 0 && (
+                        <tr>
+                          <td className="py-2 text-ink-muted">
+                            Inst #03–{liveSchedule.installmentCount} (
+                            {remainingRegular.length} payments)
+                          </td>
+                          <td className="py-2 text-right font-medium text-ink tabular-nums">
+                            {formatPkr(
+                              remainingRegularTotal.toString().slice(0, -2) +
+                                "." +
+                                remainingRegularTotal.toString().slice(-2),
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      {liveSchedule.balloonCount > 0 && (
+                        <tr>
+                          <td className="py-2 text-ink-muted">
+                            Annual Balloons ({liveSchedule.balloonCount} payments)
+                          </td>
+                          <td className="py-2 text-right font-medium text-ink tabular-nums">
+                            {formatPkr(liveSchedule.balloonTotalAmountPkr)}
+                          </td>
+                        </tr>
+                      )}
+                      {parseDecimal(liveSchedule.possessionAmountPkr) > 0n && (
+                        <tr>
+                          <td className="py-2 text-ink-muted">On Possession</td>
+                          <td className="py-2 text-right font-medium text-ink tabular-nums">
+                            {formatPkr(liveSchedule.possessionAmountPkr)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-t border-line font-semibold">
+                        <td className="py-2.5 text-ink">Total Net Price</td>
+                        <td className="py-2.5 text-right font-bold text-ink tabular-nums">
+                          {formatPkr(liveSchedule.netPricePkr)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </Panel>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Wizard Navigation Footer - Sticky / Fixed at bottom of screen */}
+      {/* Floating Bottom Navigation Bar */}
       <div className="pointer-events-none fixed right-4 bottom-4 left-4 z-30 sm:right-6 sm:left-6 lg:right-8 lg:left-[264px]">
         <div className="pointer-events-auto mx-auto w-full max-w-[1440px]">
-          <div className="card flex items-center justify-between gap-3 border border-line bg-surface/95 p-4 shadow-floating backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3 rounded-[12px] border border-line bg-surface/95 p-3.5 shadow-floating backdrop-blur-md">
             <div>
               {currentStep > 1 ? (
                 <Button
@@ -842,8 +993,11 @@ export function BookingWizard({
               ) : selectedUnit ? (
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-ink tabular-nums">
-                    {selectedUnit.unitCode}
+                  <span className="rounded bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-ink tabular-nums">
+                    {formatUnitDisplayCode(
+                      selectedUnit.unitCode,
+                      selectedUnit.categoryName,
+                    )}
                   </span>
                   <span className="hidden text-ink-muted sm:inline">
                     • {selectedUnit.categoryName} • {selectedUnit.floorName}

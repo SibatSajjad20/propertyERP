@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Warning, Calculator } from "@phosphor-icons/react";
+import { Warning } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -14,7 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FormSection } from "@/components/ui/form-section";
 import { formatPkr, parseDecimal } from "@/lib/money";
+import { cn } from "@/lib/cn";
 import type {
   PaymentPlan,
   DiscountType,
@@ -94,6 +95,7 @@ export function PaymentPlanPanel({
   paymentMethod,
   chequeNo = "",
   bank = "",
+  notes = "",
   onChange,
 }: PaymentPlanPanelProps) {
   const hasReservationToken = React.useMemo(() => {
@@ -145,19 +147,81 @@ export function PaymentPlanPanel({
   }, [listPricePkr, discountType, discountValue]);
 
   const isAdmin = role === "ADMIN";
-  const needsAdminDiscountApproval = discountCalc.requiresAdmin && !isAdmin;
+
+  // Pre-calculate installment amount preview for each frequency option
+  const frequencyOptions = React.useMemo(() => {
+    const plans: Array<{
+      id: PaymentPlan;
+      label: string;
+      defaultCount: number;
+      intervalLabel: string;
+    }> = [
+      { id: "MONTHLY", label: "Monthly", defaultCount: 36, intervalLabel: "month" },
+      { id: "QUARTERLY", label: "Quarterly", defaultCount: 12, intervalLabel: "quarter" },
+      { id: "SEMI_ANNUAL", label: "Semi-Annual", defaultCount: 6, intervalLabel: "6 mo" },
+    ];
+
+    return plans.map((p) => {
+      try {
+        const preview = generateSchedule({
+          listPricePkr,
+          discountType: discountType || null,
+          discountValue: discountValue || null,
+          downPaymentType,
+          downPaymentValue: downPaymentValue || "0",
+          possessionType,
+          possessionValue: possessionValue || "0",
+          balloonType,
+          balloonValue: balloonValue || "0",
+          tokenAdjustedPkr:
+            hasReservationToken && adjustTokenAmount ? reservationTokenAmount : "0",
+          plan: p.id,
+          installmentCount: plan === p.id ? installmentCount : p.defaultCount,
+          startDate: startDate ? new Date(startDate) : new Date(),
+        });
+        const reg = preview.installments.find((i) => i.type === "REGULAR");
+        return {
+          ...p,
+          count: plan === p.id ? installmentCount : p.defaultCount,
+          amountStr: reg ? formatPkr(reg.amountPkr) : "—",
+        };
+      } catch {
+        return {
+          ...p,
+          count: p.defaultCount,
+          amountStr: "—",
+        };
+      }
+    });
+  }, [
+    listPricePkr,
+    discountType,
+    discountValue,
+    downPaymentType,
+    downPaymentValue,
+    possessionType,
+    possessionValue,
+    balloonType,
+    balloonValue,
+    hasReservationToken,
+    adjustTokenAmount,
+    reservationTokenAmount,
+    plan,
+    installmentCount,
+    startDate,
+  ]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      {/* Left Column: Form & Schedule Table (8 cols) */}
-      <div className="space-y-6 lg:col-span-8">
-        {/* Financial Inputs Card */}
-        <div className="card space-y-4 p-5">
-          <h3 className="text-[14px] font-semibold text-ink">Pricing &amp; Discount</h3>
-
+    <div className="space-y-6">
+      {/* 1. Pricing & Discount Section */}
+      <FormSection
+        title="Pricing & Discount"
+        description="Base list price and applicable promotional discount."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <Label className="mb-1 block text-[12px]">List / Asking Price</Label>
+              <Label className="mb-1 block text-[12px] text-ink-muted">List Price</Label>
               <div className="flex h-9 items-center rounded-[8px] border border-line bg-subtle/50 px-3 font-sans font-semibold text-ink tabular-nums">
                 {formatPkr(listPricePkr)}
               </div>
@@ -176,7 +240,7 @@ export function PaymentPlanPanel({
                   })
                 }
               >
-                <SelectTrigger id="discount-type">
+                <SelectTrigger id="discount-type" className="h-9">
                   <SelectValue placeholder="No discount" />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,7 +262,7 @@ export function PaymentPlanPanel({
                   value={discountValue}
                   onValueChange={(v) => onChange({ discountValue: v })}
                   placeholder="e.g. 50,000"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               ) : (
                 <Input
@@ -209,7 +273,7 @@ export function PaymentPlanPanel({
                   placeholder={
                     discountType === "PERCENT" ? "e.g. 5.00" : "Select type first"
                   }
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               )}
             </div>
@@ -221,8 +285,8 @@ export function PaymentPlanPanel({
                 <Warning weight="fill" className="size-4 shrink-0 text-amber-600" />
                 <span>
                   High Discount Warning: {discountCalc.effectivePercent}% discount exceeds
-                  the {MAX_SALES_DISCOUNT_PERCENT}% sales limit. Requires Administrator
-                  authorization.
+                  the {MAX_SALES_DISCOUNT_PERCENT}% sales limit.
+                  {!isAdmin && " Requires Administrator authorization."}
                 </span>
               </div>
               <div className="mt-2">
@@ -240,42 +304,45 @@ export function PaymentPlanPanel({
             </div>
           )}
         </div>
+      </FormSection>
 
-        {/* Reservation Token Deduction Notice */}
-        {hasReservationToken && (
-          <div className="card space-y-3 border-primary/30 bg-primary-soft/25 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h4 className="text-[13px] font-semibold text-primary">
-                  Reservation Token Recorded
-                </h4>
-                <p className="text-[12px] text-ink-muted">
-                  Token of{" "}
-                  <strong className="text-ink tabular-nums">
-                    {formatPkr(reservationTokenAmount)}
-                  </strong>{" "}
-                  {reservationTokenReceiptNo
-                    ? `(Receipt ${reservationTokenReceiptNo})`
-                    : ""}{" "}
-                  was collected on reservation.
-                </p>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-[8px] border border-primary/30 bg-surface px-3 py-2 text-[12px] font-medium text-ink">
-                <Checkbox
-                  checked={adjustTokenAmount}
-                  onCheckedChange={(v) => onChange({ adjustTokenAmount: Boolean(v) })}
-                />
-                <span>Deduct Token from Down Payment</span>
-              </label>
+      {/* Reservation Token Deduction Notice */}
+      {hasReservationToken && (
+        <div className="rounded-[10px] border border-primary/20 bg-primary-soft/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-[13px] font-semibold text-primary">
+                Reservation Token Recorded
+              </h4>
+              <p className="text-[12px] text-ink-muted">
+                Token of{" "}
+                <strong className="text-ink tabular-nums">
+                  {formatPkr(reservationTokenAmount)}
+                </strong>{" "}
+                {reservationTokenReceiptNo
+                  ? `(Receipt ${reservationTokenReceiptNo})`
+                  : ""}{" "}
+                was collected on reservation.
+              </p>
             </div>
+            <label className="flex cursor-pointer items-center gap-2 rounded-[8px] border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-ink shadow-xs">
+              <Checkbox
+                checked={adjustTokenAmount}
+                onCheckedChange={(v) => onChange({ adjustTokenAmount: Boolean(v) })}
+              />
+              <span>Deduct Token from Down Payment</span>
+            </label>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Payment Plan Config Card */}
-        <div className="card space-y-5 p-5">
-          <h3 className="text-[14px] font-semibold text-ink">Payment Structure</h3>
-
-          {/* 1. Down Payment (% or Fixed PKR) — Required */}
+      {/* 2. Payment Structure Section */}
+      <FormSection
+        title="Payment Structure"
+        description="Down payment, possession milestone, and optional annual balloons."
+      >
+        <div className="space-y-4">
+          {/* Down Payment */}
           <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/25 p-3.5 sm:grid-cols-12">
             <div className="sm:col-span-4">
               <Label htmlFor="down-type" className="mb-1 block text-[12px]">
@@ -293,7 +360,7 @@ export function PaymentPlanPanel({
                   })
                 }
               >
-                <SelectTrigger id="down-type">
+                <SelectTrigger id="down-type" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -313,7 +380,7 @@ export function PaymentPlanPanel({
                   value={downPaymentValue}
                   onValueChange={(v) => onChange({ downPaymentValue: v })}
                   placeholder="e.g. 25,00,000"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               ) : (
                 <Input
@@ -321,7 +388,7 @@ export function PaymentPlanPanel({
                   value={downPaymentValue}
                   onChange={(e) => onChange({ downPaymentValue: e.target.value })}
                   placeholder="e.g. 25"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               )}
             </div>
@@ -336,7 +403,7 @@ export function PaymentPlanPanel({
             </div>
           </div>
 
-          {/* 2. Possession Payment (% or Fixed PKR) — NOT Optional, default 15% */}
+          {/* Possession Payment */}
           <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/25 p-3.5 sm:grid-cols-12">
             <div className="sm:col-span-4">
               <Label htmlFor="poss-type" className="mb-1 block text-[12px]">
@@ -354,7 +421,7 @@ export function PaymentPlanPanel({
                   })
                 }
               >
-                <SelectTrigger id="poss-type">
+                <SelectTrigger id="poss-type" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -374,7 +441,7 @@ export function PaymentPlanPanel({
                   value={possessionValue}
                   onValueChange={(v) => onChange({ possessionValue: v })}
                   placeholder="e.g. 15,00,000"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               ) : (
                 <Input
@@ -382,7 +449,7 @@ export function PaymentPlanPanel({
                   value={possessionValue}
                   onChange={(e) => onChange({ possessionValue: e.target.value })}
                   placeholder="e.g. 15"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               )}
             </div>
@@ -397,7 +464,7 @@ export function PaymentPlanPanel({
             </div>
           </div>
 
-          {/* 3. Balloon Payment (% of remaining balance or Fixed PKR) — divided across years */}
+          {/* Balloon Payment */}
           <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/25 p-3.5 sm:grid-cols-12">
             <div className="sm:col-span-4">
               <Label htmlFor="balloon-type" className="mb-1 block text-[12px]">
@@ -415,7 +482,7 @@ export function PaymentPlanPanel({
                   })
                 }
               >
-                <SelectTrigger id="balloon-type">
+                <SelectTrigger id="balloon-type" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -435,7 +502,7 @@ export function PaymentPlanPanel({
                   value={balloonValue}
                   onValueChange={(v) => onChange({ balloonValue: v })}
                   placeholder="e.g. 18,000"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               ) : (
                 <Input
@@ -443,7 +510,7 @@ export function PaymentPlanPanel({
                   value={balloonValue}
                   onChange={(e) => onChange({ balloonValue: e.target.value })}
                   placeholder="e.g. 10"
-                  className="tabular-nums"
+                  className="h-9 tabular-nums"
                 />
               )}
             </div>
@@ -468,28 +535,67 @@ export function PaymentPlanPanel({
               <span>{schedule.validationError}</span>
             </div>
           )}
+        </div>
+      </FormSection>
 
-          {/* Frequency, Installment Count, Start Date */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div>
-              <Label htmlFor="plan-interval" className="mb-1 block text-[12px]">
-                Payment Frequency
-              </Label>
-              <Select
-                value={plan}
-                onValueChange={(val) => onChange({ plan: val as PaymentPlan })}
-              >
-                <SelectTrigger id="plan-interval">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="QUARTERLY">Quarterly (3 mo)</SelectItem>
-                  <SelectItem value="SEMI_ANNUAL">Semi-Annual (6 mo)</SelectItem>
-                </SelectContent>
-              </Select>
+      {/* 3. Payment Frequency & Schedule Section */}
+      <FormSection
+        title="Payment Frequency"
+        description="Choose regular installment intervals and count."
+      >
+        <div className="space-y-4">
+          {/* Radio Cards for Frequency */}
+          <div>
+            <Label className="mb-2 block text-[12px] text-ink-muted">
+              Select Schedule Frequency
+            </Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {frequencyOptions.map((opt) => {
+                const isSelected = plan === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        plan: opt.id,
+                        installmentCount: opt.defaultCount,
+                      })
+                    }
+                    className={cn(
+                      "radio relative flex flex-col items-start gap-1 rounded-[10px] border p-3.5 text-left transition-all",
+                      isSelected
+                        ? "border-primary bg-primary-soft/30 shadow-[0_0_0_1px_var(--color-primary)]"
+                        : "border-line bg-surface hover:border-line-strong",
+                    )}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="text-[13px] font-semibold text-ink">
+                        {opt.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "size-4 rounded-full border transition-colors",
+                          isSelected
+                            ? "border-[4.5px] border-primary bg-surface"
+                            : "border-line-strong bg-surface",
+                        )}
+                      />
+                    </div>
+                    <span className="text-[12.5px] font-semibold text-primary tabular-nums">
+                      {opt.count} × {opt.amountStr}
+                    </span>
+                    <span className="text-[11px] text-ink-muted">
+                      Per {opt.intervalLabel}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
+          {/* Installment count and start date */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="installment-count" className="mb-1 block text-[12px]">
                 Number of Regular Installments
@@ -498,7 +604,7 @@ export function PaymentPlanPanel({
                 value={installmentCount.toString()}
                 onValueChange={(val) => onChange({ installmentCount: Number(val) })}
               >
-                <SelectTrigger id="installment-count">
+                <SelectTrigger id="installment-count" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -520,260 +626,87 @@ export function PaymentPlanPanel({
                 type="date"
                 value={startDate}
                 onChange={(e) => onChange({ startDate: e.target.value })}
+                className="h-9"
               />
             </div>
           </div>
-
-          {/* Payment Method for Down Payment */}
-          <div className="border-t border-line/60 pt-3">
-            <h4 className="text-[13px] font-medium text-ink">
-              Down Payment Collection Method
-            </h4>
-            <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="pay-method" className="mb-1 block text-[12px]">
-                  Method
-                </Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(val) =>
-                    onChange({ paymentMethod: val as PaymentMethod })
-                  }
-                >
-                  <SelectTrigger id="pay-method">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
-                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {(paymentMethod === "CHEQUE" ||
-                paymentMethod === "BANK_TRANSFER" ||
-                paymentMethod === "PAY_ORDER") && (
-                <>
-                  <div>
-                    <Label htmlFor="cheque-no" className="mb-1 block text-[12px]">
-                      Cheque / Instrument No
-                    </Label>
-                    <Input
-                      id="cheque-no"
-                      value={chequeNo}
-                      onChange={(e) => onChange({ chequeNo: e.target.value })}
-                      placeholder="e.g. CHQ-987654"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="bank-name" className="mb-1 block text-[12px]">
-                      Bank Name &amp; Branch
-                    </Label>
-                    <Input
-                      id="bank-name"
-                      value={bank}
-                      onChange={(e) => onChange({ bank: e.target.value })}
-                      placeholder="e.g. HBL Blue Area"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </div>
+      </FormSection>
 
-        {/* Live Schedule Table */}
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line bg-subtle/40 px-4 py-2.5">
+      {/* 4. Down Payment Receipt & Instrument Section */}
+      <FormSection
+        title="Down Payment Collection"
+        description="Payment mode and bank instrument for initial deposit."
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <h4 className="text-[13px] font-semibold text-ink">
-                Complete Payment Schedule
-              </h4>
-              <p className="text-[11px] text-ink-muted">
-                Includes regular installments (rounded to Rs 100), annual balloon
-                payments, and possession payment.
-              </p>
-            </div>
-            <span className="font-sans text-[11px] text-ink-muted tabular-nums">
-              {schedule.installments.length} entries
-            </span>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto">
-            <table className="w-full border-collapse text-left text-[12px]">
-              <thead className="sticky top-0 border-b border-line bg-surface text-ink-muted select-none">
-                <tr>
-                  <th className="px-4 py-2 font-medium">#</th>
-                  <th className="px-4 py-2 font-medium">Payment Item</th>
-                  <th className="px-4 py-2 font-medium">Due Date</th>
-                  <th className="px-4 py-2 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/60">
-                {schedule.installments.map((inst) => (
-                  <tr
-                    key={`${inst.seq}-${inst.type}`}
-                    className={
-                      inst.type === "BALLOON"
-                        ? "bg-amber-50/50 hover:bg-amber-50"
-                        : inst.type === "POSSESSION"
-                          ? "bg-primary-soft/30 hover:bg-primary-soft/50"
-                          : "hover:bg-subtle/30"
-                    }
-                  >
-                    <td className="px-4 py-2 font-sans text-[11px] text-ink-muted tabular-nums">
-                      {inst.seq}
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-ink">{inst.label}</span>
-                        {inst.type === "BALLOON" && (
-                          <Badge tone="accent">Annual Balloon</Badge>
-                        )}
-                        {inst.type === "POSSESSION" && (
-                          <Badge tone="primary">Possession</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 font-sans text-ink tabular-nums">
-                      {inst.dueDate.toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-2 text-right font-sans font-medium text-ink tabular-nums">
-                      {formatPkr(inst.amountPkr)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Column: Sticky Summary Panel (4 cols) */}
-      <div className="lg:col-span-4">
-        <div className="card sticky top-20 space-y-4 p-5 shadow-card">
-          <div className="flex items-center justify-between border-b border-line pb-2.5">
-            <div className="flex items-center gap-2">
-              <Calculator weight="light" className="size-4 text-primary" />
-              <h4 className="text-[14px] font-semibold text-ink">Financial Summary</h4>
-            </div>
-            <span className="text-[11px] font-medium text-ink-muted uppercase">Live</span>
-          </div>
-
-          <div className="space-y-2.5 text-[13px]">
-            <div className="flex items-center justify-between">
-              <span className="text-ink-muted">List Price</span>
-              <span className="font-medium text-ink tabular-nums">
-                {formatPkr(schedule.listPricePkr)}
-              </span>
+              <Label htmlFor="pay-method" className="mb-1 block text-[12px]">
+                Payment Method
+              </Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(val) => onChange({ paymentMethod: val as PaymentMethod })}
+              >
+                <SelectTrigger id="pay-method" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {discountCalc.discountAmountPkr !== "0.00" && (
-              <div className="flex items-center justify-between text-available">
-                <span>Discount ({discountCalc.effectivePercent}%)</span>
-                <span className="font-medium tabular-nums">
-                  - {formatPkr(discountCalc.discountAmountPkr)}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-line/60 pt-2 text-[14px] font-bold text-ink">
-              <span>Net Price</span>
-              <span className="text-primary tabular-nums">
-                {formatPkr(schedule.netPricePkr)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-line/60 pt-2">
-              <span className="text-ink-muted">
-                Down Payment ({schedule.downPaymentPercent}%)
-              </span>
-              <span className="font-medium text-ink tabular-nums">
-                {formatPkr(schedule.downPaymentPkr)}
-              </span>
-            </div>
-
-            {schedule.tokenAdjustedPkr !== "0.00" && (
+            {(paymentMethod === "CHEQUE" ||
+              paymentMethod === "BANK_TRANSFER" ||
+              paymentMethod === "PAY_ORDER") && (
               <>
-                <div className="flex items-center justify-between text-available">
-                  <span>Less: Reservation Token</span>
-                  <span className="font-medium tabular-nums">
-                    - {formatPkr(schedule.tokenAdjustedPkr)}
-                  </span>
+                <div>
+                  <Label htmlFor="cheque-no" className="mb-1 block text-[12px]">
+                    Instrument / Cheque No
+                  </Label>
+                  <Input
+                    id="cheque-no"
+                    value={chequeNo}
+                    onChange={(e) => onChange({ chequeNo: e.target.value })}
+                    placeholder="e.g. CHQ-987654"
+                    className="h-9"
+                  />
                 </div>
-                <div className="flex items-center justify-between rounded-[6px] bg-primary-soft/50 px-2.5 py-1.5 text-[12px] font-semibold text-primary">
-                  <span>Payable Down Payment Now</span>
-                  <span className="tabular-nums">
-                    {formatPkr(schedule.payableDownPaymentNowPkr)}
-                  </span>
+
+                <div>
+                  <Label htmlFor="bank-name" className="mb-1 block text-[12px]">
+                    Bank Name &amp; Branch
+                  </Label>
+                  <Input
+                    id="bank-name"
+                    value={bank}
+                    onChange={(e) => onChange({ bank: e.target.value })}
+                    placeholder="e.g. Meezan Bank"
+                    className="h-9"
+                  />
                 </div>
               </>
             )}
-
-            <div className="flex items-center justify-between">
-              <span className="text-ink-muted">
-                Annual Balloons ({schedule.balloonPercent}%)
-              </span>
-              <span className="font-medium text-ink tabular-nums">
-                {formatPkr(schedule.balloonTotalAmountPkr)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-ink-muted">
-                Possession ({schedule.possessionPercent}%)
-              </span>
-              <span className="font-medium text-ink tabular-nums">
-                {formatPkr(schedule.possessionAmountPkr)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-ink-muted">Regular Installments</span>
-              <span className="font-medium text-ink tabular-nums">
-                {formatPkr(schedule.totalInstallmentsPkr)}
-              </span>
-            </div>
-
-            <div className="border-t border-line/60 pt-3">
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-ink-muted">Booked / Paid</span>
-                <span className="font-semibold text-ink tabular-nums">
-                  {schedule.paidPercent}%
-                </span>
-              </div>
-              <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-subtle">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${schedule.paidPercent}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-[8px] bg-subtle/80 p-2.5">
-              <span className="text-[12px] font-medium text-ink-muted">
-                Remaining Balance
-              </span>
-              <span className="font-sans text-[14px] font-bold text-ink tabular-nums">
-                {formatPkr(schedule.remainingBalancePkr)}
-              </span>
-            </div>
           </div>
 
-          {needsAdminDiscountApproval && (
-            <div className="rounded-[6px] bg-sold/10 p-2 text-center text-[11px] font-medium text-sold">
-              Discount exceeds limit — requires Admin credentials to finalize.
-            </div>
-          )}
+          <div>
+            <Label htmlFor="booking-notes" className="mb-1 block text-[12px]">
+              Notes / Remarks (Optional)
+            </Label>
+            <Input
+              id="booking-notes"
+              value={notes}
+              onChange={(e) => onChange({ notes: e.target.value })}
+              placeholder="e.g. Client requested payment reminders via SMS"
+              className="h-9"
+            />
+          </div>
         </div>
-      </div>
+      </FormSection>
     </div>
   );
 }

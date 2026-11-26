@@ -16,13 +16,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function BookingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string }>;
 }) {
   const session = await requireSession();
   assertCan(session.user.role, "bookings.read");
 
   const { id } = await params;
+  const sp = searchParams ? await searchParams : undefined;
   const [data, signatories] = await Promise.all([
     getBookingDetail(id),
     listActiveSignatories(),
@@ -30,6 +33,11 @@ export default async function BookingDetailPage({
   if (!data) notFound();
 
   return (
-    <BookingDetailScreen data={data} role={session.user.role} signatories={signatories} />
+    <BookingDetailScreen
+      data={data}
+      role={session.user.role}
+      signatories={signatories}
+      initialTab={sp?.tab}
+    />
   );
 }
