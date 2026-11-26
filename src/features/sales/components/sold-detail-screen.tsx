@@ -4,20 +4,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowUUpLeft,
-  CheckCircle,
-  CurrencyDollar,
-  FileText,
-  HandCoins,
-  Printer,
-  Tag,
-  Warning,
-} from "@phosphor-icons/react";
+import { ArrowLeft, ArrowUUpLeft, FileText, Printer } from "@phosphor-icons/react";
+import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList, DefinitionRow } from "@/components/ui/definition-list";
 import {
   Dialog,
   DialogContent,
@@ -134,246 +127,204 @@ export function SoldDetailScreen({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar with actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" asChild>
-            <Link href={"/sold" as never}>
-              <ArrowLeft weight="light" className="mr-1 size-3.5" />
-              Sold Units
-            </Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="unit-code font-sans text-[18px] font-bold text-sold tabular-nums">
-                {item.unitCode}
-              </span>
-              <Badge tone={isBoughtBack ? "muted" : "sold"}>
-                {isBoughtBack ? "Bought Back (Available)" : "Sold"}
-              </Badge>
-            </div>
-            <p className="text-[12px] text-ink-muted">
-              Serial {item.serialNo} · {item.applicationFormNo} · {item.registrationNo}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <PdfDownloadBar
-            href={`/api/documents/sale/${isDirect ? data.data.id : data.data.booking.id}/pdf`}
-            printLabel="Print"
-          />
-          <DownPaymentReceiptButton
-            href={
-              isDirect
-                ? `/api/documents/sale/${data.data.id}/receipt.pdf`
-                : `/api/documents/booking/${data.data.booking.id}/receipt.pdf`
-            }
-            signatories={signatories}
-            hasPayments={
-              isDirect
-                ? true
-                : (data.data.payments ?? []).some(
-                    (p: { isVoided?: boolean }) => !p.isVoided,
-                  )
-            }
-          />
-          <Button
-            variant="secondary"
-            size="md"
-            asChild
-            className="h-9 gap-1.5 text-[13px] font-medium"
-          >
-            <Link
+    <div className="flex min-h-0 flex-1 flex-col space-y-5 pb-16">
+      <PageHeader
+        back={{ href: "/sold", label: "Sold Units" }}
+        idTitle={true}
+        title={item.unitCode}
+        badge={
+          <Pill tone={isBoughtBack ? "muted" : "sold"}>
+            {isBoughtBack ? "Bought Back (Available)" : "Sold"}
+          </Pill>
+        }
+        description={`Serial ${item.serialNo} · ${item.applicationFormNo} · ${item.registrationNo}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <PdfDownloadBar
+              href={`/api/documents/sale/${isDirect ? data.data.id : data.data.booking.id}/pdf`}
+              printLabel="Print"
+            />
+            <DownPaymentReceiptButton
               href={
-                (isDirect
-                  ? `/agreements?saleId=${data.data.id}`
-                  : `/agreements?bookingId=${data.data.booking.id}`) as never
+                isDirect
+                  ? `/api/documents/sale/${data.data.id}/receipt.pdf`
+                  : `/api/documents/booking/${data.data.booking.id}/receipt.pdf`
               }
-            >
-              <FileText weight="light" className="size-4" />
-              Agreement
-            </Link>
-          </Button>
-
-          <div className="hidden h-5 w-px bg-line sm:block" />
-
-          {!isBoughtBack && isAdmin && (
+              signatories={signatories}
+              hasPayments={
+                isDirect
+                  ? true
+                  : (data.data.payments ?? []).some(
+                      (p: { isVoided?: boolean }) => !p.isVoided,
+                    )
+              }
+            />
             <Button
               variant="secondary"
               size="md"
-              onClick={() => setBuybackOpen(true)}
-              className="h-9 gap-1.5 text-[13px] font-medium text-primary hover:bg-primary/10"
+              asChild
+              className="gap-1.5 text-[13px] font-medium"
             >
-              <ArrowUUpLeft weight="light" className="size-4" />
-              Unit Buyback
+              <Link
+                href={
+                  (isDirect
+                    ? `/agreements?saleId=${data.data.id}`
+                    : `/agreements?bookingId=${data.data.booking.id}`) as never
+                }
+              >
+                <FileText weight="light" className="size-4" />
+                Agreement
+              </Link>
             </Button>
-          )}
 
-          {buybackRecord && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setReceiptOpen(true)}
-              className="gap-1.5"
-            >
-              <Printer weight="light" className="size-4" />
-              Buyback Receipt
-            </Button>
-          )}
-        </div>
-      </div>
+            {!isBoughtBack && isAdmin && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setBuybackOpen(true)}
+                className="gap-1.5 text-[13px] font-medium text-sold hover:bg-sold/10"
+              >
+                <ArrowUUpLeft weight="bold" className="size-4" />
+                Unit Buyback
+              </Button>
+            )}
 
-      <DocumentsSection
-        clientId={clientId}
-        kinId={kin?.id ?? null}
-        documents={documents ?? []}
-        initialUrls={isDirect ? data.data.signedUrls : data.data.signedUrls}
-        urlKey={isDirect ? data.data.id : data.data.booking.id}
-        role={role}
-        replacePermission="sales.create"
+            {buybackRecord && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setReceiptOpen(true)}
+                className="gap-1.5"
+              >
+                <Printer weight="light" className="size-4" />
+                Buyback Receipt
+              </Button>
+            )}
+          </div>
+        }
       />
 
-      {/* Cards: Unit Details, Ownership, Sale Settlement */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* Unit Card */}
-        <div className="card space-y-3 p-5">
-          <div className="flex items-center justify-between border-b border-line pb-2">
-            <h4 className="text-[13px] font-semibold text-ink">Property Unit</h4>
+      {/* Financial StatStrip */}
+      <StatStrip columns={3}>
+        <StatCell
+          label="Realized Sale"
+          value={formatPkr(originalPrice)}
+          subLine={`Sold on ${new Date(isDirect ? item.soldAt : item.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+          valueClassName="text-sold"
+        />
+        <StatCell
+          label="Sale Type"
+          value={isDirect ? "Direct Sale" : "Completed Booking"}
+          subLine={
+            isBoughtBack ? "Status: Bought Back (Available)" : "Status: Active Ownership"
+          }
+        />
+        <StatCell
+          label="Unit Area"
+          value={`${effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft`}
+          subLine={`${item.floorName} · ${item.blockName} · ${item.categoryName}`}
+        />
+      </StatStrip>
+
+      {/* Two-Column Buyer & Unit Definition Panels */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+        <Panel
+          title="Registered Buyer"
+          hint="Primary purchaser recorded in sales register"
+        >
+          <DefinitionList>
+            <DefinitionRow label="Full Name" value={item.clientName} />
+            <DefinitionRow label="National ID (CNIC)" value={item.clientCnic} />
+            <DefinitionRow label="Mobile Phone" value={item.clientPhone} />
+            <DefinitionRow label="Residential Address" value={item.homeAddress} />
+          </DefinitionList>
+        </Panel>
+
+        <Panel
+          title="Property Unit"
+          hint="Physical commercial space specification"
+          actions={
             <Link
               href={`/units/${item.unitId}`}
-              className="unit-code font-sans text-[13px] font-bold text-primary tabular-nums hover:text-accent-bright hover:underline"
+              className="unit-code font-sans text-[12px] font-semibold text-primary hover:underline"
             >
-              {formatUnitDisplayCode(item.unitCode, item.categoryName)}
+              View Unit Details →
             </Link>
-          </div>
-          <div className="space-y-1.5 text-[12px]">
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Floor &amp; Block:</span>
-              <span className="font-medium text-ink">
-                {item.floorName} · {item.blockName}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Category:</span>
-              <span className="font-medium text-ink">{item.categoryName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Gross Area:</span>
-              <span className="font-medium text-ink tabular-nums">
-                {effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Client Card */}
-        <div className="card space-y-3 p-5">
-          <div className="flex items-center justify-between border-b border-line pb-2">
-            <h4 className="text-[13px] font-semibold text-ink">Registered Buyer</h4>
-            <span className="font-sans text-[11px] text-ink-muted tabular-nums">
-              {item.clientCnic}
-            </span>
-          </div>
-          <div className="space-y-1.5 text-[12px]">
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Name:</span>
-              <span className="font-medium text-ink">{item.clientName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Phone:</span>
-              <span className="font-medium text-ink tabular-nums">
-                {item.clientPhone}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Address:</span>
-              <span className="max-w-[160px] truncate text-ink-muted">
-                {item.homeAddress}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Sale Financials Card */}
-        <div className="card space-y-3 p-5">
-          <div className="flex items-center justify-between border-b border-line pb-2">
-            <h4 className="text-[13px] font-semibold text-ink">Realized Sale</h4>
-            <span className="font-bold text-sold tabular-nums">
-              {formatPkr(originalPrice)}
-            </span>
-          </div>
-          <div className="space-y-1.5 text-[12px]">
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Date Sold:</span>
-              <span className="font-sans text-ink tabular-nums">
-                {new Date(isDirect ? item.soldAt : item.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Sale Type:</span>
-              <span className="font-medium text-ink">
-                {isDirect ? "Direct Sale" : "Completed Booking"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-muted">Current Status:</span>
-              <span className="font-semibold text-ink">
-                {isBoughtBack ? "Bought Back" : "Active Ownership"}
-              </span>
-            </div>
-          </div>
-        </div>
+          }
+        >
+          <DefinitionList>
+            <DefinitionRow
+              label="Unit Code"
+              value={formatUnitDisplayCode(item.unitCode, item.categoryName)}
+            />
+            <DefinitionRow
+              label="Floor & Block"
+              value={`${item.floorName} · ${item.blockName}`}
+            />
+            <DefinitionRow label="Category" value={item.categoryName} />
+            <DefinitionRow
+              label="Gross Area"
+              value={`${effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft`}
+            />
+          </DefinitionList>
+        </Panel>
       </div>
 
-      {/* Buyback History Banner if present */}
+      {/* Official Buyback Record if present */}
       {buybackRecord && (
-        <div className="card space-y-3 border-primary/30 bg-primary/5 p-5">
-          <div className="flex items-center justify-between border-b border-primary/20 pb-2">
-            <h4 className="text-[14px] font-semibold text-primary">
-              Official Buyback Record
-            </h4>
-            <span className="text-[12px] text-ink-muted">
-              Approved by {buybackRecord.approvedByName || "Admin"}
-            </span>
+        <Panel
+          title="Official Buyback Record"
+          hint={`Approved by ${buybackRecord.approvedByName || "Admin"}`}
+        >
+          <div className="space-y-4">
+            <DefinitionList>
+              <DefinitionRow
+                label="Original Sale Price"
+                value={formatPkr(buybackRecord.originalPrice)}
+              />
+              <DefinitionRow
+                label="Buyback Amount Paid"
+                value={formatPkr(buybackRecord.buybackAmount)}
+              />
+              <DefinitionRow
+                label="Settlement Date"
+                value={new Date(buybackRecord.paidAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              />
+              <DefinitionRow
+                label="Settlement Method"
+                value={`${buybackRecord.method}${buybackRecord.bank ? ` (${buybackRecord.bank})` : ""}`}
+              />
+              <DefinitionRow
+                label="Approval Justification"
+                value={buybackRecord.reason}
+              />
+            </DefinitionList>
           </div>
-          <div className="grid grid-cols-2 gap-4 text-[12px] sm:grid-cols-4">
-            <div>
-              <span className="text-ink-muted">Original Sale Price:</span>
-              <p className="font-bold text-ink tabular-nums">
-                {formatPkr(buybackRecord.originalPrice)}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Buyback Amount Paid:</span>
-              <p className="font-bold text-primary tabular-nums">
-                {formatPkr(buybackRecord.buybackAmount)}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Settlement Date:</span>
-              <p className="font-sans text-ink tabular-nums">
-                {new Date(buybackRecord.paidAt).toLocaleDateString()}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Settlement Method:</span>
-              <p className="font-medium text-ink">{buybackRecord.method}</p>
-            </div>
-          </div>
-          <div>
-            <span className="text-[11px] text-ink-muted">Reason / Justification:</span>
-            <p className="text-[12px] text-ink italic">{buybackRecord.reason}</p>
-          </div>
-        </div>
+        </Panel>
       )}
+
+      {/* Documents Section */}
+      <Panel title="Associated Documents" hint="Identity and ownership records">
+        <DocumentsSection
+          clientId={clientId}
+          kinId={kin?.id ?? null}
+          documents={documents ?? []}
+          initialUrls={isDirect ? data.data.signedUrls : data.data.signedUrls}
+          urlKey={isDirect ? data.data.id : data.data.booking.id}
+          role={role}
+          replacePermission="sales.create"
+        />
+      </Panel>
 
       {/* Buyback Dialog with Live Gain/Loss preview */}
       <Dialog open={buybackOpen} onOpenChange={setBuybackOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Unit Buyback & Reacquisition</DialogTitle>
+            <DialogTitle>Unit Buyback &amp; Reacquisition</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-[13px]">
@@ -482,7 +433,7 @@ export function SoldDetailScreen({
 
             <div>
               <Label htmlFor="buyback-reason" className="text-[12px]">
-                Buyback Reason & Approval Note{" "}
+                Buyback Reason &amp; Approval Note{" "}
                 <span className="text-sold">* (min 10 chars)</span>
               </Label>
               <Input
@@ -506,7 +457,6 @@ export function SoldDetailScreen({
               variant="primary"
               onClick={handleConfirmBuyback}
               disabled={isSubmitting || reason.trim().length < 10}
-              className="bg-primary hover:bg-primary/90"
             >
               {isSubmitting ? "Processing Buyback..." : "Confirm Buyback"}
             </Button>

@@ -12,9 +12,12 @@ import {
   Printer,
   User,
   ArrowRight,
+  X,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { Badge, Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/cn";
@@ -39,12 +42,7 @@ export interface InstallmentsScreenProps {
   userRole: UserRole;
 }
 
-/**
- * Auto-formats numeric input into standard Pakistani CNIC format (12345-1234567-1).
- * If the input begins with digits, it applies the dashes progressively.
- */
 function autoFormatCnic(val: string): string {
-  // If input starts with a letter, don't format as CNIC
   if (/^[a-zA-Z]/.test(val)) return val;
   const digits = val.replace(/\D/g, "").slice(0, 13);
   if (digits.length <= 5) return digits;
@@ -134,7 +132,6 @@ export function InstallmentsScreen({
   }
 
   function handleQuickDueBookingSelect(bookingId: string) {
-    // Search booking and select
     setSearchVal(bookingId);
     setDebouncedQ(bookingId);
   }
@@ -152,75 +149,63 @@ export function InstallmentsScreen({
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 select-none sm:p-6 print:p-0">
-      {/* Printable Mall Header (Visible ONLY during Print) */}
-      <div className="hidden print:mb-6 print:flex print:flex-col print:border-b-2 print:border-[#0B558B] print:pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded-xs bg-[#0B558B]" />
-            <h1 className="text-2xl font-bold text-[#0F172A]">Sardar&apos;s Mall ERP</h1>
-          </div>
-          <span className="font-sans text-xs text-[#64748B] tabular-nums">
-            Statement Date:{" "}
-            {new Date().toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <div className="mt-2 text-sm font-semibold text-[#0F172A]">
-          Customer Installment Schedule &amp; Collection Statement
-        </div>
-        {clientProfile && currentBooking && (
-          <div className="mt-1 flex flex-wrap gap-4 text-xs text-[#64748B]">
-            <span>
-              <strong>Client:</strong> {clientProfile.client.fullName} (CNIC:{" "}
-              {clientProfile.client.cnic})
-            </span>
-            <span>
-              <strong>Phone:</strong> {clientProfile.client.phone}
-            </span>
-            <span>
-              <strong>Unit:</strong> {currentBooking.unit.unitCode} (
-              {currentBooking.unit.floorName})
-            </span>
-            <span>
-              <strong>Booking #:</strong> {currentBooking.bookingNo}
-            </span>
-          </div>
-        )}
-      </div>
-
+    <div className="flex flex-col gap-6 select-none print:p-0">
       <div className="print:hidden">
         <PageHeader
           title="Installments &amp; Collections"
-          description="Search clients by name, CNIC, or booking number to manage payment schedules, waterfall receipts, and debt rescheduling."
+          meta={[
+            `${initialSummary.dueThisWeekCount} due this week`,
+            initialSummary.overdueCount > 0
+              ? `${initialSummary.overdueCount} overdue`
+              : "0 overdue",
+          ]}
         />
       </div>
 
-      {/* Big Search Bar */}
-      <div className="card relative rounded-[12px] p-4 print:hidden">
-        <label className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-          Customer &amp; Booking Lookup
-        </label>
-        <div className="relative mt-2">
+      {/* Big Search Bar with Instant Results */}
+      <Panel className="relative p-3.5 print:hidden">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="text-[11px] font-semibold tracking-wider text-ink-muted uppercase">
+            Customer &amp; Booking Lookup
+          </label>
+          {selectedClientId && clientProfile && (
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] text-ink-muted">Active Client:</span>
+              <Pill tone="primary" className="gap-1.5 py-0.5 pr-1 pl-2">
+                <span>{clientProfile.client.fullName}</span>
+                <span className="tabular-nums">({clientProfile.client.cnic})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClientId(null);
+                    setSearchVal("");
+                  }}
+                  className="rounded-full p-0.5 hover:bg-primary/20"
+                >
+                  <X weight="bold" className="size-3" />
+                </button>
+              </Pill>
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
           <MagnifyingGlass
             weight="light"
-            className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-ink-muted"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
           />
           <input
             type="text"
             value={searchVal}
             onChange={handleSearchInputChange}
-            placeholder="Search by Client Name, CNIC (12345-1234567-1), Phone, Booking #, or Unit Code..."
-            className="h-12 w-full rounded-[8px] border border-line bg-surface pr-4 pl-11 font-sans text-[14px] text-ink shadow-xs placeholder:text-ink-faint focus:outline-primary"
+            placeholder="Search by Client Name, CNIC (12345-1234567-1), Phone, Booking #, or Unit Code…"
+            className="h-10 w-full rounded-[8px] border border-line bg-surface pr-4 pl-9 font-sans text-[13px] text-ink shadow-xs placeholder:text-ink-faint focus:border-primary focus:outline-none"
           />
         </div>
 
         {/* Instant Search Results Dropdown */}
         {debouncedQ.length >= 2 && searchResults.length > 0 && (
-          <div className="mt-3 max-h-64 overflow-y-auto rounded-[8px] border border-line bg-surface p-2 shadow-card">
+          <div className="mt-2.5 max-h-64 overflow-y-auto rounded-[8px] border border-line bg-surface p-1.5 shadow-floating">
             <span className="px-2 py-1 text-[10px] font-semibold tracking-wider text-ink-muted uppercase">
               Matching Records ({searchResults.length})
             </span>
@@ -262,9 +247,9 @@ export function InstallmentsScreen({
             </div>
           </div>
         )}
-      </div>
+      </Panel>
 
-      {/* Due This Week Section (shown when no client selected or on landing) */}
+      {/* When NO Client is selected: show Due This Week full width */}
       {!selectedClientId && (
         <DueThisWeekCard
           summary={initialSummary}
@@ -272,219 +257,143 @@ export function InstallmentsScreen({
         />
       )}
 
-      {/* Client Profile & Bookings Management View */}
+      {/* When Client IS selected: 2-column layout */}
       {selectedClientId && clientProfile && (
-        <div className="flex flex-col gap-6">
-          {/* Client Header Card */}
-          <div className="card flex flex-col gap-4 rounded-[12px] border-l-4 border-l-primary p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <User weight="bold" className="size-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-[16px] font-bold text-ink">
-                    {clientProfile.client.fullName}
-                  </h2>
-                  <Badge tone="primary" className="font-sans text-[11px] tabular-nums">
-                    CNIC: {clientProfile.client.cnic}
-                  </Badge>
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-3 text-[12px] text-ink-muted">
-                  <span>
-                    Phone:{" "}
-                    <strong className="font-sans text-ink tabular-nums">
-                      {clientProfile.client.phone}
-                    </strong>
-                  </span>
-                  <span>·</span>
-                  <span>Address: {clientProfile.client.homeAddress}</span>
-                  {clientProfile.nextOfKin && (
-                    <>
-                      <span>·</span>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Main Column (8 cols): Client details, Bookings, Schedule & Payments */}
+          <div className="space-y-6 lg:col-span-8">
+            {/* Client Header Card */}
+            <Panel className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-white">
+                    {clientProfile.client.fullName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join("")}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-[16px] font-bold text-ink">
+                        {clientProfile.client.fullName}
+                      </h2>
+                      <span className="font-sans text-[12px] text-ink-muted tabular-nums">
+                        CNIC: {clientProfile.client.cnic}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[12px] text-ink-muted">
                       <span>
-                        Next of Kin:{" "}
-                        <strong className="text-ink">
-                          {clientProfile.nextOfKin.name}
-                        </strong>{" "}
-                        ({clientProfile.nextOfKin.relation})
+                        Phone:{" "}
+                        <strong className="text-ink tabular-nums">
+                          {clientProfile.client.phone}
+                        </strong>
                       </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSelectedClientId(null)}
-              className="text-[11px]"
-            >
-              Clear Selection
-            </Button>
-          </div>
-
-          {/* Bookings Selector Tabs */}
-          {clientProfile.bookings.length === 0 ? (
-            <div className="card rounded-[12px] p-8 text-center text-[13px] text-ink-muted">
-              No active or historical bookings found for this client.
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {/* If multiple bookings, show selector pills */}
-              {clientProfile.bookings.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  <span className="text-[12px] font-medium text-ink-muted">
-                    Bookings:
-                  </span>
-                  {clientProfile.bookings.map((b) => {
-                    const active = b.id === currentBooking?.id;
-                    return (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => setSelectedBookingId(b.id)}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-2 rounded-[6px] px-3 py-1.5 text-[12px] font-medium transition-colors",
-                          active
-                            ? "bg-primary text-white"
-                            : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
-                        )}
-                      >
-                        <span className="unit-code font-sans tabular-nums">
-                          {b.unit.unitCode}
-                        </span>
-                        <span className="font-sans tabular-nums">({b.bookingNo})</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Booking Overview & Actions */}
-              {currentBooking && (
-                <div className="flex flex-col gap-4">
-                  {/* KPI Summary Banner */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                    <div className="card rounded-[10px] border-l-4 border-l-primary p-3">
-                      <span className="text-[10px] font-medium text-ink-muted uppercase">
-                        Net Contract Price
-                      </span>
-                      <p className="mt-1 font-sans text-[16px] font-semibold text-ink tabular-nums">
-                        {formatPkr(currentBooking.netPrice)}
-                      </p>
-                      <span className="text-[10px] text-ink-muted">
-                        Unit {currentBooking.unit.unitCode} (
-                        {currentBooking.unit.floorName})
-                      </span>
-                    </div>
-
-                    <div className="card rounded-[10px] border-l-4 border-l-available p-3">
-                      <span className="text-[10px] font-medium text-ink-muted uppercase">
-                        Total Paid
-                      </span>
-                      <p className="mt-1 font-sans text-[16px] font-semibold text-available tabular-nums">
-                        {formatPkr(currentBooking.paidTotal)}
-                      </p>
-                      <span className="font-sans text-[10px] text-ink-muted tabular-nums">
-                        {currentBooking.paidPercent}% paid
-                      </span>
-                    </div>
-
-                    <div className="card rounded-[10px] border-l-4 border-l-primary p-3">
-                      <span className="text-[10px] font-medium text-ink-muted uppercase">
-                        Remaining Balance
-                      </span>
-                      <p className="mt-1 font-sans text-[16px] font-semibold text-primary tabular-nums">
-                        {formatPkr(currentBooking.balance)}
-                      </p>
-                      <span className="text-[10px] text-ink-muted">
-                        Plan: {currentBooking.plan.toLowerCase()}
-                      </span>
-                    </div>
-
-                    <div className="card rounded-[10px] border-l-4 border-l-sold p-3">
-                      <span className="text-[10px] font-medium text-ink-muted uppercase">
-                        Overdue Exposure
-                      </span>
-                      <p className="mt-1 font-sans text-[16px] font-semibold text-sold tabular-nums">
-                        {formatPkr(currentBooking.overdueAmount)}
-                      </p>
-                      <span className="text-[10px] text-ink-muted">
-                        {currentBooking.overdueAmount !== "0.00"
-                          ? "Past due balance"
-                          : "Up to date"}
-                      </span>
-                    </div>
-
-                    <div className="card flex flex-col justify-between rounded-[10px] p-3">
-                      <span className="text-[10px] font-medium text-ink-muted uppercase">
-                        Status
-                      </span>
-                      <div className="my-1">
-                        <Badge
-                          tone={
-                            currentBooking.status === "ACTIVE"
-                              ? "primary"
-                              : currentBooking.status === "COMPLETED"
-                                ? "sold"
-                                : "muted"
-                          }
-                        >
-                          {currentBooking.status}
-                        </Badge>
-                      </div>
-                      <span className="text-[10px] text-ink-muted">
-                        Unit: {currentBooking.unit.status}
-                      </span>
+                      <span>·</span>
+                      <span>{clientProfile.client.homeAddress}</span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Action Buttons Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line bg-subtle/40 p-3 print:hidden">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setRecordModalOpen(true)}
-                        className="gap-1.5"
-                      >
-                        <Coins weight="bold" className="size-4" />
-                        <span>Record Payment</span>
-                      </Button>
-
-                      {userRole === "ADMIN" && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setRescheduleModalOpen(true)}
-                          className="gap-1.5"
-                        >
-                          <CalendarDots weight="light" className="size-4" />
-                          <span>Reschedule Installments</span>
-                        </Button>
-                      )}
-
+                {currentBooking && (
+                  <div className="flex items-center gap-2">
+                    {userRole === "ADMIN" && (
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={handleOpenPdf}
+                        onClick={() => setRescheduleModalOpen(true)}
                         className="gap-1.5"
                       >
-                        <Printer weight="light" className="size-4" />
-                        <span>Print / PDF</span>
+                        <CalendarDots weight="light" className="size-3.5" />
+                        Reschedule
                       </Button>
-                    </div>
-
-                    <span className="font-sans text-[11px] text-ink-muted tabular-nums">
-                      Booking #{currentBooking.bookingNo}
-                    </span>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setRecordModalOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <Coins weight="bold" className="size-3.5" />
+                      Record payment
+                    </Button>
                   </div>
+                )}
+              </div>
+            </Panel>
 
-                  {/* Schedule & Payment History Tabs */}
-                  <Tabs defaultValue="schedule" className="w-full">
-                    <TabsList className="mb-3">
+            {/* Bookings Selector Tabs if multiple */}
+            {clientProfile.bookings.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="text-[12px] font-medium text-ink-muted">Bookings:</span>
+                {clientProfile.bookings.map((b) => {
+                  const active = b.id === currentBooking?.id;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedBookingId(b.id)}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-[6px] px-3 py-1.5 text-[12px] font-medium transition-colors",
+                        active
+                          ? "bg-primary text-white"
+                          : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
+                      )}
+                    >
+                      <span className="unit-code font-sans tabular-nums">
+                        {b.unit.unitCode}
+                      </span>
+                      <span className="font-sans tabular-nums">({b.bookingNo})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Booking Overview & Tables */}
+            {currentBooking ? (
+              <div className="space-y-6">
+                {/* 4-Cell Mini StatStrip */}
+                <StatStrip columns={4}>
+                  <StatCell
+                    label="CONTRACT PRICE"
+                    value={formatPkr(currentBooking.netPrice)}
+                    subLine={`Unit ${currentBooking.unit.unitCode}`}
+                  />
+                  <StatCell
+                    label="TOTAL PAID"
+                    value={formatPkr(currentBooking.paidTotal)}
+                    subLine={`${currentBooking.paidPercent}% paid`}
+                    progress={Number(currentBooking.paidPercent) || 0}
+                  />
+                  <StatCell
+                    label="REMAINING"
+                    value={formatPkr(currentBooking.balance)}
+                    subLine={`Plan: ${currentBooking.plan.toLowerCase()}`}
+                  />
+                  <StatCell
+                    label="OVERDUE"
+                    value={
+                      currentBooking.overdueAmount !== "0.00" ? (
+                        <span className="text-sold">
+                          {formatPkr(currentBooking.overdueAmount)}
+                        </span>
+                      ) : (
+                        <span className="text-available">Up to date</span>
+                      )
+                    }
+                    subLine={
+                      currentBooking.overdueAmount !== "0.00"
+                        ? "Past due balance"
+                        : "All current"
+                    }
+                  />
+                </StatStrip>
+
+                {/* Schedule & Payment History Tabs */}
+                <Tabs defaultValue="schedule" className="w-full space-y-4">
+                  <div className="flex items-center justify-between border-b border-line">
+                    <TabsList>
                       <TabsTrigger value="schedule">
                         Installment Schedule ({currentBooking.schedule.length})
                       </TabsTrigger>
@@ -492,142 +401,167 @@ export function InstallmentsScreen({
                         Payment History ({currentBooking.payments.length})
                       </TabsTrigger>
                     </TabsList>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleOpenPdf}
+                      className="gap-1.5 text-[12px] text-ink-muted"
+                    >
+                      <Printer weight="light" className="size-3.5" />
+                      Print / PDF
+                    </Button>
+                  </div>
 
-                    {/* Schedule Table Tab */}
-                    <TabsContent value="schedule" className="m-0">
-                      <div className="card overflow-hidden rounded-[12px]">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left font-sans text-[12px]">
-                            <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-                              <tr>
-                                <th className="w-12 px-3 py-2.5 text-center">Seq</th>
-                                <th className="px-4 py-2.5">Due Date</th>
-                                <th className="px-4 py-2.5 text-right">Amount</th>
-                                <th className="px-4 py-2.5 text-right">Paid</th>
-                                <th className="px-4 py-2.5 text-right">Balance</th>
-                                <th className="px-4 py-2.5">Receipt #</th>
-                                <th className="px-4 py-2.5 text-center">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-line/60">
-                              {currentBooking.schedule.map((inst) => {
-                                const isOverdue = inst.status === "OVERDUE";
-                                return (
-                                  <tr
-                                    key={inst.id}
-                                    className={cn(
-                                      "transition-colors hover:bg-subtle/30",
-                                      isOverdue && "bg-sold/5",
-                                    )}
-                                  >
-                                    <td className="px-3 py-2.5 text-center font-sans text-[11px] text-ink-muted tabular-nums">
-                                      #{inst.seq}
-                                    </td>
-                                    <td className="px-4 py-2.5 tabular-nums">
-                                      <span
-                                        className={
-                                          isOverdue
-                                            ? "font-semibold text-sold"
-                                            : "text-ink"
-                                        }
-                                      >
+                  {/* Schedule Table Tab */}
+                  <TabsContent value="schedule" className="m-0">
+                    <Panel className="overflow-hidden p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left font-sans text-[12.5px]">
+                          <thead>
+                            <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
+                              <th className="w-12 px-3 text-center font-medium">Seq</th>
+                              <th className="px-4 font-medium">Due Date</th>
+                              <th className="px-4 text-right font-medium">Amount</th>
+                              <th className="px-4 text-right font-medium">Paid</th>
+                              <th className="px-4 text-right font-medium">Balance</th>
+                              <th className="px-4 font-medium">Receipt #</th>
+                              <th className="px-4 text-center font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line/60">
+                            {currentBooking.schedule.map((inst) => {
+                              const isOverdue = inst.status === "OVERDUE";
+                              return (
+                                <tr
+                                  key={inst.id}
+                                  className={cn(
+                                    "h-[44px] transition-colors hover:bg-subtle/30",
+                                    isOverdue && "bg-sold/5",
+                                  )}
+                                >
+                                  <td className="px-3 text-center text-ink-muted tabular-nums">
+                                    #{inst.seq}
+                                  </td>
+                                  <td className="px-4 tabular-nums">
+                                    <span
+                                      className={
+                                        isOverdue ? "font-semibold text-sold" : "text-ink"
+                                      }
+                                    >
+                                      {new Date(inst.dueDate).toLocaleDateString(
+                                        "en-GB",
                                         {
-                                          new Date(inst.dueDate)
-                                            .toISOString()
-                                            .split("T")[0]
-                                        }
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right text-ink tabular-nums">
-                                      {formatPkr(inst.amount)}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right font-medium text-available tabular-nums">
-                                      {formatPkr(inst.paidAmount)}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
-                                      {formatPkr(inst.balance)}
-                                    </td>
-                                    <td className="px-4 py-2.5 font-sans text-[11px] text-primary tabular-nums">
-                                      {inst.receiptNos || "-"}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-center">
-                                      <Badge
-                                        tone={
-                                          inst.status === "PAID"
-                                            ? "available"
-                                            : inst.status === "PARTIAL"
-                                              ? "accent"
-                                              : inst.status === "OVERDUE"
-                                                ? "sold"
-                                                : "muted"
-                                        }
-                                      >
-                                        {inst.status}
-                                      </Badge>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        },
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 text-right text-ink tabular-nums">
+                                    {formatPkr(inst.amount)}
+                                  </td>
+                                  <td className="px-4 text-right font-medium text-available tabular-nums">
+                                    {formatPkr(inst.paidAmount)}
+                                  </td>
+                                  <td className="px-4 text-right font-semibold text-ink tabular-nums">
+                                    {formatPkr(inst.balance)}
+                                  </td>
+                                  <td className="px-4 text-[11px] text-primary tabular-nums">
+                                    {inst.receiptNos || "—"}
+                                  </td>
+                                  <td className="px-4 text-center">
+                                    <Badge
+                                      tone={
+                                        inst.status === "PAID"
+                                          ? "available"
+                                          : inst.status === "PARTIAL"
+                                            ? "accent"
+                                            : inst.status === "OVERDUE"
+                                              ? "sold"
+                                              : "muted"
+                                      }
+                                    >
+                                      {inst.status}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                    </TabsContent>
+                    </Panel>
+                  </TabsContent>
 
-                    {/* Payment History Tab */}
-                    <TabsContent value="payments" className="m-0">
-                      <div className="card overflow-hidden rounded-[12px]">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left font-sans text-[12px]">
-                            <thead className="border-b border-line bg-subtle/60 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
+                  {/* Payment History Tab */}
+                  <TabsContent value="payments" className="m-0">
+                    <Panel className="overflow-hidden p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-left font-sans text-[12.5px]">
+                          <thead>
+                            <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
+                              <th className="px-4 font-medium">Receipt #</th>
+                              <th className="px-3 font-medium">Payment Date</th>
+                              <th className="px-3 text-right font-medium">Amount</th>
+                              <th className="px-3 font-medium">Method</th>
+                              <th className="px-3 font-medium">Cheque / Bank</th>
+                              <th className="px-3 font-medium">Notes</th>
+                              <th className="px-3 text-center font-medium">Status</th>
+                              <th className="px-4 text-right font-medium">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line/60">
+                            {currentBooking.payments.length === 0 ? (
                               <tr>
-                                <th className="px-4 py-2.5">Receipt #</th>
-                                <th className="px-3 py-2.5">Payment Date</th>
-                                <th className="px-3 py-2.5 text-right">Amount</th>
-                                <th className="px-3 py-2.5">Method</th>
-                                <th className="px-3 py-2.5">Cheque / Bank</th>
-                                <th className="px-3 py-2.5">Notes</th>
-                                <th className="px-3 py-2.5 text-center">Status</th>
-                                <th className="px-4 py-2.5 text-right">Actions</th>
+                                <td
+                                  colSpan={8}
+                                  className="p-8 text-center text-ink-muted"
+                                >
+                                  No payments recorded yet.
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-line/60">
-                              {currentBooking.payments.map((p) => (
+                            ) : (
+                              currentBooking.payments.map((p) => (
                                 <tr
                                   key={p.id}
                                   className={cn(
-                                    "transition-colors hover:bg-subtle/30",
+                                    "h-[44px] transition-colors hover:bg-subtle/30",
                                     p.isVoided && "bg-sold/5 opacity-60",
                                   )}
                                 >
-                                  <td className="px-4 py-2.5 font-sans text-[11px] font-bold text-primary tabular-nums">
+                                  <td className="px-4 text-[11px] font-bold text-primary tabular-nums">
                                     {p.receiptNo}
                                   </td>
-                                  <td className="px-3 py-2.5 text-ink tabular-nums">
-                                    {new Date(p.paidAt).toISOString().split("T")[0]}
+                                  <td className="px-3 text-ink tabular-nums">
+                                    {new Date(p.paidAt).toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
                                   </td>
-                                  <td className="px-3 py-2.5 text-right font-semibold text-available tabular-nums">
+                                  <td className="px-3 text-right font-semibold text-available tabular-nums">
                                     {formatPkr(p.amount)}
                                   </td>
-                                  <td className="px-3 py-2.5 text-ink">
+                                  <td className="px-3 text-ink">
                                     {p.method.replaceAll("_", " ")}
                                   </td>
-                                  <td className="px-3 py-2.5 text-ink-muted">
+                                  <td className="px-3 text-ink-muted">
                                     {p.bank && `${p.bank}`}
                                     {p.chequeNo && ` (#${p.chequeNo})`}
-                                    {!p.bank && !p.chequeNo && "-"}
+                                    {!p.bank && !p.chequeNo && "—"}
                                   </td>
-                                  <td className="max-w-[160px] truncate px-3 py-2.5 text-ink-muted italic">
-                                    {p.notes || "-"}
+                                  <td className="max-w-[160px] truncate px-3 text-ink-muted italic">
+                                    {p.notes || "—"}
                                   </td>
-                                  <td className="px-3 py-2.5 text-center">
+                                  <td className="px-3 text-center">
                                     {p.isVoided ? (
                                       <Badge tone="sold">VOIDED</Badge>
                                     ) : (
                                       <Badge tone="available">VALID</Badge>
                                     )}
                                   </td>
-                                  <td className="px-4 py-2.5 text-right">
+                                  <td className="px-4 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
                                       <Button
                                         variant="ghost"
@@ -666,7 +600,7 @@ export function InstallmentsScreen({
                                               setActivePaymentForEdit(p);
                                               setEditPaymentModalOpen(true);
                                             }}
-                                            className="h-7 px-2 text-[11px] text-primary hover:text-accent-bright hover:underline"
+                                            className="h-7 px-2 text-[11px] text-primary"
                                             title="Edit Payment"
                                           >
                                             <PencilSimple
@@ -695,17 +629,25 @@ export function InstallmentsScreen({
                                     </div>
                                   </td>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              )}
-            </div>
-          )}
+                    </Panel>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Right Column (4 cols): Due This Week panel */}
+          <div className="space-y-6 lg:col-span-4">
+            <DueThisWeekCard
+              summary={initialSummary}
+              onSelectBooking={handleQuickDueBookingSelect}
+            />
+          </div>
         </div>
       )}
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
 import * as React from "react";
@@ -6,6 +7,8 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
+  CheckCircle,
   ClockCountdown,
   Hourglass,
   Receipt,
@@ -13,7 +16,11 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList } from "@/components/ui/definition-list";
+import { ActivityList, type ActivityItem } from "@/components/ui/activity-list";
+import { Badge, Pill } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +30,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
-import { formatPkr, parseDecimal } from "@/lib/money";
+import { formatPkr } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole } from "@/db/schema/enums";
@@ -46,7 +60,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
   const [cancelReason, setCancelReason] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const countdown = formatCountdown(reservation.expiresAt);
+  const countdown = formatCountdown(reservation.expiresAt, reservation.durationDays);
   const isActive = reservation.status === "ACTIVE" && !countdown.isExpired;
   const canCancel = role === "ADMIN" || role === "INVENTORY_MANAGER";
 
@@ -88,231 +102,448 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
     }
   }
 
+  // Reservation history activity items
+  const historyItems: ActivityItem[] = React.useMemo(() => {
+    const items: ActivityItem[] = [];
+
+    if (reservation.createdAt) {
+      items.push({
+        id: `created-${reservation.id}`,
+        title: "Reservation Created",
+        subLine: `Held for ${reservation.clientName} (${reservation.durationDays} days)`,
+        time: new Date(reservation.createdAt).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        active: true,
+      });
+    }
+
+    if (reservation.cancelledAt) {
+      items.push({
+        id: `cancelled-${reservation.id}`,
+        title: "Reservation Cancelled",
+        subLine: reservation.cancelledReason || "Cancelled by manager",
+        time: new Date(reservation.cancelledAt).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      });
+    }
+
+    if (reservation.status === "CONVERTED") {
+      items.push({
+        id: `converted-${reservation.id}`,
+        title: "Converted to Booking",
+        subLine: "Booking agreement created and registered",
+        time: new Date(reservation.expiresAt).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        active: true,
+      });
+    }
+
+    return items;
+  }, [reservation]);
+
+  // Conversion checklist items
+  const checklist = [
+    {
+      label: "Client full legal name",
+      ok: Boolean(reservation.clientName?.trim()),
+    },
+    {
+      label: "National identity CNIC verified",
+      ok: Boolean(reservation.clientCnic?.trim()),
+    },
+    {
+      label: "Contact phone number",
+      ok: Boolean(reservation.clientPhone?.trim()),
+    },
+    {
+      label: "Residential and postal address",
+      ok: Boolean(reservation.homeAddress?.trim() && reservation.postalAddress?.trim()),
+    },
+    {
+      label: "Nominee / Next of kin registered",
+      ok: Boolean(nextOfKin?.name?.trim()),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Top Bar with actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" asChild>
-            <Link href={"/reservations" as never}>
-              <ArrowLeft weight="light" className="mr-1 size-3.5" />
-              Reservations
-            </Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="unit-code font-sans tabular-nums text-[18px] font-bold text-primary">
-                HOLD-{reservation.unitCode}
-              </span>
-              <Badge tone={isActive ? "accent" : "muted"}>
-                {isActive ? "Active Hold" : reservation.status}
-              </Badge>
-              {isActive && (
-                <span className="text-[12px] font-medium text-primary">
-                  {countdown.label}
-                </span>
-              )}
-            </div>
-            <p className="text-[12px] text-ink-muted">
-              Unit {reservation.unitCode} reserved for {reservation.clientName}
-            </p>
+      {/* PageHeader with Actions */}
+      <PageHeader
+        title={`HOLD-${reservation.unitCode}`}
+        idTitle={true}
+        back={{ label: "Reservations", href: "/reservations" }}
+        badge={
+          <Pill tone={isActive ? "accent" : "muted"}>
+            {isActive ? "Active Hold" : reservation.status}
+          </Pill>
+        }
+        meta={[
+          `Unit ${reservation.unitCode}`,
+          `Client ${reservation.clientName}`,
+          `${reservation.floorName} · ${reservation.blockName}`,
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            {isActive && canCancel && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setCancelOpen(true)}
+                className="gap-1.5 text-sold hover:bg-sold/10"
+              >
+                <XCircle weight="light" className="size-4" />
+                Cancel reservation
+              </Button>
+            )}
+
+            {isActive && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setExtendOpen(true)}
+                className="gap-1.5"
+              >
+                <Hourglass weight="light" className="size-4" />
+                Extend hold
+              </Button>
+            )}
+
+            {isActive && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() =>
+                  router.push(
+                    `/bookings/new?unitId=${reservation.unitId}&clientId=${reservation.clientId}&reservationId=${reservation.id}` as never,
+                  )
+                }
+                className="gap-1.5"
+              >
+                <Receipt weight="light" className="size-4" />
+                Convert to Booking
+                <ArrowRight weight="light" className="size-3.5" />
+              </Button>
+            )}
           </div>
-        </div>
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          {isActive && (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() =>
-                router.push(
-                  `/bookings/new?unitId=${reservation.unitId}&clientId=${reservation.clientId}&reservationId=${reservation.id}` as never,
-                )
-              }
-              className="gap-1.5"
+      {/* 3-Cell StatStrip */}
+      <StatStrip columns={3}>
+        <StatCell
+          label="TIME REMAINING"
+          value={
+            <span
+              className={cn(countdown.isUrgent ? "font-semibold text-sold" : "text-ink")}
             >
-              <Receipt weight="light" className="size-4" />
-              Convert to Booking
-              <ArrowRight weight="light" className="size-3.5" />
-            </Button>
-          )}
-
-          {isActive && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setExtendOpen(true)}
-              className="gap-1.5"
-            >
-              <Hourglass weight="light" className="size-4" />
-              Extend Hold
-            </Button>
-          )}
-
-          {isActive && canCancel && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setCancelOpen(true)}
-              className="gap-1.5 text-sold hover:bg-sold/10"
-            >
-              <XCircle weight="light" className="size-4" />
-              Cancel Reservation
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Expiry Banner */}
-      {isActive && (
-        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
-          <div className="flex items-center gap-2 text-primary">
-            <ClockCountdown weight="bold" className="size-5" />
-            <span className="text-[13px] font-medium">
-              Reservation is active — expires on{" "}
-              {new Date(reservation.expiresAt).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {countdown.label}
             </span>
-          </div>
-          <span className="font-semibold text-primary tabular-nums">
-            {countdown.label}
-          </span>
-        </div>
-      )}
+          }
+          subLine={
+            isActive
+              ? `Deadline: ${new Date(reservation.expiresAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`
+              : "Hold no longer active"
+          }
+          progress={isActive ? countdown.percentRemaining : 0}
+        />
 
-      {/* Detail Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Unit Card */}
-        <div className="card space-y-3 p-5">
-          <div className="flex items-center justify-between border-b border-line pb-2">
-            <h4 className="text-[14px] font-semibold text-ink">Property Unit</h4>
-            <Link
-              href={`/units/${reservation.unitId}`}
-              className="unit-code font-sans tabular-nums text-[14px] font-bold text-primary hover:text-accent-bright hover:underline"
-            >
-              {formatUnitDisplayCode(reservation.unitCode, reservation.categoryName)}
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[12px]">
-            <div>
-              <span className="text-ink-muted">Floor &amp; Category:</span>
-              <p className="font-medium text-ink">
-                {reservation.floorName} · {reservation.categoryName}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Gross Area:</span>
-              <p className="font-medium text-ink tabular-nums">
-                {effectivePricingArea(reservation.grossAreaSqft, reservation.netAreaSqft)}{" "}
-                sq ft
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Rate / sq ft:</span>
-              <p className="font-medium text-ink tabular-nums">
-                {formatPkr(reservation.ratePerSqftPkr)}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Asking Price:</span>
-              <p className="font-medium text-ink tabular-nums">
-                {formatPkr(reservation.computedPricePkr || "0")}
-              </p>
-            </div>
-          </div>
+        <StatCell
+          label="UNIT ASKING PRICE"
+          value={formatPkr(reservation.computedPricePkr || "0")}
+          subLine={`${reservation.categoryName} · ${effectivePricingArea(reservation.grossAreaSqft, reservation.netAreaSqft)} sq ft`}
+        />
+
+        <StatCell
+          label="HOLD PERIOD"
+          value={`${reservation.durationDays} days`}
+          subLine={`Started ${new Date(reservation.startAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`}
+        />
+      </StatStrip>
+
+      {/* 2-Column Content Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (7 cols): Buyer details, History, Inline extend */}
+        <div className="space-y-6 lg:col-span-7">
+          <Panel title="Prospective Buyer Details">
+            <DefinitionList
+              items={[
+                {
+                  label: "Full Name",
+                  value: `${reservation.clientTitle ? `${reservation.clientTitle} ` : ""}${reservation.clientName}`,
+                },
+                {
+                  label: `${reservation.clientRelationPrefix || "S/O"}`,
+                  value: reservation.clientRelationName,
+                },
+                {
+                  label: "CNIC",
+                  value: (
+                    <span className="font-sans font-medium text-ink tabular-nums">
+                      {reservation.clientCnic}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Phone",
+                  value: <span className="tabular-nums">{reservation.clientPhone}</span>,
+                },
+                {
+                  label: "Home Address",
+                  value: (
+                    <span className="break-words text-ink">
+                      {reservation.homeAddress}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Postal Address",
+                  value: (
+                    <span className="break-words text-ink">
+                      {reservation.postalAddress}
+                    </span>
+                  ),
+                },
+                ...(nextOfKin
+                  ? [
+                      {
+                        label: "Nominee",
+                        value: `${nextOfKin.name} (${nextOfKin.relation})`,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </Panel>
+
+          {/* Inline Extend Reservation Panel if Active */}
+          {isActive && (
+            <Panel title="Extend Reservation" hint="Add additional hold days">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-[180px]">
+                  <Label htmlFor="ext-days" className="mb-1 block text-[12px]">
+                    Additional Days
+                  </Label>
+                  <Select
+                    value={extendDays.toString()}
+                    onValueChange={(val) => setExtendDays(Number(val))}
+                  >
+                    <SelectTrigger id="ext-days" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">+1 Day (24 Hours)</SelectItem>
+                      <SelectItem value="3">+3 Days</SelectItem>
+                      <SelectItem value="7">+7 Days (1 Week)</SelectItem>
+                      <SelectItem value="15">+15 Days</SelectItem>
+                      <SelectItem value="30">+30 Days (1 Month)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleExtend}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Extending…" : "Apply Extension"}
+                </Button>
+              </div>
+            </Panel>
+          )}
+
+          {/* Reservation History */}
+          <Panel title="Reservation History" hint="Timeline of events">
+            <ActivityList items={historyItems} />
+          </Panel>
         </div>
 
-        {/* Client & Kin Card */}
-        <div className="card space-y-3 p-5">
-          <div className="flex items-center justify-between border-b border-line pb-2">
-            <h4 className="text-[14px] font-semibold text-ink">Prospective Buyer</h4>
-            <span className="font-sans tabular-nums text-[12px] text-ink-muted">
-              {reservation.clientCnic}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[12px]">
-            <div>
-              <span className="text-ink-muted">Full Name:</span>
-              <p className="font-medium text-ink">{reservation.clientName}</p>
+        {/* Right Column (5 cols): Property unit & Conversion checklist */}
+        <div className="space-y-6 lg:col-span-5">
+          <Panel
+            title="Property Unit"
+            actions={
+              <Link
+                href={`/units/${reservation.unitId}`}
+                className="text-[12.5px] font-medium text-primary hover:underline"
+              >
+                View Unit
+              </Link>
+            }
+          >
+            <DefinitionList
+              items={[
+                {
+                  label: "Unit Code",
+                  value: (
+                    <span className="font-sans font-medium text-ink tabular-nums">
+                      {formatUnitDisplayCode(
+                        reservation.unitCode,
+                        reservation.categoryName,
+                      )}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Floor / Block",
+                  value: `${reservation.floorName} · ${reservation.blockName}`,
+                },
+                {
+                  label: "Category",
+                  value: reservation.categoryName,
+                },
+                {
+                  label: "Gross Area",
+                  value: (
+                    <span className="tabular-nums">
+                      {effectivePricingArea(
+                        reservation.grossAreaSqft,
+                        reservation.netAreaSqft,
+                      )}{" "}
+                      sq ft
+                    </span>
+                  ),
+                },
+                {
+                  label: "Rate / sq ft",
+                  value: (
+                    <span className="tabular-nums">
+                      {formatPkr(reservation.ratePerSqftPkr)}
+                    </span>
+                  ),
+                },
+                {
+                  label: "Asking Price",
+                  value: (
+                    <span className="font-semibold text-ink tabular-nums">
+                      {formatPkr(reservation.computedPricePkr || "0")}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          </Panel>
+
+          {/* Before Converting Checklist */}
+          <Panel title="Conversion Readiness" hint="Prerequisites for formal booking">
+            <div className="space-y-2.5">
+              {checklist.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-[8px] border border-line bg-surface p-2.5 text-[12.5px]"
+                >
+                  <span className="text-ink">{item.label}</span>
+                  {item.ok ? (
+                    <span className="bg-available-soft flex size-4 items-center justify-center rounded-full text-available">
+                      <Check weight="bold" className="size-2.5" />
+                    </span>
+                  ) : (
+                    <span className="rounded-[4px] border border-sold/30 bg-sold/10 px-1.5 py-0.5 text-[10.5px] font-medium text-sold">
+                      Missing
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
-            <div>
-              <span className="text-ink-muted">Phone:</span>
-              <p className="font-medium text-ink tabular-nums">
-                {reservation.clientPhone}
-              </p>
-            </div>
-            {nextOfKin && (
-              <div>
-                <span className="text-ink-muted">Next of Kin:</span>
-                <p className="font-medium text-ink">
-                  {nextOfKin.name} ({nextOfKin.relation})
-                </p>
+
+            {isActive && (
+              <div className="mt-4 border-t border-line pt-3">
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="w-full gap-1.5"
+                  onClick={() =>
+                    router.push(
+                      `/bookings/new?unitId=${reservation.unitId}&clientId=${reservation.clientId}&reservationId=${reservation.id}` as never,
+                    )
+                  }
+                >
+                  <Receipt weight="light" className="size-4" />
+                  Proceed to New Booking
+                </Button>
               </div>
             )}
-            <div>
-              <span className="text-ink-muted">Reserved By:</span>
-              <p className="font-medium text-ink">
-                {reservation.createdByName || "Sales Officer"}
-              </p>
-            </div>
-            <div>
-              <span className="text-ink-muted">Token Payment:</span>
-              <p className="font-semibold text-ink tabular-nums">
-                {parseDecimal(reservation.tokenAmount || "0") > 0n
-                  ? `${formatPkr(reservation.tokenAmount)}${
-                      reservation.tokenReceiptNo ? ` (${reservation.tokenReceiptNo})` : ""
-                    }`
-                  : "None (Hold without token)"}
-              </p>
-              {parseDecimal(reservation.tokenAmount || "0") > 0n && (
-                <p className="text-[11px] text-ink-muted">
-                  {reservation.tokenPaymentMethod?.replace("_", " ") ?? "Cash"}
-                  {reservation.tokenAdjustedToBookingId
-                    ? " · Adjusted against booking down payment"
-                    : " · Will deduct on booking conversion"}
-                </p>
-              )}
-            </div>
-          </div>
+          </Panel>
         </div>
       </div>
 
-      {reservation.notes && (
-        <div className="card p-4 text-[12px]">
-          <span className="font-medium text-ink">Notes / Conditions:</span>
-          <p className="mt-1 text-ink-muted italic">{reservation.notes}</p>
-        </div>
-      )}
+      {/* Cancel Reservation Dialog */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Reservation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-[13px]">
+            <p className="text-ink-muted">
+              Are you sure you want to cancel this reservation for{" "}
+              <strong className="text-ink">{reservation.unitCode}</strong>? The unit will
+              be immediately released back to <strong>AVAILABLE</strong>.
+            </p>
+            <div>
+              <Label className="mb-1 block text-[12px]">Cancellation Reason *</Label>
+              <Input
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Reason for cancelling reservation"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setCancelOpen(false)}
+              disabled={isSubmitting}
+            >
+              Keep Hold
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleCancel}
+              disabled={isSubmitting || cancelReason.trim().length < 5}
+              className="bg-sold hover:bg-sold/90"
+            >
+              {isSubmitting ? "Cancelling…" : "Confirm Cancellation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Extend Dialog */}
+      {/* Extend Reservation Dialog */}
       <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Extend Reservation</DialogTitle>
+            <DialogTitle>Extend Reservation Hold</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <Label className="text-[12px]">Additional Days</Label>
-            <div className="grid grid-cols-4 gap-2">
-              {[3, 7, 15, 30].map((days) => (
-                <button
-                  key={days}
-                  type="button"
-                  onClick={() => setExtendDays(days)}
-                  className={cn(
-                    "rounded border p-2 text-center text-[12px] font-medium transition-colors",
-                    extendDays === days
-                      ? "border-primary bg-primary/10 font-bold text-primary"
-                      : "border-line text-ink hover:bg-subtle",
-                  )}
-                >
-                  +{days} Days
-                </button>
-              ))}
+          <div className="space-y-3 py-2 text-[13px]">
+            <p className="text-ink-muted">
+              Select additional days to extend the expiration deadline for Unit{" "}
+              <strong className="text-ink">{reservation.unitCode}</strong>.
+            </p>
+            <div>
+              <Label className="mb-1 block text-[12px]">Additional Days</Label>
+              <Select
+                value={extendDays.toString()}
+                onValueChange={(val) => setExtendDays(Number(val))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">+1 Day (24 Hours)</SelectItem>
+                  <SelectItem value="3">+3 Days</SelectItem>
+                  <SelectItem value="7">+7 Days (1 Week)</SelectItem>
+                  <SelectItem value="15">+15 Days</SelectItem>
+                  <SelectItem value="30">+30 Days (1 Month)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -324,48 +555,7 @@ export function ReservationDetailScreen({ data, role }: ReservationDetailScreenP
               Cancel
             </Button>
             <Button variant="primary" onClick={handleExtend} disabled={isSubmitting}>
-              {isSubmitting ? "Extending..." : "Confirm Extension"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cancel Dialog */}
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cancel Reservation</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2 text-[13px]">
-            <p className="text-ink-muted">
-              Cancelling will release unit {reservation.unitCode} back to Available status
-              immediately.
-            </p>
-            <div>
-              <Label className="text-[12px]">Cancellation Reason (Required)</Label>
-              <Input
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="e.g. Buyer changed mind / financing denied"
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setCancelOpen(false)}
-              disabled={isSubmitting}
-            >
-              Keep Active
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleCancel}
-              disabled={isSubmitting || cancelReason.trim().length < 5}
-              className="bg-sold hover:bg-sold/90"
-            >
-              {isSubmitting ? "Cancelling..." : "Confirm & Release Unit"}
+              {isSubmitting ? "Extending…" : "Save Extension"}
             </Button>
           </DialogFooter>
         </DialogContent>

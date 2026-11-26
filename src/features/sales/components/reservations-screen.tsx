@@ -4,41 +4,44 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ClockCountdown,
-  MagnifyingGlass,
-  Plus,
-  Warning,
-  CheckCircle,
-  XCircle,
-} from "@phosphor-icons/react";
+import { Hourglass, MagnifyingGlass, Plus, Receipt } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Badge, Pill } from "@/components/ui/badge";
+import { Panel } from "@/components/ui/panel";
 import { formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr, parseDecimal } from "@/lib/money";
 import { cn } from "@/lib/cn";
 
-export function formatCountdown(expiresAt: Date | string): {
+export function formatCountdown(
+  expiresAt: Date | string,
+  durationDays = 7,
+): {
   label: string;
   isExpired: boolean;
   isUrgent: boolean;
+  percentRemaining: number;
 } {
   const expiry = new Date(expiresAt).getTime();
   const now = Date.now();
   const diff = expiry - now;
 
   if (diff <= 0) {
-    return { label: "Expired", isExpired: true, isUrgent: false };
+    return {
+      label: "Expired",
+      isExpired: true,
+      isUrgent: false,
+      percentRemaining: 0,
+    };
   }
+
+  const totalDurationMs = durationDays * 24 * 60 * 60 * 1000;
+  const percentRemaining = Math.max(
+    0,
+    Math.min(100, Math.round((diff / (totalDurationMs || 1)) * 100)),
+  );
 
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -46,9 +49,19 @@ export function formatCountdown(expiresAt: Date | string): {
   const isUrgent = diff < 24 * 60 * 60 * 1000;
 
   if (days > 0) {
-    return { label: `expires in ${days}d ${hours}h`, isExpired: false, isUrgent };
+    return {
+      label: `${days}d ${hours}h`,
+      isExpired: false,
+      isUrgent,
+      percentRemaining,
+    };
   }
-  return { label: `expires in ${hours}h ${minutes}m`, isExpired: false, isUrgent };
+  return {
+    label: `${hours}h ${minutes}m`,
+    isExpired: false,
+    isUrgent,
+    percentRemaining,
+  };
 }
 
 interface ReservationsScreenProps {
@@ -107,92 +120,86 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <PageHeader
         title="Reservations"
-        description="Hold commercial units for potential buyers with automated deadline expiry."
+        meta={[
+          `${initialData.kpi.activeCount} active holds`,
+          `${initialData.rows.length} total`,
+        ]}
         actions={
-          <Button variant="primary" size="md" asChild>
+          <Button variant="primary" size="md" asChild className="gap-1.5">
             <Link href={"/reservations/new" as never}>
-              <Plus weight="light" className="mr-1.5 size-4" />
+              <Plus weight="bold" className="size-4" />
               New reservation
             </Link>
           </Button>
         }
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard
-          label="Active Holds"
+      {/* 4-Cell StatStrip */}
+      <StatStrip columns={4}>
+        <StatCell
+          label="ACTIVE HOLDS"
           value={initialData.kpi.activeCount}
-          caption="units reserved"
-          tone="default"
-          indicator="accent"
+          subLine="units reserved"
         />
-        <StatCard
-          label="Expiring Soon"
+        <StatCell
+          label="EXPIRING SOON"
           value={initialData.kpi.expiringSoonCount}
-          caption="within next 24 hours"
-          tone={initialData.kpi.expiringSoonCount > 0 ? "sold" : "default"}
-          indicator={initialData.kpi.expiringSoonCount > 0 ? "sold" : undefined}
+          valueClassName={initialData.kpi.expiringSoonCount > 0 ? "text-sold" : undefined}
+          subLine="within next 24 hours"
         />
-        <StatCard
-          label="Converted"
+        <StatCell
+          label="CONVERTED"
           value={initialData.kpi.convertedCount}
-          caption="converted to bookings"
-          tone="available"
-          indicator="available"
+          subLine="converted to bookings"
         />
-        <StatCard
-          label="Cancelled / Expired"
+        <StatCell
+          label="CANCELLED / EXPIRED"
           value={initialData.kpi.cancelledCount}
-          caption="released back"
+          subLine="released back"
         />
-      </div>
+      </StatStrip>
 
-      {/* Filter Row */}
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-3">
-        <div className="relative min-w-[240px] flex-1 sm:max-w-xs">
-          <MagnifyingGlass
-            weight="light"
-            className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-muted"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search unit or client…"
-            className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary"
+      {/* Table Panel with Toolbar */}
+      <Panel className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface p-3">
+          <div className="relative min-w-[240px] flex-1 sm:max-w-xs">
+            <MagnifyingGlass
+              weight="light"
+              className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-muted"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search unit, buyer, CNIC, phone…"
+              className="h-8.5 w-full rounded-[8px] border border-line bg-subtle/30 pr-3 pl-8 text-[12.5px] text-ink outline-none placeholder:text-ink-faint focus:border-primary focus:bg-surface"
+            />
+          </div>
+
+          <SegmentedControl
+            options={[
+              { value: "ALL", label: "All" },
+              { value: "ACTIVE", label: "Active" },
+              { value: "CONVERTED", label: "Converted" },
+              { value: "CANCELLED", label: "Cancelled" },
+              { value: "EXPIRED", label: "Expired" },
+            ]}
+            value={statusFilter}
+            onValueChange={setStatusFilter}
           />
         </div>
 
-        <div className="w-[160px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All statuses</SelectItem>
-              <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="CONVERTED">Converted</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-              <SelectItem value="EXPIRED">Expired</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-line bg-subtle/50 text-ink-muted select-none">
-              <tr>
-                <th className="px-4 py-2.5 font-medium">Unit</th>
-                <th className="px-4 py-2.5 font-medium">Prospective Buyer</th>
-                <th className="px-4 py-2.5 text-right font-medium">Token</th>
-                <th className="px-4 py-2.5 font-medium">Start Date</th>
-                <th className="px-4 py-2.5 font-medium">Expires At</th>
-                <th className="px-4 py-2.5 font-medium">Time Remaining</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
+            <thead>
+              <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[12px] font-medium text-ink-muted select-none">
+                <th className="px-4 font-medium">Unit</th>
+                <th className="px-4 font-medium">Prospective Buyer</th>
+                <th className="px-4 font-medium">Start Date</th>
+                <th className="px-4 font-medium">Expires At</th>
+                <th className="px-4 font-medium">Time Remaining</th>
+                <th className="px-4 font-medium">Status</th>
+                <th className="px-4 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
@@ -204,89 +211,123 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                 </tr>
               ) : (
                 filteredRows.map((row) => {
-                  const countdown = formatCountdown(row.expiresAt);
-                  const hasToken = parseDecimal(row.tokenAmount || "0") > 0n;
+                  const countdown = formatCountdown(row.expiresAt, row.durationDays);
+                  const isRowActive = row.status === "ACTIVE" && !countdown.isExpired;
 
                   return (
                     <tr
                       key={row.id}
-                      onClick={() => router.push(`/reservations/${row.id}` as never)}
-                      className="cursor-pointer transition-colors hover:bg-subtle/40"
+                      className="h-[44px] transition-colors hover:bg-subtle/30"
                     >
-                      <td className="px-4 py-3">
-                        <span className="unit-code text-[13px] font-bold text-primary">
+                      <td className="px-4 py-2">
+                        <Link
+                          href={`/reservations/${row.id}`}
+                          className="font-sans text-[13px] font-medium text-ink hover:text-primary"
+                        >
                           {formatUnitDisplayCode(row.unitCode, row.categoryName)}
-                        </span>
+                        </Link>
                         <p className="text-[11px] text-ink-muted">
                           {row.floorName} · {row.blockName}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2">
                         <span className="font-medium text-ink">{row.clientName}</span>
                         <p className="text-[11px] text-ink-muted tabular-nums">
                           {row.clientPhone}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {hasToken ? (
-                          <div>
-                            <span className="font-semibold text-ink">
-                              {formatPkr(row.tokenAmount ?? "0")}
-                            </span>
-                            {row.tokenReceiptNo && (
-                              <p className="font-sans text-[10px] text-ink-muted tabular-nums">
-                                {row.tokenReceiptNo}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-ink-muted">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-sans text-ink tabular-nums">
+                      <td className="px-4 py-2 font-sans text-ink tabular-nums">
                         {new Date(row.startAt).toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
                         })}
                       </td>
-                      <td className="px-4 py-3 font-sans text-ink tabular-nums">
+                      <td className="px-4 py-2 font-sans text-ink tabular-nums">
                         {new Date(row.expiresAt).toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",
                         })}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2">
                         {row.status === "ACTIVE" ? (
-                          <span
-                            className={cn(
-                              "font-sans text-[12px] font-medium tabular-nums",
-                              countdown.isExpired
-                                ? "text-ink-muted"
-                                : countdown.isUrgent
+                          <div className="flex items-center gap-2">
+                            <div className="h-1 w-16 overflow-hidden rounded-full bg-[#EDF0F3]">
+                              <div
+                                className={cn(
+                                  "h-full transition-all duration-300",
+                                  countdown.percentRemaining < 15
+                                    ? "bg-sold"
+                                    : "bg-primary",
+                                )}
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, countdown.percentRemaining))}%`,
+                                }}
+                              />
+                            </div>
+                            <span
+                              className={cn(
+                                "font-sans text-[12px] font-medium tabular-nums",
+                                countdown.isUrgent
                                   ? "font-semibold text-sold"
-                                  : "text-primary",
-                            )}
-                          >
-                            {countdown.label}
-                          </span>
+                                  : "text-ink",
+                              )}
+                            >
+                              {countdown.label}
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-[11px] text-ink-muted">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2">
                         {row.status === "ACTIVE" && (
-                          <Badge tone={countdown.isExpired ? "muted" : "accent"}>
-                            {countdown.isExpired ? "Expired" : "Active"}
-                          </Badge>
+                          <Pill tone={countdown.isExpired ? "muted" : "accent"}>
+                            {countdown.isExpired ? "Expired" : "Active Hold"}
+                          </Pill>
                         )}
                         {row.status === "CONVERTED" && (
-                          <Badge tone="available">Converted</Badge>
+                          <Pill tone="available">Converted</Pill>
                         )}
-                        {row.status === "CANCELLED" && (
-                          <Badge tone="sold">Cancelled</Badge>
+                        {row.status === "CANCELLED" && <Pill tone="sold">Cancelled</Pill>}
+                        {row.status === "EXPIRED" && <Pill tone="muted">Expired</Pill>}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {isRowActive ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              asChild
+                              className="h-7 text-[12px]"
+                            >
+                              <Link href={`/reservations/${row.id}`}>Extend</Link>
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              asChild
+                              className="h-7 text-[12px]"
+                            >
+                              <Link
+                                href={
+                                  `/bookings/new?unitId=${row.unitId}&clientId=${row.clientId}&reservationId=${row.id}` as never
+                                }
+                              >
+                                Convert
+                              </Link>
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            asChild
+                            className="h-7 text-[12px]"
+                          >
+                            <Link href={`/reservations/${row.id}`}>View</Link>
+                          </Button>
                         )}
-                        {row.status === "EXPIRED" && <Badge tone="muted">Expired</Badge>}
                       </td>
                     </tr>
                   );
@@ -295,7 +336,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

@@ -3,9 +3,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Tag } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { Panel } from "@/components/ui/panel";
+import { FormSection } from "@/components/ui/form-section";
+import { DefinitionList, DefinitionRow } from "@/components/ui/definition-list";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
@@ -26,11 +29,7 @@ import {
   type DocSlotMap,
 } from "@/features/documents/components/document-fields";
 import type { ExistingDocument } from "@/features/documents/components/document-upload";
-import {
-  collectPending,
-  flushPendingUploads,
-  isDocReady,
-} from "@/features/documents/upload-client";
+import { collectPending, flushPendingUploads } from "@/features/documents/upload-client";
 import { createDirectSale } from "../actions";
 import { CNIC_REGEX, formatCnic, type ClientInput, type NextOfKinInput } from "../schema";
 import { ClientForm } from "./client-form";
@@ -100,10 +99,12 @@ export function DirectSaleScreen({
   }, [selectedUnit, salePrice]);
 
   const askingPrice = selectedUnit?.computedPricePkr || "0.00";
+  const askingNum = Number(askingPrice.replace(/,/g, "")) || 0;
+  const saleNum = Number(salePrice.replace(/,/g, "")) || 0;
+  const concessionDelta = askingNum - saleNum;
+
   const isCustomPrice = Boolean(
-    salePrice &&
-    Math.round(Number(salePrice.replace(/,/g, "")) * 100) !==
-      Math.round(Number(askingPrice.replace(/,/g, "")) * 100),
+    salePrice && Math.round(saleNum * 100) !== Math.round(askingNum * 100),
   );
   const isAdmin = role === "ADMIN";
 
@@ -300,355 +301,400 @@ export function DirectSaleScreen({
     }
   }
 
-  function renderActionButtons() {
-    return (
-      <>
-        {currentStep < 3 ? (
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={() => void handleNextStep()}
-            loading={isAdvancing}
-            disabled={
-              isAdvancing ||
-              (currentStep === 1 && !selectedUnit) ||
-              (currentStep === 2 &&
-                (!client.fullName.trim() ||
-                  !client.cnic.trim() ||
-                  !nextOfKin.name.trim() ||
-                  !nextOfKin.cnic?.trim()))
-            }
-          >
-            Next Step
-            <ArrowRight weight="light" className="ml-1.5 size-4" />
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={handleConfirmSale}
-            disabled={isSubmitting}
-            className="bg-sold hover:bg-sold/90"
-          >
-            <Check weight="bold" className="mr-1.5 size-4" />
-            {isSubmitting ? "Finalizing Sale..." : "Confirm & Mark Unit SOLD"}
-          </Button>
-        )}
-      </>
-    );
-  }
-
   return (
-    <div className="space-y-6 pb-24">
+    <div className="flex min-h-0 flex-1 flex-col space-y-5 pb-20">
       <PageHeader
-        title="Direct Sale"
-        description="Mark a commercial unit as sold immediately with full upfront payment."
+        back={{ href: "/sold", label: "Sold Units" }}
+        title="New Direct Sale"
+        description="Mark a commercial unit as sold immediately with full upfront payment settlement."
       />
 
-      {/* Step Indicator */}
-      <div className="card flex items-center gap-3 p-3 text-[13px]">
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 1 ? "bg-primary text-white" : "bg-primary/10 text-primary",
-          )}
-        >
-          1
-        </span>
-        <span className={currentStep === 1 ? "font-semibold text-primary" : "text-ink"}>
-          Select Unit
-        </span>
-        <span className="text-line-strong">/</span>
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 2
-              ? "bg-primary text-white"
-              : currentStep > 2
-                ? "bg-primary/10 text-primary"
-                : "bg-subtle text-ink-muted",
-          )}
-        >
-          2
-        </span>
-        <span className={currentStep === 2 ? "font-semibold text-primary" : "text-ink"}>
-          Buyer Information
-        </span>
-        <span className="text-line-strong">/</span>
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 3 ? "bg-primary text-white" : "bg-subtle text-ink-muted",
-          )}
-        >
-          3
-        </span>
-        <span
-          className={currentStep === 3 ? "font-semibold text-primary" : "text-ink-faint"}
-        >
-          Pricing & Settlement
-        </span>
+      {/* 3-Step Stepper Bar */}
+      <div className="overflow-hidden rounded-[8px] border border-line bg-surface">
+        <div className="grid grid-cols-3 divide-x divide-line text-[13px]">
+          {[
+            { num: 1, title: "Property Unit" },
+            { num: 2, title: "Buyer Information" },
+            { num: 3, title: "Pricing & Settlement" },
+          ].map((s) => {
+            const isCurrent = currentStep === s.num;
+            const isDone = currentStep > s.num;
+            return (
+              <div
+                key={s.num}
+                className={cn(
+                  "flex items-center gap-2.5 px-4 py-3 font-medium transition-colors",
+                  isCurrent && "bg-subtle/70 font-semibold text-primary",
+                  isDone && "text-ink",
+                  !isCurrent && !isDone && "text-ink-muted",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-5 items-center justify-center rounded-full text-[11px] font-bold tabular-nums",
+                    isCurrent && "bg-primary text-white",
+                    isDone && "bg-available text-white",
+                    !isCurrent && !isDone && "bg-subtle text-ink-muted",
+                  )}
+                >
+                  {isDone ? <Check weight="bold" className="size-3" /> : s.num}
+                </span>
+                <span>{s.title}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Step 1: Unit Selector */}
-      {currentStep === 1 && (
-        <UnitSelector
-          units={units}
-          selectedUnitId={selectedUnit?.id}
-          onSelectUnit={(u) => {
-            setSelectedUnit(u);
-            setSalePrice(u.computedPricePkr || "0.00");
-          }}
-          floors={floors}
-          categories={categories}
-        />
-      )}
-
-      {/* Step 2: Buyer Form */}
-      {currentStep === 2 && (
-        <div className="card space-y-6 p-6">
-          <ClientForm
-            client={client}
-            nextOfKin={nextOfKin}
-            onChangeClient={setClient}
-            onChangeNextOfKin={setNextOfKin}
-            showNextOfKin={true}
-            kinCnicRequired
-            onMatched={(match) => {
-              setClientId(match.clientId);
-              setKinId(match.kinId);
-              const nextClient: DocSlotMap = {};
-              const nextKin: DocSlotMap = {};
-              for (const doc of match.documents) {
-                const slot: ExistingDocument = {
-                  id: doc.id,
-                  mimeType: doc.mimeType,
-                  usedExisting: true,
-                };
-                if (doc.ownerType === "CLIENT") nextClient[doc.docType] = slot;
-                else nextKin[doc.docType] = slot;
-              }
-              setClientDocs(nextClient);
-              setKinDocs(nextKin);
-            }}
-          />
-          <div>
-            <h3 className="mb-3 text-[14px] font-semibold text-ink">
-              Client documents{" "}
-              <span className="font-normal text-ink-muted">(Optional)</span>
-            </h3>
-            <ClientDocumentFields
-              clientId={clientId}
-              docs={clientDocs}
-              errors={{
-                PHOTO: docErrors.PHOTO,
-                CNIC_FRONT: docErrors.CNIC_FRONT,
-                CNIC_BACK: docErrors.CNIC_BACK,
+      {/* Two-Column Grid: Form Sections (Left) & Sticky Summary (Right) */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+        {/* Left Column: 8 cols */}
+        <div className="space-y-5 lg:col-span-8">
+          {/* Step 1: Unit Selector */}
+          {currentStep === 1 && (
+            <UnitSelector
+              units={units}
+              selectedUnitId={selectedUnit?.id}
+              onSelectUnit={(u) => {
+                setSelectedUnit(u);
+                setSalePrice(u.computedPricePkr || "0.00");
               }}
-              onChange={(docType, doc) => {
-                setClientDocs((prev) => ({ ...prev, [docType]: doc }));
-                setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
-              }}
+              floors={floors}
+              categories={categories}
             />
-          </div>
-          <div>
-            <h3 className="mb-3 text-[14px] font-semibold text-ink">
-              Nominee documents{" "}
-              <span className="font-normal text-ink-muted">(Optional)</span>
-            </h3>
-            <KinDocumentFields
-              clientId={clientId}
-              kinId={kinId}
-              docs={kinDocs}
-              errors={{
-                KIN_PHOTO: docErrors.KIN_PHOTO,
-                CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
-                CNIC_BACK: docErrors.KIN_CNIC_BACK,
-              }}
-              onChange={(docType, doc) => {
-                setKinDocs((prev) => ({ ...prev, [docType]: doc }));
-                setDocErrors((prev) => ({
-                  ...prev,
-                  [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]: undefined,
-                }));
-              }}
-            />
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Step 3: Pricing & Settlement */}
-      {currentStep === 3 && selectedUnit && (
-        <div className="space-y-6">
-          <div className="card space-y-4 p-5">
-            <h3 className="text-[14px] font-semibold text-ink">Sale Price & Payment</h3>
+          {/* Step 2: Buyer Form & Documents */}
+          {currentStep === 2 && (
+            <Panel
+              title="Buyer & Nominee Identity"
+              hint="Enter primary purchaser and legal nominee contact details"
+            >
+              <div className="space-y-6">
+                <ClientForm
+                  client={client}
+                  nextOfKin={nextOfKin}
+                  onChangeClient={setClient}
+                  onChangeNextOfKin={setNextOfKin}
+                  showNextOfKin={true}
+                  kinCnicRequired
+                  onMatched={(match) => {
+                    setClientId(match.clientId);
+                    setKinId(match.kinId);
+                    const nextClient: DocSlotMap = {};
+                    const nextKin: DocSlotMap = {};
+                    for (const doc of match.documents) {
+                      const slot: ExistingDocument = {
+                        id: doc.id,
+                        mimeType: doc.mimeType,
+                        usedExisting: true,
+                      };
+                      if (doc.ownerType === "CLIENT") nextClient[doc.docType] = slot;
+                      else nextKin[doc.docType] = slot;
+                    }
+                    setClientDocs(nextClient);
+                    setKinDocs(nextKin);
+                  }}
+                />
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="asking-p" className="mb-1 block text-[12px]">
-                  Asking Price
-                </Label>
-                <div className="flex h-9 items-center rounded border border-line bg-subtle px-3 font-semibold text-ink tabular-nums">
-                  {formatPkr(askingPrice)}
+                <div className="border-t border-line/60 pt-4">
+                  <h4 className="mb-3 text-[13px] font-semibold text-ink">
+                    Client Documents{" "}
+                    <span className="font-normal text-ink-muted">(Optional)</span>
+                  </h4>
+                  <ClientDocumentFields
+                    clientId={clientId}
+                    docs={clientDocs}
+                    errors={{
+                      PHOTO: docErrors.PHOTO,
+                      CNIC_FRONT: docErrors.CNIC_FRONT,
+                      CNIC_BACK: docErrors.CNIC_BACK,
+                    }}
+                    onChange={(docType, doc) => {
+                      setClientDocs((prev) => ({ ...prev, [docType]: doc }));
+                      setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
+                    }}
+                  />
+                </div>
+
+                <div className="border-t border-line/60 pt-4">
+                  <h4 className="mb-3 text-[13px] font-semibold text-ink">
+                    Nominee Documents{" "}
+                    <span className="font-normal text-ink-muted">(Optional)</span>
+                  </h4>
+                  <KinDocumentFields
+                    clientId={clientId}
+                    kinId={kinId}
+                    docs={kinDocs}
+                    errors={{
+                      KIN_PHOTO: docErrors.KIN_PHOTO,
+                      CNIC_FRONT: docErrors.KIN_CNIC_FRONT,
+                      CNIC_BACK: docErrors.KIN_CNIC_BACK,
+                    }}
+                    onChange={(docType, doc) => {
+                      setKinDocs((prev) => ({ ...prev, [docType]: doc }));
+                      setDocErrors((prev) => ({
+                        ...prev,
+                        [docType === "KIN_PHOTO" ? "KIN_PHOTO" : `KIN_${docType}`]:
+                          undefined,
+                      }));
+                    }}
+                  />
                 </div>
               </div>
+            </Panel>
+          )}
 
-              <div>
-                <Label htmlFor="sale-p" className="mb-1 block text-[12px]">
-                  Final Sale Price (PKR) <span className="text-sold">*</span>
-                </Label>
-                <MoneyInput
-                  id="sale-p"
-                  value={salePrice}
-                  onChange={(e) => setSalePrice(e.target.value)}
-                  className="font-bold tabular-nums"
-                />
-              </div>
-            </div>
-
-            {isCustomPrice && (
-              <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3">
-                <span className="block text-[12px] font-semibold text-amber-900">
-                  Price Modification Note
-                </span>
-                <p className="mb-2 text-[11px] text-amber-800">
-                  The sale price differs from the asking price ({formatPkr(askingPrice)}).
-                </p>
-                <Input
-                  value={priceAdjustmentReason}
-                  onChange={(e) => setPriceAdjustmentReason(e.target.value)}
-                  placeholder="Reason for price negotiation or concession (Required)"
-                  className="bg-white"
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 gap-4 border-t border-line/60 pt-3 sm:grid-cols-3">
-              <div>
-                <Label className="mb-1 block text-[12px]">Payment Method</Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(val) => setPaymentMethod(val as any)}
+          {/* Step 3: Pricing & Settlement */}
+          {currentStep === 3 && selectedUnit && (
+            <Panel
+              title="Sale Price & Settlement"
+              hint="Configure agreed transaction price and payment instrument"
+            >
+              <div className="space-y-5">
+                <FormSection
+                  title="Valuation & Pricing"
+                  description="Official asking price and negotiated final settlement amount"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Online</SelectItem>
-                    <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="asking-p" className="mb-1 block text-[12px]">
+                        Asking Price
+                      </Label>
+                      <div className="flex h-9 items-center rounded border border-line bg-subtle px-3 font-semibold text-ink tabular-nums">
+                        {formatPkr(askingPrice)}
+                      </div>
+                    </div>
 
-              {(paymentMethod === "CHEQUE" ||
-                paymentMethod === "BANK_TRANSFER" ||
-                paymentMethod === "PAY_ORDER") && (
-                <>
-                  <div>
-                    <Label className="mb-1 block text-[12px]">
-                      Cheque / Instrument No
-                    </Label>
+                    <div>
+                      <Label htmlFor="sale-p" className="mb-1 block text-[12px]">
+                        Final Sale Price (PKR) <span className="text-sold">*</span>
+                      </Label>
+                      <MoneyInput
+                        id="sale-p"
+                        value={salePrice}
+                        onChange={(e) => setSalePrice(e.target.value)}
+                        className="font-bold tabular-nums"
+                      />
+                    </div>
+                  </div>
+
+                  {isCustomPrice && (
+                    <div className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3">
+                      <span className="block text-[12px] font-semibold text-amber-900">
+                        Price Modification Note
+                      </span>
+                      <p className="mb-2 text-[11px] text-amber-800">
+                        The agreed sale price differs from the asking price (
+                        {formatPkr(askingPrice)}).
+                      </p>
+                      <Input
+                        value={priceAdjustmentReason}
+                        onChange={(e) => setPriceAdjustmentReason(e.target.value)}
+                        placeholder="Reason for price negotiation or concession (Required)"
+                        className="bg-white"
+                      />
+                    </div>
+                  )}
+                </FormSection>
+
+                <FormSection
+                  title="Payment Settlement"
+                  description="Upfront payment method and instrument verification"
+                >
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                      <Label className="mb-1 block text-[12px]">Payment Method</Label>
+                      <Select
+                        value={paymentMethod}
+                        onValueChange={(val) => setPaymentMethod(val as any)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CASH">Cash</SelectItem>
+                          <SelectItem value="CHEQUE">Cheque</SelectItem>
+                          <SelectItem value="BANK_TRANSFER">Online Transfer</SelectItem>
+                          <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {(paymentMethod === "CHEQUE" ||
+                      paymentMethod === "BANK_TRANSFER" ||
+                      paymentMethod === "PAY_ORDER") && (
+                      <>
+                        <div>
+                          <Label className="mb-1 block text-[12px]">
+                            Cheque / Instrument No
+                          </Label>
+                          <Input
+                            value={chequeNo}
+                            onChange={(e) => setChequeNo(e.target.value)}
+                            placeholder="e.g. 7861234"
+                          />
+                        </div>
+                        <div>
+                          <Label className="mb-1 block text-[12px]">Bank Name</Label>
+                          <Input
+                            value={bank}
+                            onChange={(e) => setBank(e.target.value)}
+                            placeholder="e.g. Allied Bank"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="mt-3">
+                    <Label className="mb-1 block text-[12px]">Remarks / Notes</Label>
                     <Input
-                      value={chequeNo}
-                      onChange={(e) => setChequeNo(e.target.value)}
-                      placeholder="e.g. 7861234"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Walk-in investor, full payment cleared"
                     />
                   </div>
-                  <div>
-                    <Label className="mb-1 block text-[12px]">Bank Name</Label>
-                    <Input
-                      value={bank}
-                      onChange={(e) => setBank(e.target.value)}
-                      placeholder="e.g. Allied Bank"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div>
-              <Label className="mb-1 block text-[12px]">Remarks / Notes</Label>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Walk-in investor, full payment cleared"
-              />
-            </div>
-          </div>
-
-          {/* Review Summary */}
-          <div className="card p-5">
-            <h4 className="mb-3 border-b border-line pb-2 text-[14px] font-semibold text-ink">
-              Confirmation Summary
-            </h4>
-            <div className="grid grid-cols-2 gap-4 text-[12px] sm:grid-cols-4">
-              <div>
-                <span className="text-ink-muted">Unit:</span>
-                <p className="unit-code font-sans font-bold text-primary tabular-nums">
-                  {selectedUnit.unitCode}
-                </p>
+                </FormSection>
               </div>
-              <div>
-                <span className="text-ink-muted">Buyer:</span>
-                <p className="font-medium text-ink">{client.fullName}</p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Agreed Price:</span>
-                <p className="font-bold text-ink tabular-nums">{formatPkr(salePrice)}</p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Unit Status:</span>
-                <p className="font-bold text-sold">AVAILABLE → SOLD</p>
-              </div>
-            </div>
-          </div>
+            </Panel>
+          )}
         </div>
-      )}
 
-      {/* Footer Navigation - Sticky / Fixed at bottom of screen */}
-      <div className="pointer-events-none fixed right-4 bottom-4 left-4 z-30 sm:right-6 sm:left-6 lg:right-8 lg:left-[264px]">
-        <div className="pointer-events-auto mx-auto w-full max-w-[1440px]">
-          <div className="card flex items-center justify-between gap-3 border border-line bg-surface/95 p-4 shadow-floating backdrop-blur-md">
-            <div>
-              {currentStep > 1 ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={() => setCurrentStep((prev) => prev - 1)}
-                  disabled={isAdvancing || isSubmitting}
-                >
-                  <ArrowLeft weight="light" className="mr-1.5 size-4" />
-                  Previous
-                </Button>
-              ) : selectedUnit ? (
-                <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                  <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-ink tabular-nums">
-                    {selectedUnit.unitCode}
-                  </span>
-                  <span className="hidden text-ink-muted sm:inline">
-                    • {selectedUnit.categoryName} • {selectedUnit.floorName}
-                  </span>
-                  {selectedUnit.computedPricePkr && (
-                    <span className="font-semibold text-primary tabular-nums">
-                      ({formatPkr(selectedUnit.computedPricePkr)})
-                    </span>
+        {/* Right Column: 4 cols (Sticky Sale Summary) */}
+        <div className="space-y-4 lg:sticky lg:top-6 lg:col-span-4">
+          <Panel title="Sale Summary" hint="Live overview of transaction state">
+            <div className="space-y-4">
+              <DefinitionList>
+                <DefinitionRow
+                  label="Unit Code"
+                  value={
+                    selectedUnit ? (
+                      <span className="unit-code font-semibold text-primary">
+                        {selectedUnit.unitCode}
+                      </span>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <DefinitionRow
+                  label="Floor & Category"
+                  value={
+                    selectedUnit
+                      ? `${selectedUnit.categoryName} · ${selectedUnit.floorName}`
+                      : "—"
+                  }
+                />
+                <DefinitionRow
+                  label="Gross Area"
+                  value={
+                    selectedUnit?.grossAreaSqft
+                      ? `${selectedUnit.grossAreaSqft} sq ft`
+                      : "—"
+                  }
+                />
+                <DefinitionRow
+                  label="List Asking Price"
+                  value={
+                    selectedUnit?.computedPricePkr
+                      ? formatPkr(selectedUnit.computedPricePkr)
+                      : "—"
+                  }
+                />
+                <DefinitionRow
+                  label="Agreed Sale Price"
+                  value={
+                    salePrice ? (
+                      <span className="font-semibold text-ink">
+                        {formatPkr(salePrice)}
+                      </span>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                {isCustomPrice && (
+                  <DefinitionRow
+                    label={concessionDelta > 0 ? "Concession" : "Premium"}
+                    value={
+                      <span
+                        className={
+                          concessionDelta > 0
+                            ? "font-semibold text-sold"
+                            : "font-semibold text-available"
+                        }
+                      >
+                        {concessionDelta > 0 ? "-" : "+"}{" "}
+                        {formatPkr(Math.abs(concessionDelta).toString())}
+                      </span>
+                    }
+                  />
+                )}
+                <DefinitionRow label="Buyer Name" value={client.fullName || "—"} />
+                <DefinitionRow label="Nominee Name" value={nextOfKin.name || "—"} />
+                <DefinitionRow
+                  label="Status Transition"
+                  value={
+                    <span className="font-semibold text-sold">AVAILABLE → SOLD</span>
+                  }
+                />
+              </DefinitionList>
+
+              <div className="border-t border-line/60 pt-4">
+                <div className="flex flex-col gap-2">
+                  {currentStep < 3 ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="md"
+                      onClick={() => void handleNextStep()}
+                      loading={isAdvancing}
+                      disabled={
+                        isAdvancing ||
+                        (currentStep === 1 && !selectedUnit) ||
+                        (currentStep === 2 &&
+                          (!client.fullName.trim() ||
+                            !client.cnic.trim() ||
+                            !nextOfKin.name.trim() ||
+                            !nextOfKin.cnic?.trim()))
+                      }
+                      className="w-full justify-center"
+                    >
+                      Next Step
+                      <ArrowRight weight="light" className="ml-1.5 size-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="md"
+                      onClick={handleConfirmSale}
+                      disabled={isSubmitting}
+                      className="w-full justify-center bg-sold hover:bg-sold/90"
+                    >
+                      <Check weight="bold" className="mr-1.5 size-4" />
+                      {isSubmitting ? "Finalizing Sale..." : "Confirm & Mark Unit SOLD"}
+                    </Button>
+                  )}
+
+                  {currentStep > 1 && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setCurrentStep((prev) => prev - 1)}
+                      disabled={isAdvancing || isSubmitting}
+                      className="w-full justify-center"
+                    >
+                      <ArrowLeft weight="light" className="mr-1.5 size-4" />
+                      Previous Step
+                    </Button>
                   )}
                 </div>
-              ) : (
-                <span className="text-[13px] text-ink-muted">
-                  Select a unit to continue
-                </span>
-              )}
+              </div>
             </div>
-
-            <div>{renderActionButtons()}</div>
-          </div>
+          </Panel>
         </div>
       </div>
     </div>

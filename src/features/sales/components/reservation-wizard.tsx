@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, ClockCountdown } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList } from "@/components/ui/definition-list";
+import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
@@ -186,7 +189,20 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
 
   function renderActionButtons() {
     return (
-      <>
+      <div className="flex items-center gap-2">
+        {currentStep > 1 && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={() => setCurrentStep((p) => Math.max(1, p - 1))}
+            disabled={isSubmitting}
+          >
+            <ArrowLeft weight="light" className="mr-1.5 size-4" />
+            Previous
+          </Button>
+        )}
+
         {currentStep === 1 && (
           <Button
             type="button"
@@ -201,7 +217,13 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
         )}
 
         {currentStep === 2 && (
-          <Button type="button" variant="primary" size="md" onClick={handleNextStep}>
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            onClick={handleNextStep}
+            disabled={!canProceedStep2}
+          >
             Next: Duration & Notes
             <ArrowRight weight="light" className="ml-1.5 size-4" />
           </Button>
@@ -214,331 +236,261 @@ export function ReservationWizard({ units, floors, categories }: ReservationWiza
             size="md"
             onClick={handleConfirmReservation}
             disabled={isSubmitting}
-            className="bg-primary hover:bg-primary/90"
           >
             <Check weight="bold" className="mr-1.5 size-4" />
             {isSubmitting ? "Holding Unit..." : "Confirm Reservation"}
           </Button>
         )}
-      </>
+      </div>
     );
   }
+
+  const expiryDate = React.useMemo(() => {
+    if (isCustomDate && customExpiryDate) {
+      return new Date(customExpiryDate).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + durationDays);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, [isCustomDate, customExpiryDate, durationDays]);
 
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
         title="New Reservation"
-        description="Hold an available unit for a prospective buyer with automated expiration."
+        back={{ label: "Reservations", href: "/reservations" }}
+        meta={
+          [
+            selectedUnit ? `Unit ${selectedUnit.unitCode}` : null,
+            client.fullName.trim() ? client.fullName.trim() : null,
+          ].filter(Boolean) as React.ReactNode[]
+        }
+        actions={renderActionButtons()}
       />
 
-      {/* Step Indicator */}
-      <div className="card flex items-center gap-3 p-3 text-[13px]">
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 1 ? "bg-primary text-white" : "bg-primary/10 text-primary",
-          )}
-        >
-          1
-        </span>
-        <span className={currentStep === 1 ? "font-semibold text-primary" : "text-ink"}>
-          Select Unit
-        </span>
-        <span className="text-line-strong">/</span>
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 2
-              ? "bg-primary text-white"
-              : currentStep > 2
-                ? "bg-primary/10 text-primary"
-                : "bg-subtle text-ink-muted",
-          )}
-        >
-          2
-        </span>
-        <span className={currentStep === 2 ? "font-semibold text-primary" : "text-ink"}>
-          Client & Nominee
-        </span>
-        <span className="text-line-strong">/</span>
-        <span
-          className={cn(
-            "flex size-6 items-center justify-center rounded-full text-[11px] font-bold",
-            currentStep === 3 ? "bg-primary text-white" : "bg-subtle text-ink-muted",
-          )}
-        >
-          3
-        </span>
-        <span
-          className={currentStep === 3 ? "font-semibold text-primary" : "text-ink-faint"}
-        >
-          Duration & Confirmation
-        </span>
+      {/* 3-Step Stepper Panel */}
+      <div className="steps mb-6 flex rounded-[12px] border border-line bg-surface p-1">
+        {[
+          { id: 1, label: "Select Unit" },
+          { id: 2, label: "Client & Nominee" },
+          { id: 3, label: "Duration & Confirmation" },
+        ].map((step) => {
+          const isDone = currentStep > step.id;
+          const isCurrent = currentStep === step.id;
+
+          return (
+            <button
+              key={step.id}
+              type="button"
+              disabled={!isDone && !isCurrent}
+              onClick={() => {
+                if (isDone) setCurrentStep(step.id);
+              }}
+              className={cn(
+                "step relative flex flex-1 items-center gap-2.5 px-3.5 py-3 text-[13px] font-medium transition-colors select-none",
+                isDone && "cursor-pointer text-ink hover:text-primary",
+                isCurrent && "font-semibold text-primary",
+                !isDone && !isCurrent && "cursor-not-allowed text-ink-muted",
+              )}
+            >
+              <span
+                className={cn(
+                  "n flex size-5.5 shrink-0 items-center justify-center rounded-full text-[11.5px] transition-colors",
+                  isDone && "bg-primary font-bold text-white",
+                  isCurrent &&
+                    "border-[1.5px] border-primary bg-primary-soft/40 font-bold text-primary",
+                  !isDone &&
+                    !isCurrent &&
+                    "border border-line-strong bg-surface text-ink-muted",
+                )}
+              >
+                {isDone ? <Check weight="bold" className="size-3" /> : step.id}
+              </span>
+              <span className="truncate">{step.label}</span>
+              {isCurrent && (
+                <span className="absolute right-3.5 bottom-[-1px] left-3.5 h-[2px] bg-primary" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Step 1: Unit Selector */}
-      {currentStep === 1 && (
-        <UnitSelector
-          units={units}
-          selectedUnitId={selectedUnit?.id}
-          onSelectUnit={(u) => setSelectedUnit(u)}
-          floors={floors}
-          categories={categories}
-        />
-      )}
-
-      {/* Step 2: Client Form */}
-      {currentStep === 2 && (
-        <div className="card p-6">
-          <ClientForm
-            client={client}
-            nextOfKin={nextOfKin}
-            onChangeClient={setClient}
-            onChangeNextOfKin={setNextOfKin}
-            showNextOfKin={true}
-          />
-        </div>
-      )}
-
-      {/* Step 3: Duration & Confirm */}
-      {currentStep === 3 && selectedUnit && (
-        <div className="space-y-6">
-          <div className="card space-y-4 p-5">
-            <div className="flex items-center gap-2 border-b border-line pb-2.5">
-              <ClockCountdown weight="light" className="size-5 text-primary" />
-              <h3 className="text-[14px] font-semibold text-ink">Reservation Duration</h3>
-            </div>
-
-            <div>
-              <Label className="mb-2 block text-[12px]">Choose Hold Period</Label>
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-                {DURATION_PRESETS.map((p) => {
-                  const isSelected = !isCustomDate && durationDays === p.days;
-                  return (
-                    <button
-                      key={p.days}
-                      type="button"
-                      onClick={() => {
-                        setIsCustomDate(false);
-                        setDurationDays(p.days);
-                      }}
-                      className={cn(
-                        "rounded-[8px] border p-3 text-center text-[12px] font-medium transition-all",
-                        isSelected
-                          ? "border-primary bg-[color-mix(in_srgb,var(--primary)_10%,white)] text-primary shadow-sm"
-                          : "border-line bg-surface text-ink hover:border-line-strong",
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-ink">
-                <input
-                  type="checkbox"
-                  checked={isCustomDate}
-                  onChange={(e) => setIsCustomDate(e.target.checked)}
-                  className="rounded border-line"
-                />
-                Specify custom expiration date & time
-              </label>
-
-              {isCustomDate && (
-                <div className="mt-2 max-w-xs">
-                  <Input
-                    type="datetime-local"
-                    value={customExpiryDate}
-                    onChange={(e) => setCustomExpiryDate(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Optional Token Payment */}
-            <div className="space-y-3 border-t border-line/60 pt-4">
-              <label className="flex cursor-pointer items-center gap-2.5 text-[13px] font-semibold text-ink">
-                <Checkbox
-                  checked={includeToken}
-                  onCheckedChange={(v) => setIncludeToken(Boolean(v))}
-                />
-                <span>Record Token Amount (Optional)</span>
-              </label>
-              <p className="text-[11px] text-ink-muted">
-                Reservations can be created with or without a token. If recorded, the
-                token is tracked in customer records/reports and can be deducted from down
-                payment when converted to a booking.
-              </p>
-
-              {includeToken && (
-                <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/30 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
-                  <div>
-                    <Label htmlFor="token-amount" className="mb-1 block text-[12px]">
-                      Token Amount (PKR) <span className="text-sold">*</span>
-                    </Label>
-                    <MoneyInput
-                      id="token-amount"
-                      value={tokenAmount}
-                      onValueChange={setTokenAmount}
-                      placeholder="e.g. 5,00,000"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="token-method" className="mb-1 block text-[12px]">
-                      Payment Method <span className="text-sold">*</span>
-                    </Label>
-                    <Select
-                      value={tokenPaymentMethod}
-                      onValueChange={(v) => setTokenPaymentMethod(v as PaymentMethod)}
-                    >
-                      <SelectTrigger id="token-method">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CASH">Cash</SelectItem>
-                        <SelectItem value="CHEQUE">Cheque</SelectItem>
-                        <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                        <SelectItem value="PAY_ORDER">Pay Order</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {tokenPaymentMethod !== "CASH" && (
-                    <>
-                      <div>
-                        <Label htmlFor="token-cheque" className="mb-1 block text-[12px]">
-                          Cheque / Instrument No
-                        </Label>
-                        <Input
-                          id="token-cheque"
-                          value={tokenChequeNo}
-                          onChange={(e) => setTokenChequeNo(e.target.value)}
-                          placeholder="e.g. CHQ-123456"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="token-bank" className="mb-1 block text-[12px]">
-                          Bank Name
-                        </Label>
-                        <Input
-                          id="token-bank"
-                          value={tokenBank}
-                          onChange={(e) => setTokenBank(e.target.value)}
-                          placeholder="e.g. UBL Satellite Town"
-                        />
-                      </div>
-                    </>
-                  )}
-                  <div className="sm:col-span-2 lg:col-span-4">
-                    <Label htmlFor="token-ref" className="mb-1 block text-[12px]">
-                      Token Reference (Optional)
-                    </Label>
-                    <Input
-                      id="token-ref"
-                      value={tokenReference}
-                      onChange={(e) => setTokenReference(e.target.value)}
-                      placeholder="Slip / receipt reference"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="res-notes" className="mb-1 block text-[12px]">
-                Notes / Special Conditions (Optional)
-              </Label>
-              <Input
-                id="res-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Buyer pending token cheque clearance"
+      {/* 2-Column Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (8 cols): Step Content */}
+        <div
+          className={cn(selectedUnit ? "lg:col-span-8" : "lg:col-span-12", "space-y-6")}
+        >
+          {/* Step 1: Unit Selector */}
+          {currentStep === 1 && (
+            <Panel title="Select Unit" hint="Filter by floor, category, or code">
+              <UnitSelector
+                units={units}
+                selectedUnitId={selectedUnit?.id}
+                onSelectUnit={(u) => setSelectedUnit(u)}
+                floors={floors}
+                categories={categories}
               />
-            </div>
-          </div>
+            </Panel>
+          )}
 
-          {/* Review Summary */}
-          <div className="card p-5">
-            <h4 className="mb-3 border-b border-line pb-2 text-[14px] font-semibold text-ink">
-              Reservation Summary
-            </h4>
-            <div className="grid grid-cols-1 gap-4 text-[12px] sm:grid-cols-4">
-              <div>
-                <span className="text-ink-muted">Unit:</span>
-                <p className="unit-code font-sans text-[14px] font-bold text-primary tabular-nums">
-                  {formatUnitDisplayCode(
-                    selectedUnit.unitCode,
-                    selectedUnit.categoryName,
-                  )}{" "}
-                  ({selectedUnit.floorName})
-                </p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Reserved For:</span>
-                <p className="font-medium text-ink">
-                  {client.fullName} ({client.phone})
-                </p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Token Payment:</span>
-                <p className="font-semibold text-ink tabular-nums">
-                  {includeToken && tokenAmount
-                    ? `${formatPkr(tokenAmount)} (${tokenPaymentMethod.replace("_", " ")})`
-                    : "No token (hold only)"}
-                </p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Status Transition:</span>
-                <p className="font-medium text-primary">AVAILABLE → RESERVED</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          {/* Step 2: Client Form */}
+          {currentStep === 2 && (
+            <FormSection
+              title="Prospective Buyer Identity"
+              description="Personal and contact details of the applicant reserving the unit."
+            >
+              <ClientForm
+                client={client}
+                nextOfKin={nextOfKin}
+                onChangeClient={setClient}
+                onChangeNextOfKin={setNextOfKin}
+                showNextOfKin={true}
+              />
+            </FormSection>
+          )}
 
-      {/* Footer Navigation - Sticky / Fixed at bottom of screen */}
-      <div className="pointer-events-none fixed right-4 bottom-4 left-4 z-30 sm:right-6 sm:left-6 lg:right-8 lg:left-[264px]">
-        <div className="pointer-events-auto mx-auto w-full max-w-[1440px]">
-          <div className="card flex items-center justify-between gap-3 border border-line bg-surface/95 p-4 shadow-floating backdrop-blur-md">
-            <div>
-              {currentStep > 1 ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={() => setCurrentStep((prev) => prev - 1)}
-                  disabled={isSubmitting}
-                >
-                  <ArrowLeft weight="light" className="mr-1.5 size-4" />
-                  Previous
-                </Button>
-              ) : selectedUnit ? (
-                <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                  <span className="text-ink-muted">Selected Unit:</span>
-                  <span className="unit-code rounded bg-subtle px-2 py-0.5 font-sans text-[13px] font-bold text-ink tabular-nums">
-                    {selectedUnit.unitCode}
-                  </span>
-                  <span className="hidden text-ink-muted sm:inline">
-                    • {selectedUnit.categoryName} • {selectedUnit.floorName}
-                  </span>
-                  {selectedUnit.computedPricePkr && (
-                    <span className="font-semibold text-primary tabular-nums">
-                      ({formatPkr(selectedUnit.computedPricePkr)})
-                    </span>
-                  )}
+          {/* Step 3: Duration & Notes */}
+          {currentStep === 3 && selectedUnit && (
+            <div className="space-y-6">
+              <FormSection
+                title="Hold Period"
+                description="Select temporary hold duration before the unit expires back to available."
+              >
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                    {DURATION_PRESETS.map((p) => {
+                      const isSelected = !isCustomDate && durationDays === p.days;
+                      return (
+                        <button
+                          key={p.days}
+                          type="button"
+                          onClick={() => {
+                            setIsCustomDate(false);
+                            setDurationDays(p.days);
+                          }}
+                          className={cn(
+                            "rounded-[8px] border p-3 text-center text-[12.5px] font-medium transition-all",
+                            isSelected
+                              ? "border-primary bg-primary-soft/40 font-semibold text-primary shadow-xs"
+                              : "border-line bg-surface text-ink hover:border-line-strong",
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2">
+                    <label className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-ink">
+                      <input
+                        type="checkbox"
+                        checked={isCustomDate}
+                        onChange={(e) => setIsCustomDate(e.target.checked)}
+                        className="rounded border-line"
+                      />
+                      Specify custom expiration date & time
+                    </label>
+
+                    {isCustomDate && (
+                      <div className="mt-2 max-w-xs">
+                        <Input
+                          type="datetime-local"
+                          value={customExpiryDate}
+                          onChange={(e) => setCustomExpiryDate(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <span className="text-[13px] text-ink-muted">
-                  Select a unit to continue
-                </span>
-              )}
-            </div>
+              </FormSection>
 
-            <div>{renderActionButtons()}</div>
-          </div>
+              <FormSection
+                title="Reservation Notes"
+                description="Internal remarks or client requirements for this reservation."
+              >
+                <Input
+                  id="res-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="e.g. Client visiting on weekend to review payment terms"
+                  className="h-9"
+                />
+              </FormSection>
+            </div>
+          )}
         </div>
+
+        {/* Right Column (4 cols): Sticky Hold Summary */}
+        {selectedUnit && (
+          <div className="space-y-5 lg:col-span-4">
+            <div className="sticky top-20 space-y-5">
+              <Panel title="Hold Summary" hint="Reservation overview">
+                <DefinitionList
+                  items={[
+                    {
+                      label: "Unit Code",
+                      value: (
+                        <span className="font-sans font-medium text-ink tabular-nums">
+                          {formatUnitDisplayCode(
+                            selectedUnit.unitCode,
+                            selectedUnit.categoryName,
+                          )}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "Floor / Block",
+                      value: `${selectedUnit.floorName} · ${selectedUnit.blockName}`,
+                    },
+                    {
+                      label: "Category",
+                      value: selectedUnit.categoryName,
+                    },
+                    {
+                      label: "List Price",
+                      value: (
+                        <span className="font-semibold text-ink tabular-nums">
+                          {formatPkr(selectedUnit.computedPricePkr || "0")}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: "Hold Period",
+                      value: isCustomDate ? "Custom" : `${durationDays} days`,
+                    },
+                    {
+                      label: "Expires At",
+                      value: (
+                        <span className="font-sans font-medium text-primary tabular-nums">
+                          {expiryDate}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              </Panel>
+
+              <div className="rounded-[10px] border border-line bg-subtle/30 p-4 text-[12px] text-ink-muted">
+                <p>
+                  Reserving a unit marks its status as{" "}
+                  <strong className="text-ink">RESERVED</strong> and takes it off the
+                  market until the expiration deadline.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

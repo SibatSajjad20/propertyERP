@@ -4,17 +4,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  MagnifyingGlass,
-  Plus,
-  Tag,
-  CurrencyDollar,
-  ChartBar,
-} from "@phosphor-icons/react";
+import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/ui/stat-card";
-import { Badge } from "@/components/ui/badge";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Pill } from "@/components/ui/badge";
 import { formatPkr, formatPkrCompact } from "@/lib/money";
 
 interface SoldScreenProps {
@@ -52,11 +47,21 @@ interface SoldScreenProps {
 export function SoldScreen({ initialData }: SoldScreenProps) {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("ALL");
+
+  const activeCount = initialData.rows.filter((r) => r.status === "ACTIVE").length;
+  const boughtBackCount = initialData.rows.filter(
+    (r) => r.status === "BOUGHT_BACK",
+  ).length;
 
   const filteredRows = React.useMemo(() => {
-    if (!search.trim()) return initialData.rows;
+    let rows = initialData.rows;
+    if (statusFilter !== "ALL") {
+      rows = rows.filter((r) => r.status === statusFilter);
+    }
+    if (!search.trim()) return rows;
     const term = search.trim().toLowerCase();
-    return initialData.rows.filter(
+    return rows.filter(
       (r) =>
         r.unitCode.toLowerCase().includes(term) ||
         r.clientName.toLowerCase().includes(term) ||
@@ -66,49 +71,47 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
         r.applicationFormNo.toLowerCase().includes(term) ||
         r.registrationNo.toLowerCase().includes(term),
     );
-  }, [initialData.rows, search]);
+  }, [initialData.rows, search, statusFilter]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col space-y-5">
       <PageHeader
         title="Sold Units"
         description="Completed commercial sales, fully paid bookings, and ownership archive."
         actions={
           <Button variant="primary" size="md" asChild>
             <Link href={"/sold/new" as never}>
-              <Plus weight="light" className="mr-1.5 size-4" />
+              <Plus weight="bold" className="mr-1.5 size-4" />
               New direct sale
             </Link>
           </Button>
         }
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
+      {/* KPI StatStrip */}
+      <StatStrip columns={3}>
+        <StatCell
           label="Total Units Sold"
           value={initialData.kpi.totalSold}
-          caption="commercial sales"
-          tone="sold"
-          indicator="sold"
+          subLine="commercial sales"
+          valueClassName="text-sold"
         />
-        <StatCard
+        <StatCell
           label="Total Realized Volume"
           value={formatPkrCompact(initialData.kpi.totalVolumePkr)}
-          caption={formatPkr(initialData.kpi.totalVolumePkr)}
-          tone="available"
-          indicator="available"
+          subLine={formatPkr(initialData.kpi.totalVolumePkr)}
+          valueClassName="text-available"
         />
-        <StatCard
+        <StatCell
           label="Average Unit Price"
           value={formatPkrCompact(initialData.kpi.avgPricePkr)}
-          caption={formatPkr(initialData.kpi.avgPricePkr)}
+          subLine={formatPkr(initialData.kpi.avgPricePkr)}
         />
-      </div>
+      </StatStrip>
 
-      {/* Search Input */}
-      <div className="card p-3">
-        <div className="relative max-w-sm">
+      {/* Search & Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative min-w-[260px] flex-1 sm:max-w-sm">
           <MagnifyingGlass
             weight="light"
             className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-muted"
@@ -121,24 +124,60 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
             className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary"
           />
         </div>
+
+        <SegmentedControl
+          value={statusFilter}
+          onValueChange={setStatusFilter}
+          options={[
+            {
+              value: "ALL",
+              label: (
+                <span>
+                  All{" "}
+                  <span className="ml-1 text-[11px] opacity-70">
+                    ({initialData.rows.length})
+                  </span>
+                </span>
+              ),
+            },
+            {
+              value: "ACTIVE",
+              label: (
+                <span>
+                  Active Sold{" "}
+                  <span className="ml-1 text-[11px] opacity-70">({activeCount})</span>
+                </span>
+              ),
+            },
+            {
+              value: "BOUGHT_BACK",
+              label: (
+                <span>
+                  Bought Back{" "}
+                  <span className="ml-1 text-[11px] opacity-70">({boughtBackCount})</span>
+                </span>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
+      <div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-line bg-subtle/50 text-ink-muted select-none">
+            <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Unit</th>
-                <th className="px-4 py-2.5 font-medium">Form No</th>
-                <th className="px-4 py-2.5 font-medium">Owner</th>
-                <th className="px-4 py-2.5 font-medium">Sale Type</th>
-                <th className="px-4 py-2.5 text-right font-medium">Sale Price</th>
-                <th className="px-4 py-2.5 font-medium">Sold Date</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
+                <th className="px-4 font-medium">Unit</th>
+                <th className="px-4 font-medium">Form No</th>
+                <th className="px-4 font-medium">Owner</th>
+                <th className="px-4 font-medium">Sale Type</th>
+                <th className="px-4 text-right font-medium">Sale Price</th>
+                <th className="px-4 font-medium">Sold Date</th>
+                <th className="px-4 font-medium">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line/60">
+            <tbody className="divide-y divide-[var(--line)]">
               {filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-ink-muted">
@@ -150,34 +189,31 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                   <tr
                     key={row.id}
                     onClick={() => router.push(`/sold/${row.id}` as never)}
-                    className="cursor-pointer transition-colors hover:bg-subtle/40"
+                    className="h-[44px] cursor-pointer transition-colors hover:bg-[#F8FAFC]"
                   >
-                    <td className="px-4 py-3">
-                      <span className="unit-code text-[13px] font-bold text-primary">
+                    <td className="px-4 py-2.5">
+                      <span className="unit-code text-[13px] font-semibold text-primary">
                         {row.unitCode}
                       </span>
                       <p className="text-[11px] text-ink-muted">
                         {row.floorName} · {row.blockName}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="font-sans text-[13px] font-bold text-ink tabular-nums">
+                    <td className="px-4 py-2.5">
+                      <span className="font-sans text-[13px] font-semibold text-ink tabular-nums">
                         {row.serialNo}
                       </span>
                       <p className="font-sans text-[11px] text-ink-muted tabular-nums">
-                        {row.applicationFormNo}
-                      </p>
-                      <p className="font-sans text-[11px] text-ink-faint tabular-nums">
-                        {row.registrationNo}
+                        {row.applicationFormNo} · {row.registrationNo}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <span className="font-medium text-ink">{row.clientName}</span>
                       <p className="text-[11px] text-ink-muted tabular-nums">
                         {row.clientPhone}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-[12px]">
+                    <td className="px-4 py-2.5 text-[12px]">
                       {row.saleType === "DIRECT_SALE" ? (
                         <span className="font-medium text-ink">Direct Sale</span>
                       ) : (
@@ -191,21 +227,21 @@ export function SoldScreen({ initialData }: SoldScreenProps) {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-ink tabular-nums">
+                    <td className="px-4 py-2.5 text-right font-semibold text-ink tabular-nums">
                       {formatPkr(row.pricePkr)}
                     </td>
-                    <td className="px-4 py-3 font-sans text-ink tabular-nums">
+                    <td className="px-4 py-2.5 font-sans text-ink tabular-nums">
                       {new Date(row.soldAt).toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
                       })}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       {row.status === "ACTIVE" ? (
-                        <Badge tone="sold">Sold</Badge>
+                        <Pill tone="sold">Sold</Pill>
                       ) : (
-                        <Badge tone="muted">Bought Back</Badge>
+                        <Pill tone="muted">Bought Back</Pill>
                       )}
                     </td>
                   </tr>

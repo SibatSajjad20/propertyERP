@@ -12,10 +12,11 @@ import {
   UploadSimple,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/ui/stat-card";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -75,6 +76,11 @@ export function AgreementsScreen({
   const [notes, setNotes] = React.useState("");
   const [creating, setCreating] = React.useState(false);
 
+  const signedCount = initialAgreements.filter(
+    (a) => a.status === "SIGNED_UPLOADED",
+  ).length;
+  const generatedCount = initialAgreements.filter((a) => a.status === "GENERATED").length;
+
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return initialAgreements.filter((a) => {
@@ -89,11 +95,6 @@ export function AgreementsScreen({
       );
     });
   }, [initialAgreements, search, statusFilter]);
-
-  const signedCount = initialAgreements.filter(
-    (a) => a.status === "SIGNED_UPLOADED",
-  ).length;
-  const generatedCount = initialAgreements.filter((a) => a.status === "GENERATED").length;
 
   async function handleCreateAgreement(e: React.FormEvent) {
     e.preventDefault();
@@ -127,7 +128,7 @@ export function AgreementsScreen({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col space-y-5">
       <PageHeader
         title="Agreements"
         description="Maintain customer-wise Sale & Purchase Agreements linked to bookings and units. View, download, print, and upload signed copies."
@@ -139,37 +140,35 @@ export function AgreementsScreen({
         }
       />
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard
+      {/* KPI StatStrip */}
+      <StatStrip columns={4}>
+        <StatCell
           label="Total Agreements"
           value={initialAgreements.length}
-          caption="customer records"
+          subLine="customer records"
         />
-        <StatCard
+        <StatCell
           label="Signed & Uploaded"
           value={signedCount}
-          tone="available"
-          indicator="available"
-          caption="executed copies on file"
+          subLine="executed copies on file"
+          valueClassName="text-available"
         />
-        <StatCard
+        <StatCell
           label="Awaiting Signature"
           value={generatedCount}
-          tone="default"
-          indicator="accent"
-          caption="generated from template"
+          subLine="generated from template"
+          valueClassName="text-accent"
         />
-        <StatCard
-          label="Eligible Bookings / Sales"
+        <StatCell
+          label="Eligible Candidates"
           value={candidates.length}
-          caption="ready for agreement"
+          subLine="ready for agreement"
         />
-      </div>
+      </StatStrip>
 
-      {/* Filters */}
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-3">
-        <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+      {/* Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="relative min-w-[260px] flex-1 sm:max-w-sm">
           <MagnifyingGlass
             weight="light"
             className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-muted"
@@ -179,39 +178,61 @@ export function AgreementsScreen({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agreement #, customer, CNIC, or unit…"
-            className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink outline-none placeholder:text-ink-faint focus:border-primary"
+            className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink transition-colors outline-none placeholder:text-ink-faint focus:border-primary"
           />
         </div>
-        <div className="w-[180px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All statuses</SelectItem>
-              <SelectItem value="GENERATED">Generated (Awaiting Sign)</SelectItem>
-              <SelectItem value="SIGNED_UPLOADED">Signed &amp; Uploaded</SelectItem>
-              <SelectItem value="DRAFT">Draft</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <SegmentedControl
+          value={statusFilter}
+          onValueChange={setStatusFilter}
+          options={[
+            {
+              value: "ALL",
+              label: (
+                <span>
+                  All{" "}
+                  <span className="ml-1 text-[11px] opacity-70">
+                    ({initialAgreements.length})
+                  </span>
+                </span>
+              ),
+            },
+            {
+              value: "SIGNED_UPLOADED",
+              label: (
+                <span>
+                  Signed &amp; Uploaded{" "}
+                  <span className="ml-1 text-[11px] opacity-70">({signedCount})</span>
+                </span>
+              ),
+            },
+            {
+              value: "GENERATED",
+              label: (
+                <span>
+                  Awaiting Sign{" "}
+                  <span className="ml-1 text-[11px] opacity-70">({generatedCount})</span>
+                </span>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* Customer-wise Agreements Table */}
-      <div className="card overflow-hidden">
+      <div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-line bg-subtle/50 text-ink-muted select-none">
+            <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Agreement #</th>
-                <th className="px-4 py-2.5 font-medium">Customer</th>
-                <th className="px-4 py-2.5 font-medium">Linked Unit / Booking</th>
-                <th className="px-4 py-2.5 font-medium">Agreement Date</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 text-right font-medium">Actions</th>
+                <th className="px-4 font-medium">Agreement #</th>
+                <th className="px-4 font-medium">Customer</th>
+                <th className="px-4 font-medium">Linked Unit / Booking</th>
+                <th className="px-4 font-medium">Agreement Date</th>
+                <th className="px-4 font-medium">Status</th>
+                <th className="px-4 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line/60">
+            <tbody className="divide-y divide-[var(--line)]">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-ink-muted">
@@ -219,7 +240,7 @@ export function AgreementsScreen({
                       weight="light"
                       className="mx-auto mb-2 size-8 text-ink-faint"
                     />
-                    <p className="font-medium text-ink">No agreements yet</p>
+                    <p className="font-medium text-ink">No agreements found</p>
                     <p className="mt-1 text-[12px]">
                       Click &ldquo;New Agreement&rdquo; to generate a Sale &amp; Purchase
                       Agreement from the official template.
@@ -228,8 +249,11 @@ export function AgreementsScreen({
                 </tr>
               ) : (
                 filtered.map((row) => (
-                  <tr key={row.id} className="hover:bg-subtle/30">
-                    <td className="px-4 py-3">
+                  <tr
+                    key={row.id}
+                    className="h-[44px] transition-colors hover:bg-[#F8FAFC]"
+                  >
+                    <td className="px-4 py-2.5">
                       <Link
                         href={`/agreements/${row.id}` as never}
                         className="font-sans font-semibold text-primary tabular-nums hover:underline"
@@ -240,13 +264,13 @@ export function AgreementsScreen({
                         Completion: {row.anticipatedCompletionDate}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <p className="font-medium text-ink">{row.clientName}</p>
                       <p className="font-sans text-[11px] text-ink-muted tabular-nums">
                         {row.clientCnic} · {row.clientPhone}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <Link
                         href={`/units/${row.unitId}` as never}
                         className="unit-code font-medium text-ink hover:text-primary hover:underline"
@@ -258,23 +282,23 @@ export function AgreementsScreen({
                         {row.bookingNo ? ` · ${row.bookingNo}` : ""}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-ink tabular-nums">
+                    <td className="px-4 py-2.5 text-ink tabular-nums">
                       {new Date(row.agreementDate).toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
                       })}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       {row.status === "SIGNED_UPLOADED" ? (
-                        <Badge tone="available">Signed Uploaded</Badge>
+                        <Pill tone="available">Signed Uploaded</Pill>
                       ) : row.status === "GENERATED" ? (
-                        <Badge tone="accent">Generated</Badge>
+                        <Pill tone="accent">Generated</Pill>
                       ) : (
-                        <Badge tone="muted">Draft</Badge>
+                        <Pill tone="muted">Draft</Pill>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button variant="secondary" size="sm" asChild>
                           <a
