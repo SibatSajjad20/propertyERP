@@ -10,14 +10,13 @@ import { DefinitionList } from "@/components/ui/definition-list";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import { UnitOwnershipTimeline } from "@/features/sales/components/unit-ownership-timeline";
 import { getUnitOwnershipTimeline } from "@/features/sales/queries";
-import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
+import { UnitActionDropdown } from "@/features/units/components/unit-action-dropdown";
 import { StatusHistory } from "@/features/units/components/status-history";
 import { MergedUnitDetailsCard } from "@/features/units/components/merged-unit-details-card";
 import { getMergeDetailsForUnit } from "@/features/units/merge-queries";
 import {
   getUnitActiveBooking,
   getUnitById,
-  listFloorUnits,
   listUnitStatusHistory,
 } from "@/features/units/queries";
 import { requireSession } from "@/lib/auth";
@@ -30,7 +29,6 @@ import {
   formatUnitNumberLabel,
 } from "@/lib/area";
 import type { InventoryRow } from "@/features/units/types";
-import { cn } from "@/lib/cn";
 
 export async function generateMetadata({
   params,
@@ -58,11 +56,10 @@ export default async function UnitDetailPage({
     notFound();
   }
 
-  const [history, timeline, mergeInfo, floorUnits, activeBooking] = await Promise.all([
+  const [history, timeline, mergeInfo, activeBooking] = await Promise.all([
     listUnitStatusHistory(id),
     getUnitOwnershipTimeline(id),
     getMergeDetailsForUnit(id),
-    listFloorUnits(row.unit.floorId),
     getUnitActiveBooking(id),
   ]);
 
@@ -104,14 +101,8 @@ export default async function UnitDetailPage({
   const pricingArea = effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft);
   const baseValuation = computeTotalPrice(unit.ratePerSqftPkr, pricingArea, "0");
 
-  // Floor units counts by status
-  const floorAvailableCount = floorUnits.filter((u) => u.status === "AVAILABLE").length;
-  const floorBookedCount = floorUnits.filter((u) => u.status === "BOOKED").length;
-  const floorSoldCount = floorUnits.filter((u) => u.status === "SOLD").length;
-  const floorReservedCount = floorUnits.filter((u) => u.status === "RESERVED").length;
-
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col space-y-6">
       {/* Header */}
       <PageHeader
         title={formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
@@ -134,6 +125,8 @@ export default async function UnitDetailPage({
                 </Link>
               </Button>
             )}
+
+            {unit.status === "AVAILABLE" && <UnitActionDropdown unitId={unit.id} />}
 
             {unit.status === "BOOKED" || activeBooking ? (
               <Button asChild variant="primary" size="md">
@@ -202,50 +195,10 @@ export default async function UnitDetailPage({
         )}
       </StatStrip>
 
-      {/* Floor panel: Grid of all units on the same floor */}
-      <Panel
-        title={`Units on ${row.floorName}`}
-        hint={`${floorAvailableCount} available · ${floorBookedCount} booked · ${floorReservedCount} reserved · ${floorSoldCount} sold`}
-      >
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
-          {floorUnits.map((tile) => {
-            const isCurrent = tile.id === unit.id;
-
-            const bgByStatus = {
-              AVAILABLE: "bg-[#ECFDF3] border-[#ABEFC6] text-[#067647]",
-              BOOKED: "bg-[#EFF8FF] border-[#B2DDFF] text-[#175CD3]",
-              RESERVED: "bg-[#FEF6EE] border-[#F9DBAF] text-[#B54708]",
-              SOLD: "bg-[#FEF3F2] border-[#FECDCA] text-[#B42318]",
-            }[tile.status];
-
-            return (
-              <Link
-                key={tile.id}
-                href={`/units/${tile.id}`}
-                className={cn(
-                  "flex h-[52px] flex-col justify-center rounded-[6px] border px-2.5 transition-all select-none hover:shadow-xs",
-                  bgByStatus,
-                  isCurrent
-                    ? "font-semibold ring-2 ring-primary ring-offset-1"
-                    : "opacity-90 hover:opacity-100",
-                )}
-              >
-                <span className="truncate font-sans text-[12px] leading-tight font-medium text-ink">
-                  {tile.unitCode}
-                </span>
-                <span className="mt-0.5 truncate text-[10.5px] tracking-tight capitalize opacity-85">
-                  {tile.status.toLowerCase()}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </Panel>
-
-      {/* Details: 2 columns */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        {/* Left column: DefinitionLists */}
-        <div className="space-y-6 lg:col-span-7">
+      {/* Balanced 2-column details: Left (6 cols) and Right (6 cols) */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        {/* Left Column: Identity & Valuation */}
+        <div className="space-y-6">
           {/* Identity & Details */}
           <Panel title="Unit identity & location">
             <DefinitionList
@@ -267,9 +220,6 @@ export default async function UnitDetailPage({
                     ? "Yes (active for sale)"
                     : "No (held/restricted)",
                 },
-                ...(unit.ownershipGroup
-                  ? [{ label: "Ownership group", value: unit.ownershipGroup }]
-                  : []),
                 ...(unit.subOwner ? [{ label: "Sub owner", value: unit.subOwner }] : []),
                 ...(unit.notes ? [{ label: "Notes", value: unit.notes }] : []),
               ]}
@@ -321,16 +271,8 @@ export default async function UnitDetailPage({
           {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
         </div>
 
-        {/* Right column: Ownership Timeline & Status History */}
-        <div className="space-y-6 lg:col-span-5">
-          {/* Status Actions (Sell / Reverse buttons if available) */}
-          <UnitStatusActions
-            unit={unit}
-            history={history}
-            canSell={can(session.user.role, "units.sell")}
-            canReverse={can(session.user.role, "units.reverse_sale")}
-          />
-
+        {/* Right Column: Ownership Timeline & Status History */}
+        <div className="space-y-6">
           {/* Ownership Timeline */}
           <Panel title="Ownership & transactions" hint="Audited lifecycle events">
             <UnitOwnershipTimeline events={timeline} />

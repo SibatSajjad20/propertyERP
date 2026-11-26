@@ -40,6 +40,7 @@ interface DirectSaleScreenProps {
   floors: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   role: UserRole;
+  preselectedUnitId?: string;
 }
 
 export function DirectSaleScreen({
@@ -47,10 +48,17 @@ export function DirectSaleScreen({
   floors,
   categories,
   role,
+  preselectedUnitId,
 }: DirectSaleScreenProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = React.useState(1);
-  const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(null);
+  const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(() => {
+    return preselectedUnitId
+      ? (units.find((u) => u.id === preselectedUnitId) ?? null)
+      : null;
+  });
+  const [currentStep, setCurrentStep] = React.useState(
+    preselectedUnitId && units.length > 0 ? 2 : 1,
+  );
 
   const [client, setClient] = React.useState<ClientInput>({
     title: "Mr",

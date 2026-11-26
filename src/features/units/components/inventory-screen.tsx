@@ -7,7 +7,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   MagnifyingGlass,
   Plus,
-  ArrowClockwise,
   DownloadSimple,
   GitMerge,
   ArrowSquareOut,
@@ -15,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { StatStrip, StatCell } from "@/components/ui/stat-strip";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -43,7 +41,6 @@ import type {
   StatusHistoryEntry,
 } from "../types";
 import { InventoryTable } from "./inventory-table";
-import { MergeUnitsDialog } from "./merge-units-dialog";
 import {
   useInventoryOptionsQuery,
   useInventoryQuery,
@@ -88,7 +85,6 @@ export function InventoryScreen({
   const [query, setQuery] = useState<InventoryQuery>(initialQuery);
   const [search, setSearch] = useState(initialQuery.q ?? "");
   const [showSoldOn, setShowSoldOn] = useState(false);
-  const [mergeOpen, setMergeOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const queryMatchesServer =
@@ -243,9 +239,11 @@ export function InventoryScreen({
                     )}
                   </Link>
                 </Button>
-                <Button variant="secondary" size="md" onClick={() => setMergeOpen(true)}>
-                  <GitMerge weight="light" className="mr-1.5 size-4" />
-                  Merge Units
+                <Button variant="secondary" size="md" asChild>
+                  <Link href={"/inventory/merge" as never}>
+                    <GitMerge weight="light" className="mr-1.5 size-4" />
+                    Merge Units
+                  </Link>
                 </Button>
               </>
             )}
@@ -315,8 +313,8 @@ export function InventoryScreen({
         })}
       </div>
 
-      {/* 5 Overview StatCells above the table */}
-      <StatStrip columns="1.1fr 1.2fr 1fr 1fr 1fr" className="mb-0">
+      {/* 4 Overview StatCells above the table */}
+      <StatStrip columns="1.2fr 1.2fr 1fr 1fr" className="mb-0">
         <StatCell
           label="Total matching"
           value={totals.count}
@@ -353,23 +351,6 @@ export function InventoryScreen({
             totals.count > 0
               ? [{ percent: (soldCount / totals.count) * 100, color: "#0B3F66" }]
               : 0
-          }
-        />
-        <StatCell
-          label="Missing gross area"
-          value={totals.missingGrossCount ?? 0}
-          suffix={(totals.missingGrossCount ?? 0) > 0 ? "units" : undefined}
-          valueClassName={
-            (totals.missingGrossCount ?? 0) > 0 ? "text-accent" : "text-ink"
-          }
-          subLine={
-            <button
-              type="button"
-              onClick={() => updateQuery({ missingGross: !query.missingGross })}
-              className="cursor-pointer text-[12px] font-medium text-primary hover:text-primary-hover hover:underline"
-            >
-              {query.missingGross ? "Show all" : "Review units"}
-            </button>
           }
         />
       </StatStrip>
@@ -495,27 +476,6 @@ export function InventoryScreen({
             </SelectContent>
           </Select>
 
-          {/* Missing Gross checkbox */}
-          <label
-            htmlFor="filter-missing-gross"
-            className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium transition-colors select-none ${
-              query.missingGross
-                ? "border-primary/40 bg-primary-soft text-primary"
-                : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
-            }`}
-          >
-            <Checkbox
-              id="filter-missing-gross"
-              aria-label="Missing gross area"
-              checked={Boolean(query.missingGross)}
-              onCheckedChange={(checked) =>
-                updateQuery({ missingGross: Boolean(checked) })
-              }
-              className="size-3.5"
-            />
-            <span>Missing gross</span>
-          </label>
-
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -573,38 +533,6 @@ export function InventoryScreen({
             </select>
           </div>
         </div>
-
-        {/* Right: View Options */}
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowSoldOn(!showSoldOn)}
-            className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium transition-colors select-none ${
-              showSoldOn
-                ? "border-line-strong bg-subtle text-ink"
-                : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
-            }`}
-          >
-            <span>Sold date column</span>
-          </button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className={
-              query.sort === "updatedAt" ? "font-medium text-primary" : "text-ink-muted"
-            }
-            onClick={() => handleSort("updatedAt")}
-          >
-            <ArrowClockwise weight="light" className="mr-1 size-3.5" />
-            Recent
-            {query.sort === "updatedAt" ? (
-              <span className="ml-0.5 text-[10px]">
-                ({query.dir === "desc" ? "↓" : "↑"})
-              </span>
-            ) : null}
-          </Button>
-        </div>
       </div>
 
       {/* Inventory Table with row click -> full page /units/[id] */}
@@ -634,20 +562,6 @@ export function InventoryScreen({
           }
         }}
       />
-
-      {canManage && (
-        <MergeUnitsDialog
-          open={mergeOpen}
-          onOpenChange={setMergeOpen}
-          availableUnits={rows.filter((r) => r.status === "AVAILABLE")}
-          options={options}
-          role={role}
-          onSuccess={() => {
-            void inventoryQuery.refetch();
-            router.refresh();
-          }}
-        />
-      )}
     </div>
   );
 }

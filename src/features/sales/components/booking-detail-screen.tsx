@@ -121,13 +121,6 @@ export function BookingDetailScreen({
     signatories[0]?.id ?? "",
   );
 
-  // Document preview state for Overview tab
-  const [previewDoc, setPreviewDoc] = React.useState<{
-    url: string | null;
-    label: string;
-    isPdf: boolean;
-  } | null>(null);
-
   // Surcharge Waive / Remove Policy state (ADMIN)
   const [waiveTarget, setWaiveTarget] = React.useState<any>(null);
   const [waiveReason, setWaiveReason] = React.useState("");
@@ -366,47 +359,6 @@ export function BookingDetailScreen({
     return { sumPaisa, sumPkr: formatDecimal(sumPaisa), count };
   }, [installments]);
 
-  // Overview tab schedule preview rows
-  const overviewUnpaidInsts = React.useMemo(() => {
-    return installments
-      .filter(
-        (i: any) =>
-          parseDecimal(i.amount) > parseDecimal(i.paidAmount || "0") &&
-          i.type !== "POSSESSION" &&
-          i.status !== "CANCELLED",
-      )
-      .slice(0, 4);
-  }, [installments]);
-
-  const remainingAfterPreviewCount = React.useMemo(() => {
-    const unpaidRegularAndBalloon = installments.filter(
-      (i: any) =>
-        parseDecimal(i.amount) > parseDecimal(i.paidAmount || "0") &&
-        i.type !== "POSSESSION" &&
-        i.status !== "CANCELLED",
-    );
-    return Math.max(0, unpaidRegularAndBalloon.length - 4);
-  }, [installments]);
-
-  const remainingAfterPreviewTotal = React.useMemo(() => {
-    const unpaidRegularAndBalloon = installments.filter(
-      (i: any) =>
-        parseDecimal(i.amount) > parseDecimal(i.paidAmount || "0") &&
-        i.type !== "POSSESSION" &&
-        i.status !== "CANCELLED",
-    );
-    const sliced = unpaidRegularAndBalloon.slice(4);
-    let total = 0n;
-    for (const item of sliced) {
-      total += parseDecimal(item.amount) - parseDecimal(item.paidAmount || "0");
-    }
-    return formatDecimal(total);
-  }, [installments]);
-
-  const possessionInstallment = React.useMemo(() => {
-    return installments.find((i: any) => i.type === "POSSESSION");
-  }, [installments]);
-
   // Activity events assembled from existing data
   const activityItems: ActivityItem[] = React.useMemo(() => {
     const items: ActivityItem[] = [];
@@ -590,11 +542,12 @@ export function BookingDetailScreen({
       />
 
       {/* 5-Cell StatStrip */}
-      <StatStrip columns="1.25fr 1.4fr 1fr 1.25fr 0.9fr">
+      <StatStrip columns="1.05fr 1.05fr 1.15fr 1.05fr 1.15fr">
         {/* Cell 1: Total Price */}
         <StatCell
           label="TOTAL PRICE"
           value={formatPkr(booking.netPrice)}
+          valueClassName="whitespace-nowrap text-[22px] xl:text-[24px] 2xl:text-[26px]"
           subLine={`${booking.categoryName} ${booking.unitCode} · ${effectivePricingArea(booking.grossAreaSqft, booking.netAreaSqft)} sq ft`}
         />
 
@@ -602,6 +555,7 @@ export function BookingDetailScreen({
         <StatCell
           label="PAID SO FAR"
           value={formatPkr(booking.paidTotal)}
+          valueClassName="whitespace-nowrap text-[22px] xl:text-[24px] 2xl:text-[26px]"
           subLine={`${booking.paidPercent}% paid`}
           progress={Number(booking.paidPercent) || 0}
         />
@@ -610,6 +564,7 @@ export function BookingDetailScreen({
         <StatCell
           label="REMAINING"
           value={formatPkr(booking.remainingBalancePkr)}
+          valueClassName="whitespace-nowrap text-[21px] xl:text-[23px] 2xl:text-[25px]"
           subLine={
             parseDecimal(booking.possessionAmount || "0") > 0n
               ? `incl. possession ${formatPkr(booking.possessionAmount)}`
@@ -621,17 +576,23 @@ export function BookingDetailScreen({
         <StatCell
           label="NEXT INSTALLMENT"
           value={nextInstallment ? formatPkr(nextInstallment.amount) : "Fully Settled"}
+          valueClassName="whitespace-nowrap text-[22px] xl:text-[24px] 2xl:text-[26px]"
           subLine={nextInstSubline}
         />
 
         {/* Cell 5: Overdue */}
         <StatCell
           label="OVERDUE"
+          valueClassName="whitespace-nowrap"
           value={
             overdueSummary.sumPaisa > 0n ? (
-              <span className="text-sold">{formatPkr(overdueSummary.sumPkr)}</span>
+              <span className="text-[21px] whitespace-nowrap text-sold xl:text-[23px] 2xl:text-[25px]">
+                {formatPkr(overdueSummary.sumPkr)}
+              </span>
             ) : (
-              <span className="text-available">Nothing overdue</span>
+              <span className="text-[19px] whitespace-nowrap text-available xl:text-[21px] 2xl:text-[23px]">
+                Nothing overdue
+              </span>
             )
           }
           subLine={
@@ -657,426 +618,184 @@ export function BookingDetailScreen({
 
         {/* 1. Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-            {/* Left Column (7 cols): Payment Schedule Preview + Documents Checklist */}
-            <div className="space-y-6 lg:col-span-7">
-              {/* Payment Schedule Preview Panel */}
-              <Panel
-                title="Payment schedule"
-                hint="Showing next upcoming payments"
-                actions={
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("schedule")}
-                    className="text-[12.5px] font-medium text-primary hover:underline"
-                  >
-                    View all {installments.length}
-                  </button>
-                }
-              >
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-[12.5px]">
-                    <thead>
-                      <tr className="border-b border-line bg-subtle/40 text-[11px] font-medium text-ink-muted uppercase">
-                        <th className="py-2 pr-3">Payment item</th>
-                        <th className="py-2 pr-3">Due date</th>
-                        <th className="py-2 pr-3 text-right">Amount</th>
-                        <th className="py-2 pr-3 text-right">Paid</th>
-                        <th className="py-2 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line/60">
-                      {/* Down payment row */}
-                      <tr>
-                        <td className="py-2.5 pr-3 font-medium text-ink">Down payment</td>
-                        <td className="py-2.5 pr-3 text-ink-muted">On Booking</td>
-                        <td className="py-2.5 pr-3 text-right font-medium text-ink tabular-nums">
-                          {formatPkr(booking.downPayment)}
-                        </td>
-                        <td className="py-2.5 pr-3 text-right font-medium text-available tabular-nums">
-                          {formatPkr(
-                            parseDecimal(booking.paidTotal) >
-                              parseDecimal(booking.downPayment)
-                              ? booking.downPayment
-                              : booking.paidTotal,
-                          )}
-                        </td>
-                        <td className="py-2.5 text-right">
-                          <Badge tone="available">Paid</Badge>
-                        </td>
-                      </tr>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Property Unit Details */}
+            <Panel
+              title="Property Unit"
+              actions={
+                <Link
+                  href={`/units/${booking.unitId}`}
+                  className="text-[12.5px] font-medium text-primary hover:underline"
+                >
+                  View Unit
+                </Link>
+              }
+            >
+              <DefinitionList
+                items={[
+                  {
+                    label: "Unit Code",
+                    value: (
+                      <span className="font-sans font-medium text-ink tabular-nums">
+                        {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Floor / Block",
+                    value: `${booking.floorName} · ${booking.blockName}`,
+                  },
+                  {
+                    label: "Category",
+                    value: booking.categoryName,
+                  },
+                  {
+                    label: "Gross Area",
+                    value: (
+                      <span className="tabular-nums">
+                        {effectivePricingArea(booking.grossAreaSqft, booking.netAreaSqft)}{" "}
+                        sq ft
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Rate / sq ft",
+                    value: (
+                      <span className="tabular-nums">
+                        {formatPkr(booking.ratePerSqftPkr)}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "List Price",
+                    value: (
+                      <span className="font-semibold text-ink tabular-nums">
+                        {formatPkr(booking.listPrice)}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            </Panel>
 
-                      {/* Next 3-4 unpaid rows */}
-                      {overviewUnpaidInsts.map((inst: any) => (
-                        <tr key={inst.id} className="bg-primary-soft/10">
-                          <td className="py-2.5 pr-3 font-medium text-ink">
-                            {inst.label || `Installment #${inst.seq}`}
-                          </td>
-                          <td className="py-2.5 pr-3 text-ink tabular-nums">
-                            {new Date(inst.dueDate).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(inst.amount)}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right font-medium text-available tabular-nums">
-                            {formatPkr(inst.paidAmount || "0")}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Badge
-                              tone={
-                                inst.status === "OVERDUE"
-                                  ? "sold"
-                                  : inst.status === "PARTIAL"
-                                    ? "primary"
-                                    : "muted"
-                              }
-                            >
-                              {inst.status}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-
-                      {/* Grouped remaining row if any */}
-                      {remainingAfterPreviewCount > 0 && (
-                        <tr>
-                          <td className="py-2.5 pr-3 text-ink-muted">
-                            Remaining {remainingAfterPreviewCount} regular installments
-                          </td>
-                          <td className="py-2.5 pr-3 text-ink-muted">—</td>
-                          <td className="py-2.5 pr-3 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(remainingAfterPreviewTotal)}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right text-ink-muted tabular-nums">
-                            —
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Badge tone="muted">Pending</Badge>
-                          </td>
-                        </tr>
-                      )}
-
-                      {/* Possession row */}
-                      {possessionInstallment && (
-                        <tr>
-                          <td className="py-2.5 pr-3 font-medium text-ink">
-                            On Possession
-                          </td>
-                          <td className="py-2.5 pr-3 text-ink-muted">Handover</td>
-                          <td className="py-2.5 pr-3 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(possessionInstallment.amount)}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right font-medium text-available tabular-nums">
-                            {formatPkr(possessionInstallment.paidAmount || "0")}
-                          </td>
-                          <td className="py-2.5 text-right">
-                            <Badge
-                              tone={
-                                possessionInstallment.status === "PAID"
-                                  ? "available"
-                                  : "muted"
-                              }
-                            >
-                              {possessionInstallment.status}
-                            </Badge>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+            {/* Applicant Details along with Nominee Details */}
+            <Panel title="Applicant Details">
+              <div className="space-y-5">
+                <div>
+                  <h4 className="mb-2 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
+                    Applicant Information
+                  </h4>
+                  <DefinitionList
+                    items={[
+                      {
+                        label: "Full Name",
+                        value: `${booking.clientTitle ? `${booking.clientTitle} ` : ""}${booking.clientName}`,
+                      },
+                      {
+                        label: `${booking.clientRelationPrefix || "S/O"}`,
+                        value: booking.clientRelationName,
+                      },
+                      {
+                        label: "CNIC",
+                        value: (
+                          <span className="font-sans font-medium text-ink tabular-nums">
+                            {booking.clientCnic}
+                          </span>
+                        ),
+                      },
+                      {
+                        label: "Phone",
+                        value: (
+                          <span className="tabular-nums">{booking.clientPhone}</span>
+                        ),
+                      },
+                      {
+                        label: "Home Address",
+                        value: (
+                          <span className="break-words text-ink">
+                            {booking.homeAddress}
+                          </span>
+                        ),
+                      },
+                      {
+                        label: "Postal Address",
+                        value: (
+                          <span className="break-words text-ink">
+                            {booking.postalAddress}
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
-              </Panel>
 
-              {/* Documents Checklist Panel */}
-              <Panel
-                title="Documents"
-                hint={`${activeDocs.length} of ${totalPossibleDocs} uploaded`}
-                actions={
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("documents")}
-                    className="text-[12.5px] font-medium text-primary hover:underline"
-                  >
-                    Open Documents
-                  </button>
-                }
-              >
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {/* Column 1: Client Documents */}
-                  <div>
-                    <h4 className="mb-3 text-[12.5px] font-semibold text-ink">
-                      Applicant Documents
-                    </h4>
-                    <div className="space-y-2">
-                      {CLIENT_ALL_DOC_TYPES.map((docType) => {
-                        const isUploaded = activeDocs.some(
-                          (d) => d.ownerType === "CLIENT" && d.docType === docType,
-                        );
-                        const isRequired = ["PHOTO", "CNIC_FRONT", "CNIC_BACK"].includes(
-                          docType,
-                        );
-
-                        return (
-                          <div
-                            key={docType}
-                            className="flex items-center justify-between rounded-[8px] border border-line bg-surface p-2.5 text-[12.5px]"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              {/* 34x26 Neutral thumbnail placeholder */}
-                              <div
-                                className={cn(
-                                  "flex h-[26px] w-[34px] shrink-0 items-center justify-center rounded-[4px] border",
-                                  isUploaded
-                                    ? "border-[#DDE3E8] bg-[#E9EEF2] text-[#A3AFBC]"
-                                    : "border-dashed border-[#CBD2DA] bg-surface text-ink-muted",
-                                )}
-                              >
-                                {docType === "PHOTO" ? (
-                                  <User weight="light" className="size-3.5" />
-                                ) : docType.includes("CNIC") ? (
-                                  <IdentificationCard
-                                    weight="light"
-                                    className="size-3.5"
-                                  />
-                                ) : (
-                                  <FileText weight="light" className="size-3.5" />
-                                )}
-                              </div>
-                              <span className="font-medium text-ink">
-                                {DOC_TYPE_LABELS[docType]}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              {isUploaded ? (
-                                <span className="bg-available-soft flex size-4 items-center justify-center rounded-full text-available">
-                                  <Check weight="bold" className="size-2.5" />
-                                </span>
-                              ) : isRequired ? (
-                                <span className="rounded-[4px] border border-sold/30 bg-sold/10 px-1.5 py-0.5 text-[10.5px] font-medium text-sold">
-                                  Required
-                                </span>
-                              ) : (
-                                <span className="rounded-[4px] border border-line bg-surface px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">
-                                  Optional
-                                </span>
-                              )}
-
-                              <button
-                                type="button"
-                                onClick={() => handleTabChange("documents")}
-                                className="text-[12px] font-medium text-primary hover:underline"
-                              >
-                                {isUploaded ? "Replace" : "Upload"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Column 2: Next of Kin Documents */}
-                  <div>
-                    <h4 className="mb-3 text-[12.5px] font-semibold text-ink">
-                      Nominee Documents
-                    </h4>
-                    {nextOfKin ? (
-                      <div className="space-y-2">
-                        {KIN_ALL_DOC_TYPES.map((docType) => {
-                          const isUploaded = activeDocs.some(
-                            (d) => d.ownerType === "KIN" && d.docType === docType,
-                          );
-                          const isRequired = [
-                            "KIN_PHOTO",
-                            "CNIC_FRONT",
-                            "CNIC_BACK",
-                          ].includes(docType);
-
-                          return (
-                            <div
-                              key={docType}
-                              className="flex items-center justify-between rounded-[8px] border border-line bg-surface p-2.5 text-[12.5px]"
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <div
-                                  className={cn(
-                                    "flex h-[26px] w-[34px] shrink-0 items-center justify-center rounded-[4px] border",
-                                    isUploaded
-                                      ? "border-[#DDE3E8] bg-[#E9EEF2] text-[#A3AFBC]"
-                                      : "border-dashed border-[#CBD2DA] bg-surface text-ink-muted",
-                                  )}
-                                >
-                                  {docType === "KIN_PHOTO" ? (
-                                    <User weight="light" className="size-3.5" />
-                                  ) : docType.includes("CNIC") ? (
-                                    <IdentificationCard
-                                      weight="light"
-                                      className="size-3.5"
-                                    />
-                                  ) : (
-                                    <FileText weight="light" className="size-3.5" />
-                                  )}
-                                </div>
-                                <span className="font-medium text-ink">
-                                  {DOC_TYPE_LABELS[docType]}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {isUploaded ? (
-                                  <span className="bg-available-soft flex size-4 items-center justify-center rounded-full text-available">
-                                    <Check weight="bold" className="size-2.5" />
+                <div className="border-t border-line pt-4">
+                  <h4 className="mb-2 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
+                    Nominee Details
+                  </h4>
+                  {nextOfKin ? (
+                    <DefinitionList
+                      items={[
+                        {
+                          label: "Nominee Name",
+                          value: nextOfKin.name,
+                        },
+                        {
+                          label: "Relation",
+                          value: nextOfKin.relation,
+                        },
+                        ...(nextOfKin.relationName
+                          ? [
+                              {
+                                label: nextOfKin.relationPrefix || "S/O",
+                                value: nextOfKin.relationName,
+                              },
+                            ]
+                          : []),
+                        ...(nextOfKin.cnic
+                          ? [
+                              {
+                                label: "CNIC",
+                                value: (
+                                  <span className="font-sans font-medium text-ink tabular-nums">
+                                    {nextOfKin.cnic}
                                   </span>
-                                ) : isRequired ? (
-                                  <span className="rounded-[4px] border border-sold/30 bg-sold/10 px-1.5 py-0.5 text-[10.5px] font-medium text-sold">
-                                    Required
+                                ),
+                              },
+                            ]
+                          : []),
+                        ...(nextOfKin.phone
+                          ? [
+                              {
+                                label: "Phone",
+                                value: (
+                                  <span className="tabular-nums">{nextOfKin.phone}</span>
+                                ),
+                              },
+                            ]
+                          : []),
+                        ...(nextOfKin.address
+                          ? [
+                              {
+                                label: "Address",
+                                value: (
+                                  <span className="break-words text-ink">
+                                    {nextOfKin.address}
                                   </span>
-                                ) : (
-                                  <span className="rounded-[4px] border border-line bg-surface px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">
-                                    Optional
-                                  </span>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleTabChange("documents")}
-                                  className="text-[12px] font-medium text-primary hover:underline"
-                                >
-                                  {isUploaded ? "Replace" : "Upload"}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[12.5px] text-ink-muted">
-                        No nominee registered for this booking.
-                      </p>
-                    )}
-                  </div>
+                                ),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  ) : (
+                    <p className="text-[12.5px] text-ink-muted">
+                      No nominee registered for this booking.
+                    </p>
+                  )}
                 </div>
-              </Panel>
-            </div>
-
-            {/* Right Column (5 cols): Client, Unit, Recent Activity */}
-            <div className="space-y-6 lg:col-span-5">
-              {/* Client DefinitionList */}
-              <Panel title="Applicant Details">
-                <DefinitionList
-                  items={[
-                    {
-                      label: "Full Name",
-                      value: `${booking.clientTitle ? `${booking.clientTitle} ` : ""}${booking.clientName}`,
-                    },
-                    {
-                      label: `${booking.clientRelationPrefix || "S/O"}`,
-                      value: booking.clientRelationName,
-                    },
-                    {
-                      label: "CNIC",
-                      value: (
-                        <span className="font-sans font-medium text-ink tabular-nums">
-                          {booking.clientCnic}
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Phone",
-                      value: <span className="tabular-nums">{booking.clientPhone}</span>,
-                    },
-                    {
-                      label: "Home Address",
-                      value: (
-                        <span className="break-words text-ink">
-                          {booking.homeAddress}
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Postal Address",
-                      value: (
-                        <span className="break-words text-ink">
-                          {booking.postalAddress}
-                        </span>
-                      ),
-                    },
-                    ...(nextOfKin
-                      ? [
-                          {
-                            label: "Nominee",
-                            value: `${nextOfKin.name} (${nextOfKin.relation})`,
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </Panel>
-
-              {/* Unit DefinitionList */}
-              <Panel
-                title="Property Unit"
-                actions={
-                  <Link
-                    href={`/units/${booking.unitId}`}
-                    className="text-[12.5px] font-medium text-primary hover:underline"
-                  >
-                    View Unit
-                  </Link>
-                }
-              >
-                <DefinitionList
-                  items={[
-                    {
-                      label: "Unit Code",
-                      value: (
-                        <span className="font-sans font-medium text-ink tabular-nums">
-                          {formatUnitDisplayCode(booking.unitCode, booking.categoryName)}
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Floor / Block",
-                      value: `${booking.floorName} · ${booking.blockName}`,
-                    },
-                    {
-                      label: "Category",
-                      value: booking.categoryName,
-                    },
-                    {
-                      label: "Gross Area",
-                      value: (
-                        <span className="tabular-nums">
-                          {effectivePricingArea(
-                            booking.grossAreaSqft,
-                            booking.netAreaSqft,
-                          )}{" "}
-                          sq ft
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Rate / sq ft",
-                      value: (
-                        <span className="tabular-nums">
-                          {formatPkr(booking.ratePerSqftPkr)}
-                        </span>
-                      ),
-                    },
-                  ]}
-                />
-              </Panel>
-
-              {/* Recent Activity */}
-              <Panel title="Recent activity" hint="From booking ledger">
-                <ActivityList items={activityItems.slice(0, 5)} />
-              </Panel>
-            </div>
+              </div>
+            </Panel>
           </div>
         </TabsContent>
 

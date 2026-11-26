@@ -501,7 +501,7 @@ const dashboardBundleCache = new Map<
     data: DashboardBundle;
   }
 >();
-const DASHBOARD_BUNDLE_CACHE_TTL_MS = 30_000; // 30 seconds
+const DASHBOARD_BUNDLE_CACHE_TTL_MS = 300_000; // 5 minutes
 
 export function invalidateDashboardBundleCache() {
   dashboardBundleCache.clear();
@@ -608,22 +608,70 @@ export async function getDashboardBundle(filter?: {
         .orderBy(asc(installments.dueDate), asc(installments.seq))
         .limit(5),
       db.execute(sql`
+        with p as (
+          select
+            coalesce(sum(${payments.amount}), 0)::text as payments_total,
+            coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= ${startOfMonth}::timestamptz), 0)::text as month_collected_pkr,
+            coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= date_trunc('month', ${startOfMonth}::timestamptz - interval '1 month') and ${payments.paidAt} < ${startOfMonth}::timestamptz), 0)::text as last_month_collected_pkr
+          from ${payments}
+        ),
+        s as (
+          select coalesce(sum(${sales.salePrice}), 0)::text as sales_total from ${sales}
+        ),
+        r as (
+          select
+            coalesce(sum(${refunds.refundAmount}), 0)::text as refunds_total,
+            coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text as refunds_month
+          from ${refunds}
+        ),
+        bb as (
+          select
+            coalesce(sum(${buybacks.buybackAmount}), 0)::text as buybacks_total,
+            coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text as buybacks_month
+          from ${buybacks}
+        ),
+        inst as (
+          select
+            count(*) filter (where ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int as overdue_count,
+            coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text as overdue_pkr,
+            count(*) filter (where ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int as due_this_week_count,
+            coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text as due_this_week_pkr
+          from ${installments}
+          inner join ${bookings} on ${installments.bookingId} = ${bookings.id}
+          where ${bookings.status} = 'ACTIVE'
+        ),
+        res as (
+          select
+            count(*)::int as expiring_reservations_count
+          from ${reservations}
+          where ${reservations.status} = 'ACTIVE'
+            and ${reservations.expiresAt} > now()
+            and ${reservations.expiresAt} <= now() + interval '48 hours'
+        ),
+        b as (
+          select
+            coalesce(sum(${bookings.netPrice} - ${bookings.paidTotal}), 0)::text as receivable_pkr,
+            count(*)::int as active_bookings_count
+          from ${bookings}
+          where ${bookings.status} = 'ACTIVE'
+        )
         select
-          (select coalesce(sum(${payments.amount}), 0)::text from ${payments}) as payments_total,
-          (select coalesce(sum(${sales.salePrice}), 0)::text from ${sales}) as sales_total,
-          (select coalesce(sum(${refunds.refundAmount}), 0)::text from ${refunds}) as refunds_total,
-          (select coalesce(sum(${refunds.refundAmount}) filter (where ${refunds.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${refunds}) as refunds_month,
-          (select coalesce(sum(${buybacks.buybackAmount}), 0)::text from ${buybacks}) as buybacks_total,
-          (select coalesce(sum(${buybacks.buybackAmount}) filter (where ${buybacks.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${buybacks}) as buybacks_month,
-          (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now())::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_count,
-          (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} < now()), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as overdue_pkr,
-          (select count(*) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days')::int from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_count,
-          (select coalesce(sum(${installments.amount} - ${installments.paidAmount}) filter (where ${bookings.status} = 'ACTIVE' and ${installments.paidAmount} < ${installments.amount} and ${installments.dueDate} >= now() and ${installments.dueDate} <= now() + interval '7 days'), 0)::text from ${installments} inner join ${bookings} on ${installments.bookingId} = ${bookings.id}) as due_this_week_pkr,
-          (select count(*) filter (where ${reservations.status} = 'ACTIVE' and ${reservations.expiresAt} > now() and ${reservations.expiresAt} <= now() + interval '48 hours')::int from ${reservations}) as expiring_reservations_count,
-          (select coalesce(sum(${bookings.netPrice} - ${bookings.paidTotal}), 0)::text from ${bookings} where ${bookings.status} = 'ACTIVE') as receivable_pkr,
-          (select count(*)::int from ${bookings} where ${bookings.status} = 'ACTIVE') as active_bookings_count,
-          (select coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= ${startOfMonth}::timestamptz), 0)::text from ${payments}) as month_collected_pkr,
-          (select coalesce(sum(${payments.amount}) filter (where ${payments.isVoided} = false and ${payments.paidAt} >= date_trunc('month', ${startOfMonth}::timestamptz - interval '1 month') and ${payments.paidAt} < ${startOfMonth}::timestamptz), 0)::text from ${payments}) as last_month_collected_pkr
+          p.payments_total,
+          s.sales_total,
+          r.refunds_total,
+          r.refunds_month,
+          bb.buybacks_total,
+          bb.buybacks_month,
+          inst.overdue_count,
+          inst.overdue_pkr,
+          inst.due_this_week_count,
+          inst.due_this_week_pkr,
+          res.expiring_reservations_count,
+          b.receivable_pkr,
+          b.active_bookings_count,
+          p.month_collected_pkr,
+          p.last_month_collected_pkr
+        from p, s, r, bb, inst, res, b
       `),
     ]);
 

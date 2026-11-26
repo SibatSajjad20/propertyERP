@@ -531,6 +531,10 @@ export function BookingWizard({
     return remainingRegular.reduce((acc, i) => acc + parseDecimal(i.amountPkr), 0n);
   }, [remainingRegular]);
 
+  // Right summary cards are hidden on Step 1 (Unit Selection) as details are already visible
+  // on the current screen and the schedule is customized on the next stage (Step 2)
+  const showRightSummary = currentStep > 1 && Boolean(selectedUnit);
+
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
@@ -599,9 +603,12 @@ export function BookingWizard({
 
       {/* 2-Column Content Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (8 cols): Step Forms */}
+        {/* Left Column (8 cols on Steps 2+, 12 cols on Step 1): Step Forms */}
         <div
-          className={cn(selectedUnit ? "lg:col-span-8" : "lg:col-span-12", "space-y-6")}
+          className={cn(
+            showRightSummary ? "lg:col-span-8" : "lg:col-span-12",
+            "space-y-6",
+          )}
         >
           {/* Step 1: Unit Selector */}
           {currentStep === 1 && (
@@ -823,8 +830,8 @@ export function BookingWizard({
           )}
         </div>
 
-        {/* Right Column (4 cols): Sticky Unit Summary & Schedule Preview */}
-        {selectedUnit && (
+        {/* Right Column (4 cols): Sticky Unit Summary & Schedule Preview (Steps 2+) */}
+        {currentStep > 1 && selectedUnit ? (
           <div className="space-y-5 lg:col-span-4">
             <div className="sticky top-20 space-y-5">
               {/* Unit Summary DefinitionList */}
@@ -971,7 +978,7 @@ export function BookingWizard({
               )}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Floating Bottom Navigation Bar */}

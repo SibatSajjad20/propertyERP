@@ -38,7 +38,6 @@ const sortByColumn: Record<string, InventorySortField> = {
   ratePerSqftPkr: "ratePerSqftPkr",
   bookPricePkr: "totalPrice",
   status: "status",
-  ownershipGroup: "ownershipGroup",
   soldAt: "soldAt",
 };
 
@@ -160,15 +159,6 @@ export function InventoryTable({
         }),
       );
     }
-
-    cols.push(
-      helper.accessor("ownershipGroup", {
-        header: "Ownership group",
-        cell: (info) => (
-          <span className="truncate text-ink-muted">{info.getValue() ?? "—"}</span>
-        ),
-      }),
-    );
 
     // Row Actions column "⋯"
     cols.push(

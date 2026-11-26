@@ -56,7 +56,7 @@ export function StatCell({
   return (
     <div
       className={cn(
-        "min-w-0 border-l border-line p-[16px_20px_17px] first:border-l-0",
+        "min-w-0 border-l border-line p-[16px_16px_17px] first:border-l-0 xl:p-[16px_20px_17px]",
         className,
       )}
     >
@@ -67,7 +67,7 @@ export function StatCell({
 
       <div
         className={cn(
-          "leading-none font-semibold tracking-tight text-ink tabular-nums",
+          "leading-none font-semibold tracking-tight whitespace-nowrap text-ink tabular-nums",
           size === "big"
             ? "text-[26px] tracking-[-0.025em]"
             : "text-[21px] tracking-[-0.02em]",

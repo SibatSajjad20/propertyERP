@@ -174,6 +174,14 @@ export function MergeRequestsScreen({
       <PageHeader
         title="Unit Merge Requests"
         description="Review, edit pricing or restructuring details, verify proof documents, and approve or reject unit merges."
+        actions={
+          <Button variant="primary" size="md" asChild>
+            <Link href={"/inventory/merge" as never}>
+              <GitMerge weight="regular" className="mr-1.5 size-4" />
+              New Merge
+            </Link>
+          </Button>
+        }
       />
 
       {/* Filter pills */}
@@ -226,7 +234,7 @@ export function MergeRequestsScreen({
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3.5">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="unit-code font-sans tabular-nums text-[15px] font-semibold text-primary">
+                      <span className="unit-code font-sans text-[15px] font-semibold text-primary tabular-nums">
                         {formatUnitDisplayCode(
                           req.proposedUnitCode,
                           req.targetCategoryName,
@@ -338,7 +346,7 @@ export function MergeRequestsScreen({
                         <tbody className="divide-y divide-line/60">
                           {req.sourceUnitsSnapshot.map((s) => (
                             <tr key={s.id}>
-                              <td className="unit-code px-2.5 py-1.5 font-sans tabular-nums font-medium text-ink">
+                              <td className="unit-code px-2.5 py-1.5 font-sans font-medium text-ink tabular-nums">
                                 {formatUnitDisplayCode(s.unitCode, s.categoryName)}
                               </td>
                               <td className="px-2.5 py-1.5 text-ink-muted">
@@ -530,7 +538,7 @@ export function MergeRequestsScreen({
             <DialogTitle>Reject Merge Request</DialogTitle>
             <DialogDescription>
               Provide a clear reason for rejecting merge request{" "}
-              <span className="unit-code font-sans tabular-nums font-semibold text-ink">
+              <span className="unit-code font-sans font-semibold text-ink tabular-nums">
                 {rejectingItem?.proposedUnitCode}
               </span>
               .

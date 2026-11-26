@@ -34,6 +34,7 @@ interface ReservationWizardProps {
   units: SelectableUnit[];
   floors: { id: string; name: string }[];
   categories: { id: string; name: string }[];
+  preselectedUnitId?: string;
 }
 
 const DURATION_PRESETS = [
@@ -44,10 +45,21 @@ const DURATION_PRESETS = [
   { label: "30 Days (1 Month)", days: 30 },
 ];
 
-export function ReservationWizard({ units, floors, categories }: ReservationWizardProps) {
+export function ReservationWizard({
+  units,
+  floors,
+  categories,
+  preselectedUnitId,
+}: ReservationWizardProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = React.useState(1);
-  const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(null);
+  const [selectedUnit, setSelectedUnit] = React.useState<SelectableUnit | null>(() => {
+    return preselectedUnitId
+      ? (units.find((u) => u.id === preselectedUnitId) ?? null)
+      : null;
+  });
+  const [currentStep, setCurrentStep] = React.useState(
+    preselectedUnitId && units.length > 0 ? 2 : 1,
+  );
 
   const [client, setClient] = React.useState<ClientInput>({
     title: "Mr",

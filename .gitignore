@@ -33,10 +33,9 @@ graphify-out/*
 /out/
 
 # launch-video
-/launch-video/node_modules/
-/launch-video/out/
-/launch-video/captures/
+/launch-video/
 /captures/
+/mockups/
 
 # production
 /build
