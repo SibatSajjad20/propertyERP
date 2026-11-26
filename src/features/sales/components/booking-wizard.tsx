@@ -786,8 +786,7 @@ export function BookingWizard({
                 </div>
                 <div className="rounded-[8px] bg-subtle/50 p-3">
                   <span className="text-[11px] text-ink-muted uppercase">
-                    Annual Balloons ({liveSchedule?.balloonCount ?? 0} ×{" "}
-                    {liveSchedule?.balloonPercentPerYear ?? 0}%)
+                    Annual Balloons ({liveSchedule?.balloonPercent ?? 0}%)
                   </span>
                   <p className="text-[14px] font-semibold text-ink tabular-nums">
                     {formatPkr(liveSchedule?.balloonTotalAmountPkr || "0")}
