@@ -111,18 +111,22 @@ export function UnitForm({
   const gross = form.watch("grossAreaSqft");
   const rate = form.watch("ratePerSqftPkr");
   const adjustment = form.watch("priceAdjustmentPkr");
+  const adjReason = form.watch("priceAdjustmentReason");
   const isSellable = form.watch("isSellable");
   const selectedFloorId = form.watch("floorId");
   const selectedCategoryId = form.watch("categoryId");
 
+  const pricingArea = effectivePricingArea(gross, net);
   let computedTotal = "0.00";
+  let baseAmount = "0.00";
   try {
-    const pricingArea = effectivePricingArea(gross, net);
     if (pricingArea && rate && pricingArea.trim() !== "" && rate.trim() !== "") {
       computedTotal = computeTotalPrice(rate, pricingArea, adjustment || "0");
+      baseAmount = computeTotalPrice(rate, pricingArea, "0");
     }
   } catch {
     computedTotal = "0.00";
+    baseAmount = "0.00";
   }
   const grossWarning = isGrossLessThanNet(gross, net);
   const soldLocked = mode === "edit" && unit?.status === "SOLD" && role !== "ADMIN";
@@ -471,44 +475,111 @@ export function UnitForm({
 
         {/* Right column: Sticky Valuation summary, Sellable toggle & Actions */}
         <div className="lg:col-span-4">
-          <div className="space-y-6 lg:sticky lg:top-6">
-            {/* New price panel */}
-            <Panel title="Valuation summary">
-              <div className="space-y-3">
-                {mode === "edit" && unit && (
-                  <div className="flex items-center justify-between text-[12.5px]">
-                    <span className="text-muted">Current price</span>
-                    <span className="font-medium text-ink tabular-nums">
-                      {formatPkrLedger(unit.bookPricePkr)}
+          <div className="space-y-4 lg:sticky lg:top-6">
+            {/* Descriptive Valuation Summary */}
+            <Panel
+              title="Valuation summary"
+              hint={
+                pricingArea && pricingArea.trim() !== ""
+                  ? `${pricingArea} sq ft basis`
+                  : "Live estimate"
+              }
+            >
+              <div className="space-y-3 text-[12.5px]">
+                {/* 1. Billable Area */}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Billable area</span>
+                  <div className="text-right">
+                    <span className="font-sans font-medium text-ink tabular-nums">
+                      {pricingArea && pricingArea.trim() !== ""
+                        ? `${pricingArea} sq ft`
+                        : "—"}
                     </span>
+                    {gross && net && gross.trim() !== "" && (
+                      <p className="text-[11px] text-subtle">
+                        Gross {gross} · Net {net}
+                      </p>
+                    )}
                   </div>
-                )}
+                </div>
 
-                <div className="flex items-center justify-between border-t border-line pt-2 text-[12.5px]">
-                  <span className="font-medium text-ink">New computed price</span>
-                  <span className="text-[14px] font-semibold text-primary tabular-nums">
-                    {formatPkrCompact(computedTotal)}
+                {/* 2. Rate per sq ft */}
+                <div className="flex items-center justify-between border-t border-line/60 pt-2">
+                  <span className="text-muted">Rate / sq ft</span>
+                  <span className="font-sans font-medium text-ink tabular-nums">
+                    {rate && rate.trim() !== "" ? `Rs ${formatPkrLedger(rate)}` : "—"}
                   </span>
                 </div>
-                <p className="-mt-1 text-right text-[11px] text-muted tabular-nums">
-                  {formatPkrLedger(computedTotal)}
-                </p>
 
-                {mode === "edit" && priceDiff !== 0 && (
-                  <div className="flex items-center justify-between border-t border-line pt-2 text-[12px]">
-                    <span className="text-muted">Price delta</span>
-                    <span
-                      className={`font-medium tabular-nums ${
-                        priceDiff > 0 ? "text-good" : "text-bad"
-                      }`}
-                    >
-                      {priceDiff > 0
-                        ? `+${formatPkrCompact(String(priceDiff))}`
-                        : formatPkrCompact(String(priceDiff))}
-                      {priceDiffPct
-                        ? ` (${priceDiff > 0 ? `+${priceDiffPct}` : priceDiffPct}%)`
-                        : null}
+                {/* 3. Base Amount (Area × Rate) */}
+                <div className="flex items-center justify-between border-t border-line/60 pt-2">
+                  <span className="text-muted">Base amount</span>
+                  <span className="font-sans font-medium text-ink tabular-nums">
+                    {baseAmount !== "0.00" ? formatPkrLedger(baseAmount) : "Rs 0"}
+                  </span>
+                </div>
+
+                {/* 4. Price Adjustment */}
+                <div className="flex items-start justify-between border-t border-line/60 pt-2">
+                  <div>
+                    <span className="text-muted">Adjustment</span>
+                    {adjReason && adjReason.trim() !== "" && (
+                      <p className="max-w-[130px] truncate text-[11px] text-subtle">
+                        {adjReason}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-sans font-medium text-ink tabular-nums">
+                    {adjustment && adjustment.trim() !== "" && adjustment !== "0"
+                      ? adjustment.startsWith("-")
+                        ? formatPkrLedger(adjustment)
+                        : `+${formatPkrLedger(adjustment)}`
+                      : "Rs 0"}
+                  </span>
+                </div>
+
+                {/* 5. Highlighted Final Computed Price */}
+                <div className="rounded-[8px] border border-primary/25 bg-primary-soft/30 p-2.5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11px] font-semibold tracking-wider text-primary uppercase">
+                      New computed price
                     </span>
+                    <span className="text-[15px] font-bold text-primary tabular-nums">
+                      {formatPkrCompact(computedTotal)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-right font-sans text-[11px] font-medium text-muted tabular-nums">
+                    {formatPkrLedger(computedTotal)}
+                  </p>
+                </div>
+
+                {/* Edit mode: current price & difference */}
+                {mode === "edit" && unit && (
+                  <div className="space-y-1 border-t border-line pt-2 text-[12px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Current price</span>
+                      <span className="font-medium text-ink tabular-nums">
+                        {formatPkrLedger(unit.bookPricePkr)}
+                      </span>
+                    </div>
+
+                    {priceDiff !== 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted">Price delta</span>
+                        <span
+                          className={`font-medium tabular-nums ${
+                            priceDiff > 0 ? "text-good" : "text-bad"
+                          }`}
+                        >
+                          {priceDiff > 0
+                            ? `+${formatPkrCompact(String(priceDiff))}`
+                            : formatPkrCompact(String(priceDiff))}
+                          {priceDiffPct
+                            ? ` (${priceDiff > 0 ? `+${priceDiffPct}` : priceDiffPct}%)`
+                            : null}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

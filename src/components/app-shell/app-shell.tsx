@@ -64,9 +64,9 @@ export function AppShell({
 
   return (
     <BreadcrumbProvider>
-      <div className="flex min-h-screen bg-bg print:bg-white">
-        {/* Desktop Sidebar: sticky top-0 h-screen */}
-        <div className="sticky top-0 hidden h-screen shrink-0 lg:flex print:hidden">
+      <div className="flex h-screen overflow-hidden bg-bg print:h-auto print:overflow-visible print:bg-white">
+        {/* Desktop Sidebar: h-screen shrink-0 */}
+        <div className="hidden h-screen shrink-0 lg:flex print:hidden">
           <Sidebar
             role={role}
             userName={userName}
@@ -100,8 +100,8 @@ export function AppShell({
         </Sheet>
 
         {/* Main layout */}
-        <div className="flex min-w-0 flex-1 flex-col print:w-full print:min-w-full">
-          <div className="print:hidden">
+        <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden print:h-auto print:w-full print:min-w-full print:overflow-visible">
+          <div className="shrink-0 print:hidden">
             <TopBar
               title={title}
               role={role}
