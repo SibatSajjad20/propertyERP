@@ -167,11 +167,23 @@ export function MergeWizardScreen({
   }, [availableUnits, search]);
 
   const effectiveArea = effectivePricingArea(proposedGrossAreaSqft, proposedNetAreaSqft);
-  const calculatedTotal = computeTotalPrice(
-    proposedRatePerSqftPkr || "0",
-    effectiveArea,
-    proposedPriceAdjustmentPkr || "0",
-  );
+  let calculatedTotal = "0.00";
+  try {
+    if (
+      effectiveArea &&
+      effectiveArea.trim() !== "" &&
+      proposedRatePerSqftPkr &&
+      proposedRatePerSqftPkr.trim() !== ""
+    ) {
+      calculatedTotal = computeTotalPrice(
+        proposedRatePerSqftPkr,
+        effectiveArea,
+        proposedPriceAdjustmentPkr || "0",
+      );
+    }
+  } catch {
+    calculatedTotal = "0.00";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -16,8 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Panel } from "@/components/ui/panel";
-import { DefinitionList } from "@/components/ui/definition-list";
-import { FormSection } from "@/components/ui/form-section";
 import { formatPkr, parseDecimal } from "@/lib/money";
 import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { cn } from "@/lib/cn";
@@ -531,9 +529,9 @@ export function BookingWizard({
     return remainingRegular.reduce((acc, i) => acc + parseDecimal(i.amountPkr), 0n);
   }, [remainingRegular]);
 
-  // Right summary cards are hidden on Step 1 (Unit Selection) as details are already visible
-  // on the current screen and the schedule is customized on the next stage (Step 2)
-  const showRightSummary = currentStep > 1 && Boolean(selectedUnit);
+  // Only Step 2 (Payment Plan) displays the sticky Schedule Preview side card.
+  // All other steps (Step 1 Unit Selection, Step 3 Client, Step 4 Kin, Step 5 Review) are full-width (col-span-12).
+  const isStep2 = currentStep === 2 && Boolean(selectedUnit);
 
   return (
     <div className="space-y-6 pb-24">
@@ -601,15 +599,10 @@ export function BookingWizard({
         Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.label}
       </div>
 
-      {/* 2-Column Content Grid */}
+      {/* Content Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (8 cols on Steps 2+, 12 cols on Step 1): Step Forms */}
-        <div
-          className={cn(
-            showRightSummary ? "lg:col-span-8" : "lg:col-span-12",
-            "space-y-6",
-          )}
-        >
+        {/* Left Column (7 cols on Step 2, 12 cols on Steps 1, 3, 4, 5): Step Forms */}
+        <div className={cn(isStep2 ? "lg:col-span-7" : "lg:col-span-12", "space-y-6")}>
           {/* Step 1: Unit Selector */}
           {currentStep === 1 && (
             <Panel title="Select Unit" hint="Filter by floor, category, or code">
@@ -654,9 +647,9 @@ export function BookingWizard({
           {/* Step 3: Client Details */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <FormSection
+              <Panel
                 title="Applicant Identity"
-                description="Primary client personal and legal information."
+                hint="Primary client personal and legal information"
               >
                 <ClientForm
                   client={client}
@@ -666,11 +659,11 @@ export function BookingWizard({
                   showNextOfKin={false}
                   onMatched={applyMatchedDocs}
                 />
-              </FormSection>
+              </Panel>
 
-              <FormSection
+              <Panel
                 title="Client Documents"
-                description="Identification documents (Photo, CNIC front and back)."
+                hint="Identification documents (Photo, CNIC front and back)"
               >
                 <ClientDocumentFields
                   clientId={clientId}
@@ -685,16 +678,16 @@ export function BookingWizard({
                     setDocErrors((prev) => ({ ...prev, [docType]: undefined }));
                   }}
                 />
-              </FormSection>
+              </Panel>
             </div>
           )}
 
           {/* Step 4: Next of Kin */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              <FormSection
+              <Panel
                 title="Nominee Identity"
-                description="Next of kin designated as legal heir or representative."
+                hint="Next of kin designated as legal heir or representative"
               >
                 <ClientForm
                   client={client}
@@ -705,11 +698,11 @@ export function BookingWizard({
                   kinCnicRequired
                   onMatched={applyMatchedDocs}
                 />
-              </FormSection>
+              </Panel>
 
-              <FormSection
+              <Panel
                 title="Nominee Documents"
-                description="Identification documents for designated next of kin."
+                hint="Identification documents for designated next of kin"
               >
                 <KinDocumentFields
                   clientId={clientId}
@@ -729,253 +722,461 @@ export function BookingWizard({
                     }));
                   }}
                 />
-              </FormSection>
+              </Panel>
             </div>
           )}
 
           {/* Step 5: Review & Confirm */}
           {currentStep === 5 && selectedUnit && (
             <div className="space-y-6">
-              <FormSection
+              {/* Unit Details */}
+              <Panel title="Property Unit Details" hint={selectedUnit.categoryName}>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      Unit Code
+                    </span>
+                    <p className="mt-1 font-sans text-[14px] font-bold text-ink tabular-nums">
+                      {formatUnitDisplayCode(
+                        selectedUnit.unitCode,
+                        selectedUnit.categoryName,
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      Floor / Block
+                    </span>
+                    <p className="mt-1 text-[13px] font-semibold text-ink">
+                      {selectedUnit.floorName} · {selectedUnit.blockName}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      Category
+                    </span>
+                    <p className="mt-1 text-[13px] font-semibold text-ink">
+                      {selectedUnit.categoryName}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      Gross Area
+                    </span>
+                    <p className="mt-1 text-[13px] font-semibold text-ink tabular-nums">
+                      {effectivePricingArea(
+                        selectedUnit.grossAreaSqft,
+                        selectedUnit.netAreaSqft,
+                      )}{" "}
+                      sq ft
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      Rate / sq ft
+                    </span>
+                    <p className="mt-1 text-[13px] font-semibold text-ink tabular-nums">
+                      {formatPkr(selectedUnit.ratePerSqftPkr)}
+                    </p>
+                  </div>
+                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                    <span className="text-[11px] font-medium text-ink-muted uppercase">
+                      List Price
+                    </span>
+                    <p className="mt-1 text-[13px] font-bold text-ink tabular-nums">
+                      {formatPkr(selectedUnit.computedPricePkr || "0")}
+                    </p>
+                  </div>
+                </div>
+              </Panel>
+
+              {/* Applicant & Nominee */}
+              <Panel
                 title="Applicant & Nominee"
-                description="Confirmed ownership and identity information."
+                hint="Confirmed identity and ownership information"
               >
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="rounded-[8px] border border-line bg-surface p-4">
+                  <div className="rounded-[10px] border border-line bg-surface p-4">
                     <span className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                       Applicant
                     </span>
-                    <p className="mt-1 text-[14px] font-semibold text-ink">
+                    <p className="mt-1 text-[14.5px] font-bold text-ink">
                       {client.title} {client.fullName}
                     </p>
                     <p className="text-[12.5px] text-ink-muted">
                       {client.relationPrefix} {client.relationName}
                     </p>
-                    <p className="mt-2 text-[12px] font-medium text-ink tabular-nums">
-                      CNIC: {client.cnic}
-                    </p>
-                    <p className="text-[12px] text-ink-muted tabular-nums">
-                      Phone: {client.phone}
-                    </p>
-                    <p className="mt-1 text-[12px] text-ink-muted">
-                      Address: {client.homeAddress}
-                    </p>
+                    <div className="mt-3 space-y-1 text-[12px]">
+                      <p className="font-medium text-ink tabular-nums">
+                        CNIC: {client.cnic}
+                      </p>
+                      <p className="text-ink-muted tabular-nums">Phone: {client.phone}</p>
+                      <p className="text-ink-muted">Address: {client.homeAddress}</p>
+                    </div>
                   </div>
 
-                  <div className="rounded-[8px] border border-line bg-surface p-4">
+                  <div className="rounded-[10px] border border-line bg-surface p-4">
                     <span className="text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                       Designated Nominee
                     </span>
-                    <p className="mt-1 text-[14px] font-semibold text-ink">
+                    <p className="mt-1 text-[14.5px] font-bold text-ink">
                       {nextOfKin.name} ({nextOfKin.relation})
                     </p>
                     <p className="text-[12.5px] text-ink-muted">
                       {nextOfKin.relationPrefix} {nextOfKin.relationName}
                     </p>
-                    <p className="mt-2 text-[12px] font-medium text-ink tabular-nums">
-                      CNIC: {nextOfKin.cnic}
-                    </p>
-                    <p className="text-[12px] text-ink-muted tabular-nums">
-                      Phone: {nextOfKin.phone}
-                    </p>
+                    <div className="mt-3 space-y-1 text-[12px]">
+                      <p className="font-medium text-ink tabular-nums">
+                        CNIC: {nextOfKin.cnic}
+                      </p>
+                      <p className="text-ink-muted tabular-nums">
+                        Phone: {nextOfKin.phone}
+                      </p>
+                      {nextOfKin.address && (
+                        <p className="text-ink-muted">Address: {nextOfKin.address}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </FormSection>
+              </Panel>
 
-              <FormSection
-                title="Financial Summary"
-                description="Breakdown of payment plan, down payment, and installments."
+              {/* Enhanced Financial Summary */}
+              <Panel
+                title="Financial Summary & Payment Plan"
+                hint="Complete price breakdown, payment schedule, and terms"
               >
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
-                    <span className="text-[11px] text-ink-muted uppercase">
-                      Net Price
-                    </span>
-                    <p className="text-[15px] font-bold text-ink tabular-nums">
-                      {formatPkr(liveSchedule?.netPricePkr || "0")}
-                    </p>
-                  </div>
-                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
-                    <span className="text-[11px] text-ink-muted uppercase">
-                      Down Payment
-                    </span>
-                    <p className="text-[15px] font-bold text-primary tabular-nums">
-                      {formatPkr(liveSchedule?.downPaymentPkr || "0")}
-                    </p>
-                    {liveSchedule && liveSchedule.tokenAdjustedPkr !== "0.00" && (
-                      <p className="text-[11px] text-available tabular-nums">
-                        Payable now: {formatPkr(liveSchedule.payableDownPaymentNowPkr)}
+                <div className="space-y-6">
+                  {/* Summary Stat Tiles */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                      <span className="text-[11px] font-medium text-ink-muted uppercase">
+                        List Price
+                      </span>
+                      <p className="text-[14px] font-semibold text-ink tabular-nums">
+                        {formatPkr(selectedUnit.computedPricePkr || "0")}
                       </p>
+                    </div>
+
+                    <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                      <span className="text-[11px] font-medium text-ink-muted uppercase">
+                        Discount
+                      </span>
+                      <p className="text-[14px] font-semibold text-ink tabular-nums">
+                        {liveSchedule?.discountAmountPkr &&
+                        liveSchedule.discountAmountPkr !== "0.00"
+                          ? formatPkr(liveSchedule.discountAmountPkr)
+                          : "None"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[8px] border border-primary/30 bg-primary-soft/20 p-3">
+                      <span className="text-[11px] font-medium text-primary uppercase">
+                        Net Price
+                      </span>
+                      <p className="text-[16px] font-bold text-primary tabular-nums">
+                        {formatPkr(liveSchedule?.netPricePkr || "0")}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                      <span className="text-[11px] font-medium text-ink-muted uppercase">
+                        Down Payment ({liveSchedule?.downPaymentPercent}%)
+                      </span>
+                      <p className="text-[14px] font-bold text-ink tabular-nums">
+                        {formatPkr(liveSchedule?.downPaymentPkr || "0")}
+                      </p>
+                      {liveSchedule && liveSchedule.tokenAdjustedPkr !== "0.00" && (
+                        <p className="mt-0.5 text-[11px] font-medium text-available tabular-nums">
+                          Payable now: {formatPkr(liveSchedule.payableDownPaymentNowPkr)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                      <span className="text-[11px] font-medium text-ink-muted uppercase">
+                        Possession ({liveSchedule?.possessionPercent}%)
+                      </span>
+                      <p className="text-[14px] font-semibold text-ink tabular-nums">
+                        {formatPkr(liveSchedule?.possessionAmountPkr || "0")}
+                      </p>
+                    </div>
+
+                    <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
+                      <span className="text-[11px] font-medium text-ink-muted uppercase">
+                        Installments
+                      </span>
+                      <p className="text-[13px] font-semibold text-ink">
+                        {paymentState.installmentCount} {paymentState.plan.toLowerCase()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Complete Schedule Breakdown Table */}
+                  <div className="overflow-hidden rounded-[10px] border border-line">
+                    <div className="border-b border-line bg-subtle/50 px-4 py-2.5">
+                      <h4 className="text-[12.5px] font-semibold text-ink">
+                        Payment Schedule Breakdown
+                      </h4>
+                    </div>
+                    <table className="w-full border-collapse text-[13px]">
+                      <thead className="border-b border-line bg-surface text-[11.5px] text-ink-muted uppercase">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium">
+                            Stage / Milestone
+                          </th>
+                          <th className="px-4 py-2 text-left font-medium">
+                            Timeline / Due Date
+                          </th>
+                          <th className="px-4 py-2 text-right font-medium">
+                            Amount (PKR)
+                          </th>
+                          <th className="px-4 py-2 text-right font-medium">Share</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line/60">
+                        {/* Down Payment Row */}
+                        <tr>
+                          <td className="px-4 py-2.5 font-medium text-ink">
+                            Down Payment
+                          </td>
+                          <td className="px-4 py-2.5 text-ink-muted">On Booking</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-primary tabular-nums">
+                            {formatPkr(liveSchedule?.downPaymentPkr || "0")}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-ink-muted tabular-nums">
+                            {liveSchedule?.downPaymentPercent}%
+                          </td>
+                        </tr>
+
+                        {/* Inst 1 */}
+                        {inst1 && (
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-ink">
+                              Installment #01
+                            </td>
+                            <td className="px-4 py-2.5 text-ink-muted">
+                              {inst1.dueDate.toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium text-ink tabular-nums">
+                              {formatPkr(inst1.amountPkr)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-ink-muted">—</td>
+                          </tr>
+                        )}
+
+                        {/* Inst 2 */}
+                        {inst2 && (
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-ink">
+                              Installment #02
+                            </td>
+                            <td className="px-4 py-2.5 text-ink-muted">
+                              {inst2.dueDate.toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium text-ink tabular-nums">
+                              {formatPkr(inst2.amountPkr)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-ink-muted">—</td>
+                          </tr>
+                        )}
+
+                        {/* Remaining Regular Installments */}
+                        {remainingRegular.length > 0 && (
+                          <tr>
+                            <td className="px-4 py-2.5 text-ink-muted">
+                              Remaining Installments (#03–{liveSchedule?.installmentCount}
+                              )
+                            </td>
+                            <td className="px-4 py-2.5 text-ink-muted">
+                              {remainingRegular.length} regular payments
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium text-ink tabular-nums">
+                              {formatPkr(
+                                remainingRegularTotal.toString().slice(0, -2) +
+                                  "." +
+                                  remainingRegularTotal.toString().slice(-2),
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-ink-muted">—</td>
+                          </tr>
+                        )}
+
+                        {/* Annual Balloons */}
+                        {liveSchedule && liveSchedule.balloonCount > 0 && (
+                          <tr>
+                            <td className="px-4 py-2.5 font-medium text-ink">
+                              Annual Balloons ({liveSchedule.balloonCount} payments)
+                            </td>
+                            <td className="px-4 py-2.5 text-ink-muted">
+                              Every 12 months
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium text-ink tabular-nums">
+                              {formatPkr(liveSchedule.balloonTotalAmountPkr)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-ink-muted tabular-nums">
+                              {liveSchedule.balloonPercent}%
+                            </td>
+                          </tr>
+                        )}
+
+                        {/* Possession */}
+                        {liveSchedule &&
+                          parseDecimal(liveSchedule.possessionAmountPkr) > 0n && (
+                            <tr>
+                              <td className="px-4 py-2.5 font-medium text-ink">
+                                On Possession
+                              </td>
+                              <td className="px-4 py-2.5 text-ink-muted">Handover</td>
+                              <td className="px-4 py-2.5 text-right font-medium text-ink tabular-nums">
+                                {formatPkr(liveSchedule.possessionAmountPkr)}
+                              </td>
+                              <td className="px-4 py-2.5 text-right text-ink-muted tabular-nums">
+                                {liveSchedule.possessionPercent}%
+                              </td>
+                            </tr>
+                          )}
+
+                        {/* Total Net Price */}
+                        <tr className="border-t-2 border-line bg-subtle/30 font-semibold">
+                          <td className="px-4 py-3 text-ink">Total Net Price</td>
+                          <td className="px-4 py-3 text-ink-muted">
+                            100% of agreed purchase value
+                          </td>
+                          <td className="px-4 py-3 text-right text-[14px] font-bold text-ink tabular-nums">
+                            {formatPkr(liveSchedule?.netPricePkr || "0")}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-ink tabular-nums">
+                            100%
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Payment Collection Details */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-line bg-subtle/20 p-3 text-[12.5px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-ink-muted">
+                        Initial Payment Method:
+                      </span>
+                      <span className="font-semibold text-ink">
+                        {paymentState.paymentMethod}
+                      </span>
+                      {paymentState.chequeNo && (
+                        <span className="text-ink-muted">
+                          · Cheque #{paymentState.chequeNo}
+                          {paymentState.bank ? ` (${paymentState.bank})` : ""}
+                        </span>
+                      )}
+                    </div>
+                    {paymentState.notes && (
+                      <div className="text-ink-muted italic">
+                        Note: {paymentState.notes}
+                      </div>
                     )}
                   </div>
-                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
-                    <span className="text-[11px] text-ink-muted uppercase">
-                      Possession
-                    </span>
-                    <p className="text-[15px] font-semibold text-ink tabular-nums">
-                      {formatPkr(liveSchedule?.possessionAmountPkr || "0")}
-                    </p>
-                  </div>
-                  <div className="rounded-[8px] border border-line bg-subtle/30 p-3">
-                    <span className="text-[11px] text-ink-muted uppercase">
-                      Frequency
-                    </span>
-                    <p className="text-[14px] font-semibold text-ink">
-                      {paymentState.installmentCount} {paymentState.plan.toLowerCase()}
-                    </p>
-                  </div>
                 </div>
-              </FormSection>
+              </Panel>
             </div>
           )}
         </div>
 
-        {/* Right Column (4 cols): Sticky Unit Summary & Schedule Preview (Steps 2+) */}
-        {currentStep > 1 && selectedUnit ? (
-          <div className="space-y-5 lg:col-span-4">
-            <div className="sticky top-20 space-y-5">
-              {/* Unit Summary DefinitionList */}
-              <Panel title="Unit Summary" hint={selectedUnit.categoryName}>
-                <DefinitionList
-                  items={[
-                    {
-                      label: "Unit Code",
-                      value: (
-                        <span className="font-sans font-medium text-ink tabular-nums">
-                          {formatUnitDisplayCode(
-                            selectedUnit.unitCode,
-                            selectedUnit.categoryName,
-                          )}
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Floor / Block",
-                      value: `${selectedUnit.floorName} · ${selectedUnit.blockName}`,
-                    },
-                    {
-                      label: "Category",
-                      value: selectedUnit.categoryName,
-                    },
-                    {
-                      label: "Gross Area",
-                      value: (
-                        <span className="tabular-nums">
-                          {effectivePricingArea(
-                            selectedUnit.grossAreaSqft,
-                            selectedUnit.netAreaSqft,
-                          )}{" "}
-                          sq ft
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "Rate / sq ft",
-                      value: (
-                        <span className="tabular-nums">
-                          {formatPkr(selectedUnit.ratePerSqftPkr)}
-                        </span>
-                      ),
-                    },
-                    {
-                      label: "List Price",
-                      value: (
-                        <span className="font-semibold text-ink tabular-nums">
-                          {formatPkr(selectedUnit.computedPricePkr || "0")}
-                        </span>
-                      ),
-                    },
-                  ]}
-                />
-              </Panel>
-
-              {/* Schedule Preview Table */}
-              {liveSchedule && (
-                <Panel
-                  title="Schedule Preview"
-                  hint={`${liveSchedule.installmentCount} installments`}
-                >
-                  <table className="w-full border-collapse text-[12.5px]">
-                    <tbody className="divide-y divide-line/60">
+        {/* Right Column (5 cols): Sticky Schedule Preview (Step 2 only) */}
+        {isStep2 && liveSchedule ? (
+          <div className="space-y-5 lg:col-span-5">
+            <div className="sticky top-20">
+              <Panel
+                title="Schedule Preview"
+                hint={`${liveSchedule.installmentCount} installments`}
+              >
+                <table className="w-full border-collapse text-[12.5px]">
+                  <tbody className="divide-y divide-line/60">
+                    <tr>
+                      <td className="py-2 text-ink-muted">On Booking (Down Payment)</td>
+                      <td className="py-2 text-right font-semibold text-primary tabular-nums">
+                        {formatPkr(liveSchedule.downPaymentPkr)}
+                      </td>
+                    </tr>
+                    {inst1 && (
                       <tr>
-                        <td className="py-2 text-ink-muted">On Booking (Down Payment)</td>
-                        <td className="py-2 text-right font-medium text-primary tabular-nums">
-                          {formatPkr(liveSchedule.downPaymentPkr)}
+                        <td className="py-2 text-ink-muted">
+                          Inst #01 (
+                          {inst1.dueDate.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                          )
+                        </td>
+                        <td className="py-2 text-right font-medium text-ink tabular-nums">
+                          {formatPkr(inst1.amountPkr)}
                         </td>
                       </tr>
-                      {inst1 && (
-                        <tr>
-                          <td className="py-2 text-ink-muted">
-                            Inst #01 (
-                            {inst1.dueDate.toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                            })}
-                            )
-                          </td>
-                          <td className="py-2 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(inst1.amountPkr)}
-                          </td>
-                        </tr>
-                      )}
-                      {inst2 && (
-                        <tr>
-                          <td className="py-2 text-ink-muted">
-                            Inst #02 (
-                            {inst2.dueDate.toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                            })}
-                            )
-                          </td>
-                          <td className="py-2 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(inst2.amountPkr)}
-                          </td>
-                        </tr>
-                      )}
-                      {remainingRegular.length > 0 && (
-                        <tr>
-                          <td className="py-2 text-ink-muted">
-                            Inst #03–{liveSchedule.installmentCount} (
-                            {remainingRegular.length} payments)
-                          </td>
-                          <td className="py-2 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(
-                              remainingRegularTotal.toString().slice(0, -2) +
-                                "." +
-                                remainingRegularTotal.toString().slice(-2),
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                      {liveSchedule.balloonCount > 0 && (
-                        <tr>
-                          <td className="py-2 text-ink-muted">
-                            Annual Balloons ({liveSchedule.balloonCount} payments)
-                          </td>
-                          <td className="py-2 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(liveSchedule.balloonTotalAmountPkr)}
-                          </td>
-                        </tr>
-                      )}
-                      {parseDecimal(liveSchedule.possessionAmountPkr) > 0n && (
-                        <tr>
-                          <td className="py-2 text-ink-muted">On Possession</td>
-                          <td className="py-2 text-right font-medium text-ink tabular-nums">
-                            {formatPkr(liveSchedule.possessionAmountPkr)}
-                          </td>
-                        </tr>
-                      )}
-                      <tr className="border-t border-line font-semibold">
-                        <td className="py-2.5 text-ink">Total Net Price</td>
-                        <td className="py-2.5 text-right font-bold text-ink tabular-nums">
-                          {formatPkr(liveSchedule.netPricePkr)}
+                    )}
+                    {inst2 && (
+                      <tr>
+                        <td className="py-2 text-ink-muted">
+                          Inst #02 (
+                          {inst2.dueDate.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                          )
+                        </td>
+                        <td className="py-2 text-right font-medium text-ink tabular-nums">
+                          {formatPkr(inst2.amountPkr)}
                         </td>
                       </tr>
-                    </tbody>
-                  </table>
-                </Panel>
-              )}
+                    )}
+                    {remainingRegular.length > 0 && (
+                      <tr>
+                        <td className="py-2 text-ink-muted">
+                          Inst #03–{liveSchedule.installmentCount} (
+                          {remainingRegular.length} payments)
+                        </td>
+                        <td className="py-2 text-right font-medium text-ink tabular-nums">
+                          {formatPkr(
+                            remainingRegularTotal.toString().slice(0, -2) +
+                              "." +
+                              remainingRegularTotal.toString().slice(-2),
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    {liveSchedule.balloonCount > 0 && (
+                      <tr>
+                        <td className="py-2 text-ink-muted">
+                          Annual Balloons ({liveSchedule.balloonCount} payments)
+                        </td>
+                        <td className="py-2 text-right font-medium text-ink tabular-nums">
+                          {formatPkr(liveSchedule.balloonTotalAmountPkr)}
+                        </td>
+                      </tr>
+                    )}
+                    {parseDecimal(liveSchedule.possessionAmountPkr) > 0n && (
+                      <tr>
+                        <td className="py-2 text-ink-muted">On Possession</td>
+                        <td className="py-2 text-right font-medium text-ink tabular-nums">
+                          {formatPkr(liveSchedule.possessionAmountPkr)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="border-t border-line font-semibold">
+                      <td className="py-2.5 text-ink">Total Net Price</td>
+                      <td className="py-2.5 text-right font-bold text-ink tabular-nums">
+                        {formatPkr(liveSchedule.netPricePkr)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </Panel>
             </div>
           </div>
         ) : null}
