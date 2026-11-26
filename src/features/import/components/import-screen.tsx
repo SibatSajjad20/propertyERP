@@ -3,8 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { cn } from "@/lib/cn";
 import {
   commitImportBatch,
   getImportBatches,
@@ -232,32 +234,68 @@ export function ImportScreen({ initialBatches }: ImportScreenProps) {
     }
   };
 
+  const currentStepIdx = committing
+    ? 3
+    : step === "preview"
+      ? 2
+      : step === "mapping"
+        ? 1
+        : 0;
+
+  const stepperItems = [
+    { id: "upload", label: "Upload file" },
+    { id: "mapping", label: "Map columns" },
+    { id: "preview", label: "Review rows" },
+    { id: "import", label: "Import" },
+  ];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <PageHeader
         title="Batch Import Pipeline"
         description="Upload spreadsheets (.xlsx or .csv) to create or update units, map columns, and verify data before importing."
         actions={
-          <div className="flex items-center gap-3">
-            {step !== "upload" && (
-              <div className="flex items-center gap-2 text-[12px] font-medium text-ink-muted">
-                <span>Upload</span>
-                <span>→</span>
-                <span className={step === "mapping" ? "font-semibold text-primary" : ""}>
-                  Mapping
-                </span>
-                <span>→</span>
-                <span className={step === "preview" ? "font-semibold text-primary" : ""}>
-                  Validation
-                </span>
-              </div>
-            )}
-            <Button variant="secondary" size="md" asChild>
-              <a href="/api/export/full">Full export</a>
-            </Button>
-          </div>
+          <Button variant="secondary" size="md" asChild>
+            <a href="/api/export/full">Full export</a>
+          </Button>
         }
       />
+
+      {/* 4-Step Stepper */}
+      <div className="flex items-center gap-6 border-b border-line pb-3">
+        {stepperItems.map((s, idx) => {
+          const isDone = idx < currentStepIdx;
+          const isActive = idx === currentStepIdx;
+
+          return (
+            <div
+              key={s.id}
+              className={cn(
+                "relative flex items-center gap-2 pb-2 text-[13px] transition-colors select-none",
+                isActive
+                  ? "font-semibold text-primary after:absolute after:inset-x-0 after:bottom-[-13px] after:h-[2px] after:bg-primary"
+                  : isDone
+                    ? "font-medium text-ink"
+                    : "text-muted",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-full text-[11px] font-semibold",
+                  isDone
+                    ? "bg-primary text-white"
+                    : isActive
+                      ? "border border-primary text-primary"
+                      : "border border-line text-muted",
+                )}
+              >
+                {isDone ? <Check weight="bold" className="size-3" /> : idx + 1}
+              </span>
+              <span>{s.label}</span>
+            </div>
+          );
+        })}
+      </div>
 
       {step === "upload" && (
         <ImportUploadDropzone onFileSelected={handleFileSelected} loading={uploading} />

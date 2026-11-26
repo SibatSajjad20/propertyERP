@@ -10,10 +10,11 @@ import {
   ArrowClockwise,
   DownloadSimple,
   GitMerge,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
-import { StatCard } from "@/components/ui/stat-card";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -225,8 +226,8 @@ export function InventoryScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       <PageHeader
-        title="Inventory"
-        description="Browse, filter, merge, and manage inventory across retail, offices, food court, kiosks, and residential apartments."
+        title="Units"
+        meta={[`${totals.count} units across ${options.floors.length} floors`]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canManage && (
@@ -255,6 +256,12 @@ export function InventoryScreen({
                 <DownloadSimple weight="light" className="mr-1.5 size-4" />
                 Export
               </a>
+            </Button>
+            <Button variant="secondary" size="md" asChild>
+              <Link href="/import">
+                <ArrowSquareOut weight="light" className="mr-1.5 size-4" />
+                Import
+              </Link>
             </Button>
             {canManage && (
               <Button variant="primary" size="md" asChild>
@@ -308,30 +315,64 @@ export function InventoryScreen({
         })}
       </div>
 
-      {/* 4 Overview cards above the table (same StatCard as Dashboard) */}
-      <div className="grid auto-rows-fr grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Total matching" value={totals.count} caption="units in filter" />
-        <StatCard
-          label="Available"
-          value={availableCount}
-          indicator="available"
-          tone="available"
-          caption="ready for sale"
+      {/* 5 Overview StatCells above the table */}
+      <StatStrip columns="1.1fr 1.2fr 1fr 1fr 1fr" className="mb-0">
+        <StatCell
+          label="Total matching"
+          value={totals.count}
+          suffix="units"
+          subLine={`${totals.netAreaSqft} net sq ft`}
         />
-        <StatCard
-          label="Sold"
-          value={soldCount}
-          indicator="sold"
-          tone="sold"
-          caption="booked units"
-        />
-        <StatCard
+        <StatCell
           label="Filtered value"
           value={formatPkrCompact(totals.valuePkr)}
-          caption={formatPkrLedger(totals.valuePkr)}
-          captionTooltip={formatPkrLedger(totals.valuePkr)}
+          prefixRs
+          subLine={formatPkrLedger(totals.valuePkr)}
         />
-      </div>
+        <StatCell
+          label="Available"
+          value={availableCount}
+          suffix={
+            totals.count > 0
+              ? `(${Math.round((availableCount / totals.count) * 100)}%)`
+              : undefined
+          }
+          subLine="Ready for sale"
+          progress={totals.count > 0 ? (availableCount / totals.count) * 100 : 0}
+        />
+        <StatCell
+          label="Sold"
+          value={soldCount}
+          suffix={
+            totals.count > 0
+              ? `(${Math.round((soldCount / totals.count) * 100)}%)`
+              : undefined
+          }
+          subLine="Finalized / sold"
+          progress={
+            totals.count > 0
+              ? [{ percent: (soldCount / totals.count) * 100, color: "#0B3F66" }]
+              : 0
+          }
+        />
+        <StatCell
+          label="Missing gross area"
+          value={totals.missingGrossCount ?? 0}
+          suffix={(totals.missingGrossCount ?? 0) > 0 ? "units" : undefined}
+          valueClassName={
+            (totals.missingGrossCount ?? 0) > 0 ? "text-accent" : "text-ink"
+          }
+          subLine={
+            <button
+              type="button"
+              onClick={() => updateQuery({ missingGross: !query.missingGross })}
+              className="cursor-pointer text-[12px] font-medium text-primary hover:text-primary-hover hover:underline"
+            >
+              {query.missingGross ? "Show all" : "Review units"}
+            </button>
+          }
+        />
+      </StatStrip>
 
       {/* Toolbar: Search + Filters + Actions */}
       <div className="card flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">

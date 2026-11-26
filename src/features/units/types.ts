@@ -47,6 +47,7 @@ export type InventoryTotals = {
   soldCount: number;
   netAreaSqft: string;
   valuePkr: string;
+  missingGrossCount?: number;
 };
 
 export type InventoryFilterOption = {

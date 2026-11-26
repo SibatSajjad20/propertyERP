@@ -5,6 +5,7 @@ import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-or
 import { db, withTransientDbRetry } from "@/db";
 import { user } from "@/db/schema/auth";
 import { blocks, categories, floors, properties } from "@/db/schema/property";
+import { bookings, clients } from "@/db/schema/sales";
 import { unitStatusHistory, units } from "@/db/schema/units";
 import { logger } from "@/lib/logger";
 import type { InventorySectionKey } from "./sections";
@@ -194,6 +195,7 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
           count: number;
           availableCount: number;
           soldCount: number;
+          missingGrossCount: number;
           netAreaSqft: string;
           valuePkr: string;
         }
@@ -208,6 +210,7 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
           count: sql<number>`count(*)::int`,
           availableCount: sql<number>`count(*) filter (where ${units.status} = 'AVAILABLE')::int`,
           soldCount: sql<number>`count(*) filter (where ${units.status} = 'SOLD')::int`,
+          missingGrossCount: sql<number>`count(*) filter (where ${units.grossAreaSqft} is null or ${units.grossAreaSqft} = 0)::int`,
           netAreaSqft: sql<string>`coalesce(sum(${units.netAreaSqft}), 0)::numeric(14, 2)`,
           valuePkr: sql<string>`coalesce(sum(${bookPriceExpr()}), 0)::numeric(14, 2)`,
         })
@@ -226,6 +229,7 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
           count: Number(totalsRow.count ?? 0),
           availableCount: Number(totalsRow.availableCount ?? 0),
           soldCount: Number(totalsRow.soldCount ?? 0),
+          missingGrossCount: Number(totalsRow.missingGrossCount ?? 0),
           netAreaSqft: totalsRow.netAreaSqft ?? "0.00",
           valuePkr: totalsRow.valuePkr ?? "0.00",
         }
@@ -233,6 +237,7 @@ export async function listInventory(query: Partial<InventoryQuery> = {}): Promis
           count: 0,
           availableCount: 0,
           soldCount: 0,
+          missingGrossCount: 0,
           netAreaSqft: "0.00",
           valuePkr: "0.00",
         };
@@ -412,4 +417,53 @@ export async function searchUnitsByCode(q: string): Promise<UnitJumpTarget[]> {
     )
     .orderBy(asc(units.unitCode))
     .limit(12);
+}
+
+export type FloorUnitTile = {
+  id: string;
+  unitCode: string;
+  unitNumber: string;
+  status: typeof units.$inferSelect.status;
+  grossAreaSqft: string | null;
+};
+
+export async function listFloorUnits(floorId: string): Promise<FloorUnitTile[]> {
+  return db
+    .select({
+      id: units.id,
+      unitCode: units.unitCode,
+      unitNumber: units.unitNumber,
+      status: units.status,
+      grossAreaSqft: units.grossAreaSqft,
+    })
+    .from(units)
+    .where(and(eq(units.floorId, floorId), isNull(units.archivedAt)))
+    .orderBy(asc(units.unitNumber), asc(units.unitCode));
+}
+
+export type UnitActiveBookingInfo = {
+  bookingId: string;
+  bookingNo: string;
+  clientName: string;
+  netPrice: string;
+  paidTotal: string;
+};
+
+export async function getUnitActiveBooking(
+  unitId: string,
+): Promise<UnitActiveBookingInfo | null> {
+  const [row] = await db
+    .select({
+      bookingId: bookings.id,
+      bookingNo: bookings.bookingNo,
+      clientName: clients.fullName,
+      netPrice: bookings.netPrice,
+      paidTotal: bookings.paidTotal,
+    })
+    .from(bookings)
+    .innerJoin(clients, eq(bookings.clientId, clients.id))
+    .where(and(eq(bookings.unitId, unitId), eq(bookings.status, "ACTIVE")))
+    .limit(1);
+
+  return row ?? null;
 }

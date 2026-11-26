@@ -1,22 +1,36 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, PencilSimple } from "@phosphor-icons/react/dist/ssr";
+import { PencilSimple } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
-import { BreadcrumbSet } from "@/components/app-shell/breadcrumb-set";
-import { AnimatedNumber } from "@/components/ui/animated-number";
-import { UnitRead } from "@/features/units/components/unit-read";
+import { PageHeader } from "@/components/page-header";
+import { StatStrip, StatCell } from "@/components/ui/stat-strip";
+import { Panel } from "@/components/ui/panel";
+import { DefinitionList } from "@/components/ui/definition-list";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
 import { UnitOwnershipTimeline } from "@/features/sales/components/unit-ownership-timeline";
 import { getUnitOwnershipTimeline } from "@/features/sales/queries";
 import { UnitStatusActions } from "@/features/units/components/unit-status-actions";
+import { StatusHistory } from "@/features/units/components/status-history";
 import { MergedUnitDetailsCard } from "@/features/units/components/merged-unit-details-card";
 import { getMergeDetailsForUnit } from "@/features/units/merge-queries";
-import { getUnitById, listUnitStatusHistory } from "@/features/units/queries";
+import {
+  getUnitActiveBooking,
+  getUnitById,
+  listFloorUnits,
+  listUnitStatusHistory,
+} from "@/features/units/queries";
 import { requireSession } from "@/lib/auth";
 import { assertCan, can } from "@/lib/permissions";
-import { formatPkrCompact, formatPkrLedger } from "@/lib/money";
-import { formatSqft, formatUnitDisplayCode, formatUnitNumberLabel } from "@/lib/area";
+import { computeTotalPrice, formatPkrCompact, formatPkrLedger } from "@/lib/money";
+import {
+  effectivePricingArea,
+  formatSqft,
+  formatUnitDisplayCode,
+  formatUnitNumberLabel,
+} from "@/lib/area";
+import type { InventoryRow } from "@/features/units/types";
+import { cn } from "@/lib/cn";
 
 export async function generateMetadata({
   params,
@@ -39,19 +53,23 @@ export default async function UnitDetailPage({
   assertCan(session.user.role, "units.read");
 
   const { id } = await params;
-  const [row, history, timeline, mergeInfo] = await Promise.all([
-    getUnitById(id),
-    listUnitStatusHistory(id),
-    getUnitOwnershipTimeline(id),
-    getMergeDetailsForUnit(id),
-  ]);
+  const row = await getUnitById(id);
   if (!row) {
     notFound();
   }
 
+  const [history, timeline, mergeInfo, floorUnits, activeBooking] = await Promise.all([
+    listUnitStatusHistory(id),
+    getUnitOwnershipTimeline(id),
+    getMergeDetailsForUnit(id),
+    listFloorUnits(row.unit.floorId),
+    getUnitActiveBooking(id),
+  ]);
+
   const canManage = can(session.user.role, "units.manage");
   const editHref = `/units/${row.unit.id}/edit` as Route;
-  const unit = {
+
+  const unit: InventoryRow = {
     id: row.unit.id,
     unitCode: row.unit.unitCode,
     unitNumber: row.unit.unitNumber,
@@ -83,176 +101,246 @@ export default async function UnitDetailPage({
   const displayPrice =
     isSold && unit.soldPricePkr ? unit.soldPricePkr : unit.bookPricePkr;
 
+  const pricingArea = effectivePricingArea(unit.grossAreaSqft, unit.netAreaSqft);
+  const baseValuation = computeTotalPrice(unit.ratePerSqftPkr, pricingArea, "0");
+
+  // Floor units counts by status
+  const floorAvailableCount = floorUnits.filter((u) => u.status === "AVAILABLE").length;
+  const floorBookedCount = floorUnits.filter((u) => u.status === "BOOKED").length;
+  const floorSoldCount = floorUnits.filter((u) => u.status === "SOLD").length;
+  const floorReservedCount = floorUnits.filter((u) => u.status === "RESERVED").length;
+
   return (
-    <div className="t-page-enter mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col space-y-6">
-      <BreadcrumbSet parent="Inventory" current={row.unit.unitCode} />
-      <div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/inventory" className="text-ink-muted hover:text-ink">
-            <ArrowLeft weight="light" className="mr-1 size-3.5" />
-            Back to Inventory
-          </Link>
-        </Button>
-      </div>
-
-      {/* Wide Header with unit code + status badge + actions */}
-      <div className="flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="unit-code font-sans tabular-nums text-[22px] font-semibold text-primary">
-              {formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
-            </span>
-            <UnitStatusBadge status={unit.status} />
-            {row.unit.isMergedUnit && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                Merged Unit
-              </span>
+    <div className="space-y-6">
+      {/* Header */}
+      <PageHeader
+        title={formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
+        idTitle
+        back={{ href: "/inventory", label: "Units" }}
+        badge={<UnitStatusBadge status={unit.status} />}
+        meta={[
+          row.categoryName,
+          `${row.floorName} (Level ${row.floorLevel})`,
+          formatUnitNumberLabel(row.unit.unitCode, row.unit.unitNumber, row.categoryName),
+          unit.isSellable ? "Sellable" : "Not sellable",
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canManage && (
+              <Button asChild variant="secondary" size="md">
+                <Link href={editHref}>
+                  <PencilSimple weight="light" className="mr-1.5 size-4" />
+                  Edit unit
+                </Link>
+              </Button>
             )}
+
+            {unit.status === "BOOKED" || activeBooking ? (
+              <Button asChild variant="primary" size="md">
+                <Link
+                  href={
+                    activeBooking
+                      ? (`/bookings/${activeBooking.bookingId}` as Route)
+                      : (`/bookings?q=${unit.unitCode}` as Route)
+                  }
+                >
+                  View booking
+                </Link>
+              </Button>
+            ) : unit.status === "SOLD" ? (
+              <Button asChild variant="primary" size="md">
+                <Link href={`/sold?q=${unit.unitCode}` as Route}>View sold record</Link>
+              </Button>
+            ) : unit.status === "RESERVED" ? (
+              <Button asChild variant="primary" size="md">
+                <Link href={`/reservations?q=${unit.unitCode}` as Route}>
+                  View reservation
+                </Link>
+              </Button>
+            ) : null}
           </div>
-          <h1 className="mt-1 text-[15px] font-medium text-ink-muted">
-            {formatUnitNumberLabel(
-              row.unit.unitCode,
-              row.unit.unitNumber,
-              row.categoryName,
-            )}{" "}
-            · {row.floorName} (Level {row.floorLevel}) · {row.categoryName}
-          </h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          {canManage ? (
-            <Button asChild variant="secondary" size="md">
-              <Link href={editHref}>
-                <PencilSimple weight="light" className="mr-1.5 size-3.5" />
-                Edit unit
+        }
+      />
+
+      {/* StatStrip: 3 or 4 cells */}
+      <StatStrip columns={activeBooking ? 4 : 3} className="mb-0">
+        <StatCell
+          label={isSold ? "Sold Price" : "Total Asking Price"}
+          value={formatPkrCompact(displayPrice)}
+          prefixRs
+          valueClassName={isSold ? "text-sold" : undefined}
+          subLine={formatPkrLedger(displayPrice)}
+        />
+        <StatCell
+          label="Rate per sq ft"
+          value={formatPkrCompact(unit.ratePerSqftPkr)}
+          prefixRs
+          subLine={`${formatPkrLedger(unit.ratePerSqftPkr)} / sq ft`}
+        />
+        <StatCell
+          label="Gross area"
+          value={formatSqft(unit.grossAreaSqft ?? unit.netAreaSqft)}
+          subLine={
+            unit.grossAreaSqft
+              ? `Net: ${formatSqft(unit.netAreaSqft)}`
+              : "Standard footprint"
+          }
+        />
+        {activeBooking && (
+          <StatCell
+            label="Active Booking"
+            value={activeBooking.bookingNo}
+            subLine={`${activeBooking.clientName} · ${Math.min(
+              100,
+              Math.round(
+                (Number(activeBooking.paidTotal) /
+                  (Number(activeBooking.netPrice) || 1)) *
+                  100,
+              ),
+            )}% paid`}
+          />
+        )}
+      </StatStrip>
+
+      {/* Floor panel: Grid of all units on the same floor */}
+      <Panel
+        title={`Units on ${row.floorName}`}
+        hint={`${floorAvailableCount} available · ${floorBookedCount} booked · ${floorReservedCount} reserved · ${floorSoldCount} sold`}
+      >
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
+          {floorUnits.map((tile) => {
+            const isCurrent = tile.id === unit.id;
+
+            const bgByStatus = {
+              AVAILABLE: "bg-[#ECFDF3] border-[#ABEFC6] text-[#067647]",
+              BOOKED: "bg-[#EFF8FF] border-[#B2DDFF] text-[#175CD3]",
+              RESERVED: "bg-[#FEF6EE] border-[#F9DBAF] text-[#B54708]",
+              SOLD: "bg-[#FEF3F2] border-[#FECDCA] text-[#B42318]",
+            }[tile.status];
+
+            return (
+              <Link
+                key={tile.id}
+                href={`/units/${tile.id}`}
+                className={cn(
+                  "flex h-[52px] flex-col justify-center rounded-[6px] border px-2.5 transition-all select-none hover:shadow-xs",
+                  bgByStatus,
+                  isCurrent
+                    ? "font-semibold ring-2 ring-primary ring-offset-1"
+                    : "opacity-90 hover:opacity-100",
+                )}
+              >
+                <span className="truncate font-sans text-[12px] leading-tight font-medium text-ink">
+                  {tile.unitCode}
+                </span>
+                <span className="mt-0.5 truncate text-[10.5px] tracking-tight capitalize opacity-85">
+                  {tile.status.toLowerCase()}
+                </span>
               </Link>
-            </Button>
-          ) : null}
+            );
+          })}
         </div>
-      </div>
+      </Panel>
 
-      {/* Active Sales Lifecycle Banner */}
-      {unit.status === "RESERVED" && (
-        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
-          <span className="text-[13px] font-medium text-primary">
-            This unit is currently RESERVED under prospective buyer hold.
-          </span>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href={`/reservations?q=${unit.unitCode}` as never}>
-              View Reservation
-            </Link>
-          </Button>
-        </div>
-      )}
-      {unit.status === "BOOKED" && (
-        <div className="flex items-center justify-between rounded-[8px] border border-primary/30 bg-primary/10 px-4 py-3">
-          <span className="text-[13px] font-medium text-primary">
-            This unit is currently BOOKED under an active installment payment plan.
-          </span>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href={`/bookings?q=${unit.unitCode}` as never}>View Booking</Link>
-          </Button>
-        </div>
-      )}
-      {unit.status === "SOLD" && (
-        <div className="flex items-center justify-between rounded-[8px] border border-sold/30 bg-sold/10 px-4 py-3">
-          <span className="text-[13px] font-medium text-sold">
-            This unit is SOLD. Ownership details and sale record are finalized.
-          </span>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href={`/sold?q=${unit.unitCode}` as never}>View Sold Record</Link>
-          </Button>
-        </div>
-      )}
-
-      {/* KPI Cards (Area, Rate, Price) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Area KPI Card */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
-          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-            Net Area
-          </p>
-          <div className="mt-3">
-            <div className="area text-[26px] leading-none font-semibold text-ink sm:text-[28px]">
-              <AnimatedNumber value={formatSqft(unit.netAreaSqft)} />
-            </div>
-            {unit.grossAreaSqft ? (
-              <p className="area mt-1.5 text-[12px] text-ink-muted">
-                Gross: {formatSqft(unit.grossAreaSqft)}
-              </p>
-            ) : (
-              <p className="mt-1.5 text-[12px] text-ink-muted">Standard footprint</p>
-            )}
-          </div>
-        </div>
-
-        {/* Rate KPI Card */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
-          <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-            Rate per sq ft
-          </p>
-          <div className="mt-3">
-            <div className="price text-[26px] leading-none font-semibold text-ink sm:text-[28px]">
-              <AnimatedNumber value={formatPkrCompact(unit.ratePerSqftPkr)} />
-            </div>
-            <p className="price mt-1.5 text-[12px] text-ink-muted">
-              {formatPkrLedger(unit.ratePerSqftPkr)} / sq ft
-            </p>
-          </div>
-        </div>
-
-        {/* Price KPI Card */}
-        <div className="card card-interactive kpi flex flex-col justify-between p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">
-              {isSold ? "Sold Price" : "Total Asking Price"}
-            </p>
-            <span
-              className={`size-2 rounded-full ${isSold ? "bg-sold" : "bg-available"}`}
-              aria-hidden="true"
+      {/* Details: 2 columns */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+        {/* Left column: DefinitionLists */}
+        <div className="space-y-6 lg:col-span-7">
+          {/* Identity & Details */}
+          <Panel title="Unit identity & location">
+            <DefinitionList
+              items={[
+                { label: "Unit code", value: unit.unitCode },
+                {
+                  label: "Unit number",
+                  value: formatUnitNumberLabel(
+                    unit.unitCode,
+                    unit.unitNumber,
+                    unit.categoryName,
+                  ),
+                },
+                { label: "Floor", value: `${unit.floorName} (Level ${unit.floorLevel})` },
+                { label: "Category", value: unit.categoryName },
+                {
+                  label: "Sellable inventory",
+                  value: unit.isSellable
+                    ? "Yes (active for sale)"
+                    : "No (held/restricted)",
+                },
+                ...(unit.ownershipGroup
+                  ? [{ label: "Ownership group", value: unit.ownershipGroup }]
+                  : []),
+                ...(unit.subOwner ? [{ label: "Sub owner", value: unit.subOwner }] : []),
+                ...(unit.notes ? [{ label: "Notes", value: unit.notes }] : []),
+              ]}
             />
-          </div>
-          <div className="mt-3">
-            <div
-              className={`price text-[26px] leading-none font-semibold sm:text-[28px] ${
-                isSold ? "text-sold" : "text-ink"
-              }`}
-            >
-              <AnimatedNumber value={formatPkrCompact(displayPrice)} />
-            </div>
-            <p className="price mt-1.5 font-sans text-[12px] text-ink-muted tabular-nums">
-              {formatPkrLedger(displayPrice)}
-            </p>
-          </div>
+          </Panel>
+
+          {/* Area & Pricing */}
+          <Panel title="Area & valuation">
+            <DefinitionList
+              items={[
+                { label: "Net area", value: formatSqft(unit.netAreaSqft) },
+                {
+                  label: "Gross area",
+                  value: unit.grossAreaSqft
+                    ? formatSqft(unit.grossAreaSqft)
+                    : "Not specified",
+                },
+                {
+                  label: "Rate per sq ft",
+                  value: formatPkrLedger(unit.ratePerSqftPkr),
+                },
+                {
+                  label: `Base valuation (${unit.ratePerSqftPkr} × ${pricingArea} sq ft)`,
+                  value: formatPkrLedger(baseValuation),
+                },
+                ...(unit.priceAdjustmentPkr && unit.priceAdjustmentPkr !== "0"
+                  ? [
+                      {
+                        label: unit.priceAdjustmentReason
+                          ? `Adjustment (${unit.priceAdjustmentReason})`
+                          : "Adjustment",
+                        value: formatPkrLedger(unit.priceAdjustmentPkr),
+                      },
+                    ]
+                  : []),
+                {
+                  label: isSold ? "Sold price (frozen)" : "Total calculated price",
+                  value: (
+                    <span className="font-semibold text-ink">
+                      {formatPkrLedger(displayPrice)}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          </Panel>
+
+          {/* Merged Unit details if applicable */}
+          {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
         </div>
-      </div>
 
-      {/* Merged Unit Source Details Card */}
-      {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
+        {/* Right column: Ownership Timeline & Status History */}
+        <div className="space-y-6 lg:col-span-5">
+          {/* Status Actions (Sell / Reverse buttons if available) */}
+          <UnitStatusActions
+            unit={unit}
+            history={history}
+            canSell={can(session.user.role, "units.sell")}
+            canReverse={can(session.user.role, "units.reverse_sale")}
+          />
 
-      {/* Main card with status actions, unit details dl, and history timeline */}
-      <div className="card overflow-hidden">
-        <UnitStatusActions
-          unit={unit}
-          history={history}
-          canSell={can(session.user.role, "units.sell")}
-          canReverse={can(session.user.role, "units.reverse_sale")}
-        >
-          <UnitRead unit={unit} history={history} />
-        </UnitStatusActions>
-      </div>
+          {/* Ownership Timeline */}
+          <Panel title="Ownership & transactions" hint="Audited lifecycle events">
+            <UnitOwnershipTimeline events={timeline} />
+          </Panel>
 
-      {/* Ownership & Transactions Timeline */}
-      <div className="card space-y-4 p-5">
-        <div>
-          <h3 className="text-[14px] font-semibold text-ink">
-            Ownership & Transactions Timeline
-          </h3>
-          <p className="text-[12px] text-ink-muted">
-            Audited history of reservations, bookings, payments, sales, returns, and
-            buybacks.
-          </p>
+          {/* Status History */}
+          <Panel title="Status history" hint="Audit of status transitions">
+            <StatusHistory entries={history} />
+          </Panel>
         </div>
-        <UnitOwnershipTimeline events={timeline} />
       </div>
     </div>
   );

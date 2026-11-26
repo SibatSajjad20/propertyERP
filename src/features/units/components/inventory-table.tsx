@@ -78,9 +78,7 @@ export function InventoryTable({
           const row = info.row.original;
           return (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <span className="unit-code font-medium text-ink">
-                {info.getValue()}
-              </span>
+              <span className="unit-code font-medium text-ink">{info.getValue()}</span>
               {row.isMergedUnit ? (
                 <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                   Merged
@@ -228,7 +226,7 @@ export function InventoryTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 36,
+    estimateSize: () => 44,
     overscan: 12,
   });
 
@@ -289,9 +287,9 @@ export function InventoryTable({
     <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
         <table className="w-full min-w-[540px] border-collapse text-[13px]">
-          <thead className="sticky top-0 z-20 border-b border-line-strong bg-surface select-none">
+          <thead className="sticky top-0 z-20 border-b border-line bg-[#FAFBFC] select-none">
             {table.getHeaderGroups().map((group) => (
-              <tr key={group.id} className="h-9">
+              <tr key={group.id} className="h-[38px]">
                 {group.headers.map((header) => {
                   const numeric = numericAccessors.has(header.column.id);
                   const sortField = sortByColumn[header.column.id];
@@ -300,11 +298,11 @@ export function InventoryTable({
                     <th
                       key={header.id}
                       className={cn(
-                        "h-9 px-3 text-left text-[11px] font-medium tracking-wide text-ink-muted uppercase",
+                        "h-[38px] px-3 text-left text-[12px] font-medium text-muted",
                         numeric && "text-right",
                         header.column.id === "actions" && "w-10 px-1",
                         header.column.id === "unitCode" &&
-                          "sticky left-0 z-30 bg-surface shadow-[1px_0_0_var(--line)]",
+                          "sticky left-0 z-30 bg-[#FAFBFC] shadow-[1px_0_0_var(--line)]",
                         columnClass(header.column.id),
                       )}
                     >
@@ -316,7 +314,7 @@ export function InventoryTable({
                         <button
                           type="button"
                           className={cn(
-                            "inline-flex h-9 cursor-pointer items-center gap-1 transition-colors hover:text-ink",
+                            "inline-flex h-[38px] cursor-pointer items-center gap-1 transition-colors hover:text-ink",
                             numeric && "w-full justify-end",
                             active && "font-semibold text-primary",
                           )}
@@ -355,7 +353,7 @@ export function InventoryTable({
                     tabIndex={0}
                     aria-selected={selected}
                     className={cn(
-                      "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
+                      "group h-11 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                       selected
                         ? "bg-primary-soft font-medium text-ink"
                         : "text-ink hover:bg-subtle/70",
@@ -374,7 +372,7 @@ export function InventoryTable({
                         <td
                           key={cell.id}
                           className={cn(
-                            "h-9 px-3 align-middle",
+                            "h-11 px-3 align-middle",
                             numeric && "text-right",
                             cell.column.id === "actions" && "w-10 px-1",
                             cell.column.id === "unitCode" &&
@@ -410,7 +408,7 @@ export function InventoryTable({
                       tabIndex={0}
                       aria-selected={selected}
                       className={cn(
-                        "group h-9 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
+                        "group h-11 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                         selected
                           ? "bg-primary-soft font-medium text-ink"
                           : "text-ink hover:bg-subtle/70",
@@ -429,7 +427,7 @@ export function InventoryTable({
                           <td
                             key={cell.id}
                             className={cn(
-                              "h-9 px-3 align-middle",
+                              "h-11 px-3 align-middle",
                               numeric && "text-right",
                               cell.column.id === "actions" && "w-10 px-1",
                               cell.column.id === "unitCode" &&

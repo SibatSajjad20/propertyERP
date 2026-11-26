@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { blocks, floors, properties } from "@/db/schema/property";
 import { units } from "@/db/schema/units";
@@ -16,11 +16,20 @@ export type StructureBlock = {
   floorCount: number;
 };
 
+export type StructureUnitTile = {
+  id: string;
+  unitCode: string;
+  unitNumber: string;
+  status: typeof units.$inferSelect.status;
+  floorId: string;
+};
+
 export type StructureFloor = {
   id: string;
   name: string;
   level: number;
   unitCount: number;
+  freeCount: number;
 };
 
 export type StructureScreenData = {
@@ -29,6 +38,7 @@ export type StructureScreenData = {
   blocks: StructureBlock[];
   selectedBlock: StructureBlock | null;
   floors: StructureFloor[];
+  units: StructureUnitTile[];
 };
 
 export async function getStructureScreenData(
@@ -63,6 +73,7 @@ export async function getStructureScreenData(
         level: floors.level,
         blockId: floors.blockId,
         unitCount: sql<number>`count(${units.id})::int`,
+        freeCount: sql<number>`count(${units.id}) filter (where ${units.status} = 'AVAILABLE')::int`,
       })
       .from(floors)
       .leftJoin(units, and(eq(units.floorId, floors.id), isNull(units.archivedAt)))
@@ -84,6 +95,7 @@ export async function getStructureScreenData(
       blocks: [],
       selectedBlock: null,
       floors: [],
+      units: [],
     };
   }
 
@@ -108,7 +120,26 @@ export async function getStructureScreenData(
       blocks: blocksWithCounts,
       selectedBlock: null,
       floors: [],
+      units: [],
     };
+  }
+
+  const scopedFloors = floorRows.filter((row) => row.blockId === selectedBlock.id);
+  const floorIds = scopedFloors.map((row) => row.id);
+
+  let unitRows: StructureUnitTile[] = [];
+  if (floorIds.length > 0) {
+    unitRows = await db
+      .select({
+        id: units.id,
+        unitCode: units.unitCode,
+        unitNumber: units.unitNumber,
+        status: units.status,
+        floorId: units.floorId,
+      })
+      .from(units)
+      .where(and(sql`${units.floorId} in ${floorIds}`, isNull(units.archivedAt)))
+      .orderBy(asc(units.unitNumber), asc(units.unitCode));
   }
 
   return {
@@ -116,13 +147,13 @@ export async function getStructureScreenData(
     selectedProperty,
     blocks: blocksWithCounts,
     selectedBlock,
-    floors: floorRows
-      .filter((row) => row.blockId === selectedBlock.id)
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        level: row.level,
-        unitCount: Number(row.unitCount),
-      })),
+    floors: scopedFloors.map((row) => ({
+      id: row.id,
+      name: row.name,
+      level: row.level,
+      unitCount: Number(row.unitCount),
+      freeCount: Number(row.freeCount),
+    })),
+    units: unitRows,
   };
 }
