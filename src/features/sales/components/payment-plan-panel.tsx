@@ -397,11 +397,11 @@ export function PaymentPlanPanel({
             </div>
           </div>
 
-          {/* 3. Annual Balloon Payment (% or Fixed PKR) — default 10% total divided annually */}
+          {/* 3. Annual Balloon Payment (% of remaining balance or Fixed PKR) — default 10% / yr */}
           <div className="grid grid-cols-1 gap-3 rounded-[8px] border border-line bg-subtle/25 p-3.5 sm:grid-cols-12">
             <div className="sm:col-span-4">
               <Label htmlFor="balloon-type" className="mb-1 block text-[12px]">
-                Balloon Payment Type
+                Annual Balloon Type
               </Label>
               <Select
                 value={balloonType}
@@ -410,8 +410,8 @@ export function PaymentPlanPanel({
                     balloonType: val as DiscountType,
                     balloonValue:
                       val === "PERCENT"
-                        ? String(schedule.balloonPercent || 10)
-                        : schedule.balloonTotalAmountPkr,
+                        ? String(schedule.balloonPercentPerYear || 10)
+                        : schedule.balloonAmountPerYearPkr,
                   })
                 }
               >
@@ -419,21 +419,21 @@ export function PaymentPlanPanel({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PERCENT">Total Percentage (%)</SelectItem>
-                  <SelectItem value="AMOUNT">Total Fixed Amount (PKR)</SelectItem>
+                  <SelectItem value="PERCENT">Remaining Balance (% / yr)</SelectItem>
+                  <SelectItem value="AMOUNT">Fixed Amount (PKR / yr)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="sm:col-span-4">
               <Label htmlFor="balloon-val" className="mb-1 block text-[12px]">
-                Total Balloon {balloonType === "PERCENT" ? "(%)" : "(PKR)"}
+                Balloon per Year {balloonType === "PERCENT" ? "(% / yr)" : "(PKR / yr)"}
               </Label>
               {balloonType === "AMOUNT" ? (
                 <MoneyInput
                   id="balloon-val"
                   value={balloonValue}
                   onValueChange={(v) => onChange({ balloonValue: v })}
-                  placeholder="e.g. 10,00,000"
+                  placeholder="e.g. 18,000"
                   className="tabular-nums"
                 />
               ) : (
@@ -448,15 +448,15 @@ export function PaymentPlanPanel({
             </div>
             <div className="flex flex-col justify-center sm:col-span-4">
               <span className="text-[11px] text-ink-muted">
-                Divided Annually ({schedule.balloonCount} ×{" "}
+                Applied Annually ({schedule.balloonCount} ×{" "}
                 {formatPkr(schedule.balloonAmountPerYearPkr)})
               </span>
               <span className="text-[14px] font-semibold text-ink tabular-nums">
                 {formatPkr(schedule.balloonTotalAmountPkr)}
               </span>
               <span className="text-[11px] text-ink-muted tabular-nums">
-                {schedule.balloonPercent}% total across plan (
-                {schedule.balloonPercentPerYear}% / yr)
+                {schedule.balloonPercentPerYear}% / yr of remaining balance (
+                {schedule.balloonPercent}% total)
               </span>
             </div>
           </div>
@@ -718,7 +718,8 @@ export function PaymentPlanPanel({
 
             <div className="flex items-center justify-between">
               <span className="text-ink-muted">
-                Annual Balloons ({schedule.balloonPercent}%)
+                Annual Balloons ({schedule.balloonCount} ×{" "}
+                {schedule.balloonPercentPerYear}%)
               </span>
               <span className="font-medium text-ink tabular-nums">
                 {formatPkr(schedule.balloonTotalAmountPkr)}
