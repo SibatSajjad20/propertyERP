@@ -333,7 +333,7 @@ export function MergeRequestsScreen({
                     </p>
                     <div className="overflow-x-auto rounded-[8px] border border-line">
                       <table className="w-full text-left text-[12px]">
-                        <thead className="border-b border-line bg-subtle text-[11px] font-medium text-ink-muted">
+                        <thead className="border-b border-line bg-[#F4F6F8] text-[11px] font-medium text-ink-muted">
                           <tr>
                             <th className="px-2.5 py-1.5">Code</th>
                             <th className="px-2.5 py-1.5">Floor / Cat</th>

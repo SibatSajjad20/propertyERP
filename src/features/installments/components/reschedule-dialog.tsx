@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MoneyInput } from "@/components/ui/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatPkr, parseDecimal } from "@/lib/money";
 import { validateReschedule } from "../calculator";
 import { rescheduleInstallments } from "../actions";
@@ -219,17 +220,15 @@ function RescheduleDialogForm({
             </thead>
             <tbody className="divide-y divide-line/60">
               {draftRows.map((row, idx) => (
-                <tr key={idx} className="hover:bg-subtle/20">
-                  <td className="px-3 py-2 text-center font-sans tabular-nums text-[11px] text-ink-muted">
+                <tr key={idx} className="hover:bg-[#F8FAFC]">
+                  <td className="px-3 py-2 text-center font-sans text-[11px] text-ink-muted tabular-nums">
                     {row.seq}
                   </td>
                   <td className="px-3 py-2">
-                    <input
-                      type="date"
+                    <DatePicker
                       value={row.dueDate}
-                      onChange={(e) => handleRowChange(idx, "dueDate", e.target.value)}
-                      className="h-8 w-full rounded-[6px] border border-line bg-surface px-2 text-[12px] text-ink focus:outline-primary"
-                      required
+                      onChange={(val) => handleRowChange(idx, "dueDate", val)}
+                      triggerClassName="h-8 text-[12px]"
                     />
                   </td>
                   <td className="px-3 py-2">

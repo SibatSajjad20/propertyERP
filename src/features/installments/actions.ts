@@ -14,6 +14,10 @@ import { formatDecimal, parseDecimal } from "@/lib/money";
 import { assertCan } from "@/lib/permissions";
 import { changeUnitStatusInTx } from "@/features/units/actions";
 import { allocatePaymentReceiptNumber } from "@/features/sales/document-numbers";
+import {
+  invalidateDashboardBundleCache,
+  invalidateNavCountsCache,
+} from "@/features/dashboard/queries";
 import { recalculateInstallmentAllocations, validateReschedule } from "./calculator";
 import { calculateInstallmentSurcharge } from "./surcharge";
 import { getClientProfileWithBookings, searchInstallmentsClients } from "./queries";
@@ -53,6 +57,8 @@ function parseInput<T>(
 }
 
 function revalidateInstallmentPaths(unitId?: string, bookingId?: string) {
+  invalidateDashboardBundleCache();
+  invalidateNavCountsCache();
   revalidateTag("dashboard", "max");
   revalidateTag("report-summary", "max");
   revalidatePath("/installments");

@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
+const isDev = process.env.NODE_ENV !== "production";
+const connectSrc = isDev
+  ? "connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*"
+  : "connect-src 'self' https: wss:";
+
 const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -11,7 +16,7 @@ const cspDirectives = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'self'",
-  "connect-src 'self' https: wss:",
+  connectSrc,
 ].join("; ");
 
 const securityHeaders = [
@@ -24,6 +29,8 @@ const securityHeaders = [
     value: "camera=(self), microphone=(), geolocation=(), payment=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "off" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 
 if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {

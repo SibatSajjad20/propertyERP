@@ -486,7 +486,7 @@ export function AuditScreen({ initialResult }: AuditScreenProps) {
                   return (
                     <tr
                       key={row.id}
-                      className="group transition-colors hover:bg-subtle/30"
+                      className="group transition-colors hover:bg-[#F8FAFC]"
                     >
                       <td colSpan={5} className="p-0">
                         <div className="flex h-[44px] items-center px-4">

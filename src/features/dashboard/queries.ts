@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db, withTransientDbRetry } from "@/db";
 import { auditLog } from "@/db/schema/audit";
@@ -171,7 +172,8 @@ export async function getDashboardStats(filter?: {
       getMonthlyRefundsAndBuybacks(),
       db
         .select({ total: sql<string>`coalesce(sum(${payments.amount}), 0)::text` })
-        .from(payments),
+        .from(payments)
+        .where(eq(payments.isVoided, false)),
       db
         .select({ total: sql<string>`coalesce(sum(${sales.salePrice}), 0)::text` })
         .from(sales),
@@ -503,8 +505,19 @@ const dashboardBundleCache = new Map<
 >();
 const DASHBOARD_BUNDLE_CACHE_TTL_MS = 300_000; // 5 minutes
 
+let cachedNavCounts: {
+  expiresAt: number;
+  data: NavCounts;
+} | null = null;
+const NAV_COUNTS_CACHE_TTL_MS = 30_000; // 30 seconds
+
+export function invalidateNavCountsCache() {
+  cachedNavCounts = null;
+}
+
 export function invalidateDashboardBundleCache() {
   dashboardBundleCache.clear();
+  invalidateNavCountsCache();
 }
 
 export async function getDashboardBundle(filter?: {
@@ -1161,7 +1174,10 @@ export interface NavCounts {
   installmentsOverdue: number;
 }
 
-export async function getNavCounts(): Promise<NavCounts> {
+export const getNavCounts = cache(async function getNavCounts(): Promise<NavCounts> {
+  if (cachedNavCounts && cachedNavCounts.expiresAt > Date.now()) {
+    return cachedNavCounts.data;
+  }
   return withTransientDbRetry(async () => {
     const res = await db.execute<{
       units_total: number;
@@ -1180,12 +1196,17 @@ export async function getNavCounts(): Promise<NavCounts> {
     `);
 
     const row = res[0];
-    return {
+    const data = {
       unitsTotal: Number(row?.units_total ?? 0),
       soldTotal: Number(row?.sold_total ?? 0),
       bookingsActive: Number(row?.active_bookings ?? 0),
       reservationsActive: Number(row?.active_reservations ?? 0),
       installmentsOverdue: Number(row?.overdue_installments ?? 0),
     };
+    cachedNavCounts = {
+      expiresAt: Date.now() + NAV_COUNTS_CACHE_TTL_MS,
+      data,
+    };
+    return data;
   });
-}
+});

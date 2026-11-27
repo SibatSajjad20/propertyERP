@@ -59,9 +59,29 @@ export const salesNav: AppNavItem[] = [
 
 export const insightsNav: AppNavItem[] = [
   { href: "/reports" as Route, label: "Reports", action: "reports.read" },
+];
+
+export const reportsSubNav: AppNavItem[] = [
+  { href: "/reports/summary" as Route, label: "Summary Report", action: "reports.read" },
+  { href: "/reports/sold" as Route, label: "Sold Units Report", action: "reports.read" },
+  {
+    href: "/reports/booked" as Route,
+    label: "Booked Units Report",
+    action: "reports.read",
+  },
+  {
+    href: "/reports/reserved" as Route,
+    label: "Reserved Units Report",
+    action: "reports.read",
+  },
+  {
+    href: "/reports/installments" as Route,
+    label: "Installment Logistics",
+    action: "reports.read",
+  },
   {
     href: "/reports/client-ledger" as Route,
-    label: "Client ledger",
+    label: "Client Ledger Statement",
     action: "reports.read",
   },
 ];
@@ -89,6 +109,7 @@ export const allNavItems: AppNavItem[] = [
   ...inventoryNav,
   ...salesNav,
   ...insightsNav,
+  ...reportsSubNav,
   ...adminNav,
 ];
 

@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Warning } from "@phosphor-icons/react";
+import { Warning, Info } from "@phosphor-icons/react";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -13,6 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Panel } from "@/components/ui/panel";
 import { FormSection } from "@/components/ui/form-section";
 import { formatPkr, parseDecimal } from "@/lib/money";
@@ -356,7 +363,7 @@ export function PaymentPlanPanel({
         <div className="space-y-4">
           {/* Down Payment */}
           <div className="rounded-[10px] border border-line bg-subtle/30 p-4">
-            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-12">
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-12">
               <div className="sm:col-span-4">
                 <Label
                   htmlFor="down-type"
@@ -414,15 +421,12 @@ export function PaymentPlanPanel({
               </div>
 
               <div className="sm:col-span-4">
-                <div className="flex flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
+                <div className="flex h-[60px] flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
                   <span className="text-[11px] font-medium text-ink-muted">
                     Computed Down Payment
                   </span>
                   <span className="text-[14px] font-bold text-primary tabular-nums">
                     {formatPkr(schedule.downPaymentPkr)}
-                  </span>
-                  <span className="text-[11px] text-ink-muted tabular-nums">
-                    {schedule.downPaymentPercent}% of Net Price
                   </span>
                 </div>
               </div>
@@ -431,7 +435,7 @@ export function PaymentPlanPanel({
 
           {/* Possession Payment */}
           <div className="rounded-[10px] border border-line bg-subtle/30 p-4">
-            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-12">
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-12">
               <div className="sm:col-span-4">
                 <Label
                   htmlFor="poss-type"
@@ -489,15 +493,12 @@ export function PaymentPlanPanel({
               </div>
 
               <div className="sm:col-span-4">
-                <div className="flex flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
+                <div className="flex h-[60px] flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
                   <span className="text-[11px] font-medium text-ink-muted">
                     Computed Possession
                   </span>
                   <span className="text-[14px] font-bold text-ink tabular-nums">
                     {formatPkr(schedule.possessionAmountPkr)}
-                  </span>
-                  <span className="text-[11px] text-ink-muted tabular-nums">
-                    {schedule.possessionPercent}% · Payable on handover
                   </span>
                 </div>
               </div>
@@ -506,7 +507,7 @@ export function PaymentPlanPanel({
 
           {/* Balloon Payment */}
           <div className="rounded-[10px] border border-line bg-subtle/30 p-4">
-            <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-12">
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-12">
               <div className="sm:col-span-4">
                 <Label
                   htmlFor="balloon-type"
@@ -541,8 +542,9 @@ export function PaymentPlanPanel({
                   htmlFor="balloon-val"
                   className="mb-1.5 block text-[12px] font-medium text-ink"
                 >
-                  Balloon Payment{" "}
-                  {balloonType === "PERCENT" ? "(% of remaining balance)" : "(PKR)"}
+                  {balloonType === "PERCENT"
+                    ? "Balloon Payment %"
+                    : "Balloon Payment (PKR)"}
                 </Label>
                 {balloonType === "AMOUNT" ? (
                   <MoneyInput
@@ -564,17 +566,40 @@ export function PaymentPlanPanel({
               </div>
 
               <div className="sm:col-span-4">
-                <div className="flex flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
-                  <span className="text-[11px] font-medium text-ink-muted">
-                    Divided Annually ({schedule.balloonCount} ×{" "}
-                    {formatPkr(schedule.balloonAmountPerYearPkr)})
-                  </span>
+                <div className="flex h-[60px] flex-col justify-center rounded-[8px] border border-line/60 bg-surface px-3.5 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-ink-muted">
+                      Computed Balloon
+                    </span>
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Balloon details"
+                            className="inline-flex cursor-pointer items-center justify-center text-ink-muted hover:text-ink focus:outline-none"
+                          >
+                            <Info className="size-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="flex flex-col items-start gap-1 p-2.5 text-[11.5px] leading-snug">
+                          <span className="font-medium text-white/90">
+                            Divided Annually ({schedule.balloonCount} ×{" "}
+                            {formatPkr(schedule.balloonAmountPerYearPkr)})
+                          </span>
+                          <span className="font-bold text-white tabular-nums">
+                            {formatPkr(schedule.balloonTotalAmountPkr)}
+                          </span>
+                          <span className="text-white/80 tabular-nums">
+                            {schedule.balloonPercent}% of remaining (
+                            {schedule.balloonPercentPerYear}% / yr)
+                          </span>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <span className="text-[14px] font-bold text-ink tabular-nums">
                     {formatPkr(schedule.balloonTotalAmountPkr)}
-                  </span>
-                  <span className="text-[11px] text-ink-muted tabular-nums">
-                    {schedule.balloonPercent}% of remaining (
-                    {schedule.balloonPercentPerYear}% / yr)
                   </span>
                 </div>
               </div>
@@ -679,12 +704,11 @@ export function PaymentPlanPanel({
               >
                 First Due Date
               </Label>
-              <Input
+              <DatePicker
                 id="start-date"
-                type="date"
                 value={startDate}
-                onChange={(e) => onChange({ startDate: e.target.value })}
-                className="h-10"
+                onChange={(val) => onChange({ startDate: val })}
+                triggerClassName="h-10"
               />
             </div>
           </div>

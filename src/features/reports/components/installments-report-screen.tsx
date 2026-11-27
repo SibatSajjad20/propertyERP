@@ -49,8 +49,8 @@ export function InstallmentsReportScreen({
 
   return (
     <ReportShell
-      title="Installments Report"
-      description="Detailed ledger of every scheduled installment across all active bookings with waterfall payment tracking."
+      title="Installment Logistics & Overdue"
+      description="Portfolio-wide schedule of upcoming collections, overdue aging, and payment tracking across all client contracts."
       exportType="installments"
       stats={stats}
       filterConfig={{
@@ -69,7 +69,7 @@ export function InstallmentsReportScreen({
           { value: "overdue", label: "Overdue" },
         ],
         showSearch: true,
-        searchPlaceholder: "Search booking #, unit, or client...",
+        searchPlaceholder: "Search booking #, unit, client name, CNIC, or phone...",
       }}
       filterOptions={filterOptions}
     >
@@ -79,9 +79,9 @@ export function InstallmentsReportScreen({
             <thead className="h-[38px] border-b border-[var(--line)] bg-[#FAFBFC] text-[12px] font-medium text-[var(--ink-muted)] select-none">
               <tr>
                 <th className="px-4 font-medium">Booking #</th>
-                <th className="px-3 font-medium">Client</th>
+                <th className="px-3 font-medium">Client / Contact</th>
                 <th className="px-3 font-medium">Unit</th>
-                <th className="px-2 text-center font-medium">Seq</th>
+                <th className="px-3 font-medium">Item</th>
                 <th className="px-3 font-medium">Due Date</th>
                 <th className="px-3 text-right font-medium">Amount</th>
                 <th className="px-3 text-right font-medium">Paid</th>
@@ -111,23 +111,52 @@ export function InstallmentsReportScreen({
                       <td className="px-4 py-2 font-sans text-[11px] font-semibold text-primary tabular-nums">
                         {row.bookingNo}
                       </td>
-                      <td className="px-3 py-2 font-medium text-ink">{row.clientName}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-ink">{row.clientName}</span>
+                          {row.clientPhone && (
+                            <span className="font-sans text-[11px] text-ink-muted">
+                              {row.clientPhone}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="unit-code px-3 py-2 text-[12px] font-medium text-ink">
                         {row.unitCode}
                       </td>
-                      <td className="px-2 py-2 text-center font-sans text-ink-muted tabular-nums">
-                        #{row.seq}
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-ink">
+                            {row.label ||
+                              (row.type === "BALLOON"
+                                ? `Balloon #${row.seq}`
+                                : row.type === "POSSESSION"
+                                  ? "Possession"
+                                  : `Installment #${row.seq}`)}
+                          </span>
+                          {row.type === "BALLOON" && <Pill tone="accent">Balloon</Pill>}
+                          {row.type === "POSSESSION" && (
+                            <Pill tone="primary">Possession</Pill>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2 tabular-nums">
-                        <span
-                          className={isOverdue ? "font-semibold text-sold" : "text-ink"}
-                        >
-                          {new Date(row.dueDate).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
+                        <div className="flex flex-col">
+                          <span
+                            className={isOverdue ? "font-semibold text-sold" : "text-ink"}
+                          >
+                            {new Date(row.dueDate).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          {isOverdue && row.overdueDays && (
+                            <span className="text-[10px] font-semibold text-sold">
+                              {row.overdueDays}d overdue
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right text-ink tabular-nums">
                         {formatPkr(row.amount)}

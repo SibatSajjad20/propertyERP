@@ -229,6 +229,8 @@ export async function resetUserPassword(input: unknown) {
 }
 
 export async function inviteUser(input: unknown) {
+  const session = await requireSession();
+  assertCan(session.user.role, "users.manage");
   return createUser({
     ...(typeof input === "object" && input ? input : {}),
     temporaryPassword:

@@ -9,8 +9,12 @@ export interface StatStripProps {
 }
 
 export function StatStrip({ children, columns = 4, className, style }: StatStripProps) {
-  const gridTemplate =
-    typeof columns === "string" ? columns : `repeat(${columns}, minmax(0, 1fr))`;
+  const hasGridColsClass = Boolean(className && /\bgrid-cols-/.test(className));
+  const gridTemplate = hasGridColsClass
+    ? undefined
+    : typeof columns === "string"
+      ? columns
+      : `repeat(${columns}, minmax(0, 1fr))`;
 
   return (
     <div
@@ -19,7 +23,7 @@ export function StatStrip({ children, columns = 4, className, style }: StatStrip
         className,
       )}
       style={{
-        gridTemplateColumns: gridTemplate,
+        ...(gridTemplate ? { gridTemplateColumns: gridTemplate } : {}),
         ...style,
       }}
     >
@@ -56,7 +60,7 @@ export function StatCell({
   return (
     <div
       className={cn(
-        "min-w-0 border-l border-line p-[16px_16px_17px] first:border-l-0 xl:p-[16px_20px_17px]",
+        "min-w-0 border-l border-line p-[14px_14px_15px] first:border-l-0 xl:p-[16px_20px_17px]",
         className,
       )}
     >
@@ -67,12 +71,13 @@ export function StatCell({
 
       <div
         className={cn(
-          "leading-none font-semibold tracking-tight whitespace-nowrap text-ink tabular-nums",
+          "truncate leading-none font-semibold tracking-tight whitespace-nowrap text-ink tabular-nums",
           size === "big"
-            ? "text-[26px] tracking-[-0.025em]"
-            : "text-[21px] tracking-[-0.02em]",
+            ? "text-[20px] tracking-[-0.025em] lg:text-[22px] xl:text-[25px]"
+            : "text-[18px] tracking-[-0.02em] lg:text-[19px] xl:text-[21px]",
           valueClassName,
         )}
+        title={typeof value === "string" ? value : undefined}
       >
         {prefixRs && (
           <span className="mr-1 text-[0.6em] font-medium tracking-normal text-muted">

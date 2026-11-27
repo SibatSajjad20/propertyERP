@@ -217,7 +217,7 @@ export function ReservationsScreen({ initialData }: ReservationsScreenProps) {
                   return (
                     <tr
                       key={row.id}
-                      className="h-[44px] transition-colors hover:bg-subtle/30"
+                      className="h-[44px] transition-colors hover:bg-[#F8FAFC]"
                     >
                       <td className="px-4 py-2">
                         <Link

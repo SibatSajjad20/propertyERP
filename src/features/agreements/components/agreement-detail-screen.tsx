@@ -19,6 +19,7 @@ import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import { Panel } from "@/components/ui/panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPkr } from "@/lib/money";
 import {
@@ -192,11 +193,9 @@ export function AgreementDetailScreen({ data }: { data: AgreementDetailData }) {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label className="mb-1 block text-[12px]">Agreement Date</Label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={agreementDate}
-                    onChange={(e) => setAgreementDate(e.target.value)}
-                    required
+                    onChange={(val) => setAgreementDate(val)}
                   />
                 </div>
                 <div>

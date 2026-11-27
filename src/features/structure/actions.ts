@@ -18,6 +18,10 @@ import {
 } from "./archive-guard";
 import { floorLabelForLevel, normaliseFloorLabel } from "./floor-labels";
 import {
+  invalidateDashboardBundleCache,
+  invalidateNavCountsCache,
+} from "@/features/dashboard/queries";
+import {
   archiveBlockSchema,
   archiveFloorSchema,
   archivePropertySchema,
@@ -94,6 +98,8 @@ async function writeAudit(
 }
 
 function revalidateStructure() {
+  invalidateDashboardBundleCache();
+  invalidateNavCountsCache();
   revalidateTag("structure", "max");
   revalidateTag("report-filters", "max");
   revalidateTag("dashboard", "max");

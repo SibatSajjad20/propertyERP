@@ -76,7 +76,7 @@ export function DueThisWeekCard({ summary, onSelectBooking }: DueThisWeekCardPro
               {summary.rows.map((row) => (
                 <tr
                   key={row.installmentId}
-                  className="transition-colors hover:bg-subtle/30"
+                  className="transition-colors hover:bg-[#F8FAFC]"
                 >
                   <td className="px-3 py-2 font-medium text-ink">
                     <div>{row.clientName}</div>

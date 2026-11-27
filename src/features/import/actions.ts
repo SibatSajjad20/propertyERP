@@ -8,6 +8,10 @@ import { importBatches } from "@/db/schema/import";
 import { blocks, categories, floors } from "@/db/schema/property";
 import { rateHistory, units, unitStatusHistory } from "@/db/schema/units";
 import { normaliseFloorLabel } from "@/features/structure/floor-labels";
+import {
+  invalidateDashboardBundleCache,
+  invalidateNavCountsCache,
+} from "@/features/dashboard/queries";
 import { requireSession } from "@/lib/auth";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
@@ -546,6 +550,8 @@ export async function commitImportBatch(input: unknown) {
     "excel import batch committed",
   );
 
+  invalidateDashboardBundleCache();
+  invalidateNavCountsCache();
   revalidateTag("dashboard", "max");
   revalidatePath("/import");
   revalidatePath("/inventory");
@@ -714,6 +720,8 @@ export async function rollbackLatestBatch(input?: unknown) {
 
   logger.info({ batchId: reverted.batchId }, "import batch soft-reverted");
 
+  invalidateDashboardBundleCache();
+  invalidateNavCountsCache();
   revalidateTag("dashboard", "max");
   revalidatePath("/import");
   revalidatePath("/inventory");

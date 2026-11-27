@@ -105,6 +105,7 @@ export default async function UnitDetailPage({
     <div className="flex min-h-0 flex-1 flex-col space-y-6">
       {/* Header */}
       <PageHeader
+        className="mb-1"
         title={formatUnitDisplayCode(row.unit.unitCode, row.categoryName)}
         idTitle
         back={{ href: "/inventory", label: "Units" }}
@@ -118,7 +119,12 @@ export default async function UnitDetailPage({
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canManage && (
-              <Button asChild variant="secondary" size="md">
+              <Button
+                asChild
+                variant="secondary"
+                size="md"
+                className="h-[36px] w-[195px] justify-center"
+              >
                 <Link href={editHref}>
                   <PencilSimple weight="light" className="mr-1.5 size-4" />
                   Edit unit
@@ -126,10 +132,17 @@ export default async function UnitDetailPage({
               </Button>
             )}
 
-            {unit.status === "AVAILABLE" && <UnitActionDropdown unitId={unit.id} />}
+            {unit.status === "AVAILABLE" && (
+              <UnitActionDropdown unitId={unit.id} className="h-[36px] w-[195px]" />
+            )}
 
             {unit.status === "BOOKED" || activeBooking ? (
-              <Button asChild variant="primary" size="md">
+              <Button
+                asChild
+                variant="primary"
+                size="md"
+                className="h-[36px] w-[195px] justify-center"
+              >
                 <Link
                   href={
                     activeBooking
@@ -141,11 +154,21 @@ export default async function UnitDetailPage({
                 </Link>
               </Button>
             ) : unit.status === "SOLD" ? (
-              <Button asChild variant="primary" size="md">
+              <Button
+                asChild
+                variant="primary"
+                size="md"
+                className="h-[36px] w-[195px] justify-center"
+              >
                 <Link href={`/sold?q=${unit.unitCode}` as Route}>View sold record</Link>
               </Button>
             ) : unit.status === "RESERVED" ? (
-              <Button asChild variant="primary" size="md">
+              <Button
+                asChild
+                variant="primary"
+                size="md"
+                className="h-[36px] w-[195px] justify-center"
+              >
                 <Link href={`/reservations?q=${unit.unitCode}` as Route}>
                   View reservation
                 </Link>
@@ -156,7 +179,7 @@ export default async function UnitDetailPage({
       />
 
       {/* StatStrip: 3 or 4 cells */}
-      <StatStrip columns={activeBooking ? 4 : 3} className="mb-0">
+      <StatStrip columns={activeBooking ? 4 : 3} className="mb-2">
         <StatCell
           label={isSold ? "Sold Price" : "Total Asking Price"}
           value={formatPkrCompact(displayPrice)}
@@ -195,94 +218,114 @@ export default async function UnitDetailPage({
         )}
       </StatStrip>
 
-      {/* Balanced 2-column details: Left (6 cols) and Right (6 cols) */}
+      {/* Primary Specifications: Identity & Location on Left, Area & Valuation on Right */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Identity & Details */}
+        <Panel
+          title="Unit identity & location"
+          className="flex h-full flex-col"
+          bodyClassName="flex-1"
+        >
+          <DefinitionList
+            items={[
+              {
+                label: "Unit code",
+                value: (
+                  <span className="unit-code font-mono font-medium text-ink">
+                    {unit.unitCode}
+                  </span>
+                ),
+              },
+              {
+                label: "Unit number",
+                value: formatUnitNumberLabel(
+                  unit.unitCode,
+                  unit.unitNumber,
+                  unit.categoryName,
+                ),
+              },
+              { label: "Floor", value: `${unit.floorName} (Level ${unit.floorLevel})` },
+              { label: "Category", value: unit.categoryName },
+              {
+                label: "Sellable inventory",
+                value: unit.isSellable ? "Yes (active for sale)" : "No (held/restricted)",
+              },
+              ...(unit.subOwner ? [{ label: "Sub owner", value: unit.subOwner }] : []),
+              ...(unit.notes ? [{ label: "Notes", value: unit.notes }] : []),
+            ]}
+          />
+        </Panel>
+
+        {/* Area & Pricing */}
+        <Panel
+          title="Area & valuation"
+          className="flex h-full flex-col"
+          bodyClassName="flex-1"
+        >
+          <DefinitionList
+            items={[
+              { label: "Net area", value: formatSqft(unit.netAreaSqft) },
+              {
+                label: "Gross area",
+                value: unit.grossAreaSqft
+                  ? formatSqft(unit.grossAreaSqft)
+                  : "Not specified",
+              },
+              {
+                label: "Rate per sq ft",
+                value: formatPkrLedger(unit.ratePerSqftPkr),
+              },
+              {
+                label: `Base valuation (${unit.ratePerSqftPkr} × ${pricingArea} sq ft)`,
+                value: formatPkrLedger(baseValuation),
+              },
+              ...(unit.priceAdjustmentPkr && unit.priceAdjustmentPkr !== "0"
+                ? [
+                    {
+                      label: unit.priceAdjustmentReason
+                        ? `Adjustment (${unit.priceAdjustmentReason})`
+                        : "Adjustment",
+                      value: formatPkrLedger(unit.priceAdjustmentPkr),
+                    },
+                  ]
+                : []),
+              {
+                label: isSold ? "Sold price (frozen)" : "Total calculated price",
+                value: (
+                  <span className="font-semibold text-ink">
+                    {formatPkrLedger(displayPrice)}
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </Panel>
+      </div>
+
+      {/* Merged Unit details if applicable: Full Width across page */}
+      {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
+
+      {/* Audited History & Lifecycle: Ownership Timeline on Left, Status History on Right */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        {/* Left Column: Identity & Valuation */}
-        <div className="space-y-6">
-          {/* Identity & Details */}
-          <Panel title="Unit identity & location">
-            <DefinitionList
-              items={[
-                { label: "Unit code", value: unit.unitCode },
-                {
-                  label: "Unit number",
-                  value: formatUnitNumberLabel(
-                    unit.unitCode,
-                    unit.unitNumber,
-                    unit.categoryName,
-                  ),
-                },
-                { label: "Floor", value: `${unit.floorName} (Level ${unit.floorLevel})` },
-                { label: "Category", value: unit.categoryName },
-                {
-                  label: "Sellable inventory",
-                  value: unit.isSellable
-                    ? "Yes (active for sale)"
-                    : "No (held/restricted)",
-                },
-                ...(unit.subOwner ? [{ label: "Sub owner", value: unit.subOwner }] : []),
-                ...(unit.notes ? [{ label: "Notes", value: unit.notes }] : []),
-              ]}
-            />
-          </Panel>
+        {/* Ownership Timeline */}
+        <Panel
+          title="Ownership & transactions"
+          hint="Audited lifecycle events"
+          className="flex h-full flex-col"
+          bodyClassName="flex-1"
+        >
+          <UnitOwnershipTimeline events={timeline} />
+        </Panel>
 
-          {/* Area & Pricing */}
-          <Panel title="Area & valuation">
-            <DefinitionList
-              items={[
-                { label: "Net area", value: formatSqft(unit.netAreaSqft) },
-                {
-                  label: "Gross area",
-                  value: unit.grossAreaSqft
-                    ? formatSqft(unit.grossAreaSqft)
-                    : "Not specified",
-                },
-                {
-                  label: "Rate per sq ft",
-                  value: formatPkrLedger(unit.ratePerSqftPkr),
-                },
-                {
-                  label: `Base valuation (${unit.ratePerSqftPkr} × ${pricingArea} sq ft)`,
-                  value: formatPkrLedger(baseValuation),
-                },
-                ...(unit.priceAdjustmentPkr && unit.priceAdjustmentPkr !== "0"
-                  ? [
-                      {
-                        label: unit.priceAdjustmentReason
-                          ? `Adjustment (${unit.priceAdjustmentReason})`
-                          : "Adjustment",
-                        value: formatPkrLedger(unit.priceAdjustmentPkr),
-                      },
-                    ]
-                  : []),
-                {
-                  label: isSold ? "Sold price (frozen)" : "Total calculated price",
-                  value: (
-                    <span className="font-semibold text-ink">
-                      {formatPkrLedger(displayPrice)}
-                    </span>
-                  ),
-                },
-              ]}
-            />
-          </Panel>
-
-          {/* Merged Unit details if applicable */}
-          {mergeInfo && <MergedUnitDetailsCard mergeInfo={mergeInfo} />}
-        </div>
-
-        {/* Right Column: Ownership Timeline & Status History */}
-        <div className="space-y-6">
-          {/* Ownership Timeline */}
-          <Panel title="Ownership & transactions" hint="Audited lifecycle events">
-            <UnitOwnershipTimeline events={timeline} />
-          </Panel>
-
-          {/* Status History */}
-          <Panel title="Status history" hint="Audit of status transitions">
-            <StatusHistory entries={history} />
-          </Panel>
-        </div>
+        {/* Status History */}
+        <Panel
+          title="Status history"
+          hint="Audit of status transitions"
+          className="flex h-full flex-col"
+          bodyClassName="flex-1"
+        >
+          <StatusHistory entries={history} />
+        </Panel>
       </div>
     </div>
   );

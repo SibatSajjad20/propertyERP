@@ -267,7 +267,7 @@ export function CollectionsReportScreen({
                 className={`flex cursor-pointer flex-col justify-between rounded-[10px] border p-3 text-left transition-all ${
                   isActive
                     ? "border-primary bg-primary/5 shadow-xs ring-2 ring-primary/30"
-                    : "border-line bg-surface hover:border-line-strong hover:bg-subtle/40"
+                    : "border-line bg-surface hover:border-line-strong hover:bg-[#F1F3F6]"
                 }`}
               >
                 <span className="text-[11px] font-medium tracking-wider text-ink-muted uppercase">

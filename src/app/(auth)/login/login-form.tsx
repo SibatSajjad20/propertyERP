@@ -19,7 +19,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 
 const fieldClassName =
-  "h-10 w-full rounded-[8px] border border-line bg-[#FAFBFC] text-[13px] text-ink outline-none placeholder:text-ink-muted/60 transition-colors focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50";
+  "h-11 w-full rounded-[8px] border border-line bg-[#F8FAFC] text-[13px] text-ink outline-none placeholder:text-ink-faint focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
@@ -60,20 +60,23 @@ export function LoginForm() {
 
   return (
     <form
-      className="mt-6 space-y-4"
+      className="mt-8"
       method="post"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
       aria-labelledby="login-title"
     >
-      <div className="space-y-1.5">
-        <Label htmlFor="email" className="text-[12.5px] font-medium text-ink">
-          Email address
+      <div>
+        <Label
+          htmlFor="email"
+          className="mb-2 block text-[13px] font-medium tracking-normal text-[#334155]"
+        >
+          Email
         </Label>
         <div className="relative">
           <Envelope
             weight="regular"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#64748B]"
             aria-hidden="true"
           />
           <input
@@ -84,27 +87,28 @@ export function LoginForm() {
             aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? "email-error" : undefined}
             placeholder="you@sardarsmall.com"
-            className={cn(fieldClassName, "pr-3 pl-9.5")}
+            className={cn(fieldClassName, "pr-3 pl-10")}
             {...register("email")}
           />
         </div>
         {errors.email ? (
-          <p id="email-error" className="text-[12px] text-bad" role="alert">
+          <p id="email-error" className="mt-1.5 text-[13px] text-[#9B2C2C]" role="alert">
             {errors.email.message}
           </p>
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="password" className="text-[12.5px] font-medium text-ink">
-            Password
-          </Label>
-        </div>
+      <div className="mt-5">
+        <Label
+          htmlFor="password"
+          className="mb-2 block text-[13px] font-medium tracking-normal text-[#334155]"
+        >
+          Password
+        </Label>
         <div className="relative">
           <Lock
             weight="regular"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#64748B]"
             aria-hidden="true"
           />
           <input
@@ -113,7 +117,7 @@ export function LoginForm() {
             autoComplete="current-password"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? "password-error" : undefined}
-            className={cn(fieldClassName, "pr-10 pl-9.5")}
+            className={cn(fieldClassName, "pr-10 pl-10")}
             {...register("password")}
           />
           <button
@@ -130,30 +134,54 @@ export function LoginForm() {
           </button>
         </div>
         {errors.password ? (
-          <p id="password-error" className="text-[12px] text-bad" role="alert">
+          <p
+            id="password-error"
+            className="mt-1.5 text-[13px] text-[#9B2C2C]"
+            role="alert"
+          >
             {errors.password.message}
           </p>
         ) : null}
       </div>
 
-      {formError ? (
-        <div
-          className="rounded-[6px] border border-bad-soft bg-bad-soft/60 px-3 py-2 text-[12px] text-bad"
-          role="alert"
+      <div className="mt-3 flex justify-end">
+        {/* TODO: wire up when a password-reset flow exists */}
+        <a
+          href="#"
+          className="text-[13px] text-primary hover:text-accent-bright hover:underline"
         >
-          {formError}
-        </div>
-      ) : null}
+          Forgot password?
+        </a>
+      </div>
 
       <Button
         type="submit"
         variant="primary"
         loading={isSubmitting}
         leftIcon={<SignIn weight="regular" className="size-4" aria-hidden="true" />}
-        className="h-10 w-full rounded-[8px] text-[13.5px] font-medium shadow-none"
+        className="mt-6 h-11 w-full gap-2 rounded-[8px] text-[14px] font-medium shadow-none"
       >
-        {isSubmitting ? "Signing in…" : "Sign in"}
+        {isSubmitting ? "Signing in…" : "Sign In"}
       </Button>
+
+      {formError ? (
+        <p className="mt-3 text-[13px] text-[#9B2C2C]" role="alert">
+          {formError}
+        </p>
+      ) : null}
+
+      <div className="relative mt-8">
+        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+          <div className="w-full border-t border-[#E3E7EC]" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-white px-3 text-[12px] text-[#94A3B8]">or</span>
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-[12px] text-[#94A3B8]">
+        Authorized personnel only
+      </p>
     </form>
   );
 }

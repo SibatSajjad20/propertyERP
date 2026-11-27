@@ -4,9 +4,10 @@ import * as React from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Printer, MagnifyingGlass, ArrowClockwise } from "@phosphor-icons/react";
+import { Printer, MagnifyingGlass, ArrowClockwise, X } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import {
   Select,
@@ -75,7 +76,7 @@ function ReportTabs({ pathname }: { pathname: string }) {
           { href: "/reports/sold" as Route, label: "Sold" },
           { href: "/reports/booked" as Route, label: "Booked" },
           { href: "/reports/reserved" as Route, label: "Reserved" },
-          { href: "/reports/installments" as Route, label: "Installments" },
+          { href: "/reports/installments" as Route, label: "Installment Logistics" },
           { href: "/reports/client-ledger" as Route, label: "Client ledger" },
         ] as const
       ).map((tab) => {
@@ -225,7 +226,13 @@ function ReportFilterBar({
   const currentQ = searchParams.get("q") || "";
 
   const [searchVal, setSearchVal] = React.useState(currentQ);
+  const [prevQ, setPrevQ] = React.useState(currentQ);
   const [isPending, startTransition] = React.useTransition();
+
+  if (currentQ !== prevQ) {
+    setPrevQ(currentQ);
+    setSearchVal(currentQ);
+  }
 
   const updateParams = React.useCallback(
     (updates: Record<string, string | null>) => {
@@ -243,6 +250,15 @@ function ReportFilterBar({
     },
     [pathname, router, searchParams],
   );
+
+  React.useEffect(() => {
+    const trimmed = searchVal.trim();
+    if (trimmed === currentQ) return;
+    const timer = setTimeout(() => {
+      updateParams({ q: trimmed });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchVal, currentQ, updateParams]);
 
   function handlePresetChange(val: string) {
     if (val === "custom") {
@@ -303,8 +319,8 @@ function ReportFilterBar({
                   className={cn(
                     "cursor-pointer rounded-[6px] px-2.5 py-1 text-[12px] font-medium transition-colors",
                     active
-                      ? "bg-primary text-white"
-                      : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
+                      ? "bg-primary text-white shadow-xs"
+                      : "border border-border bg-surface text-ink-muted hover:border-line-strong hover:bg-[#F1F3F6] hover:text-ink",
                   )}
                 >
                   {PRESET_LABELS[preset]}
@@ -326,8 +342,8 @@ function ReportFilterBar({
                     className={cn(
                       "cursor-pointer rounded-[6px] px-2.5 py-1 text-[12px] font-medium transition-colors",
                       active
-                        ? "bg-primary text-white"
-                        : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
+                        ? "bg-primary text-white shadow-xs"
+                        : "border border-border bg-surface text-ink-muted hover:border-line-strong hover:bg-[#F1F3F6] hover:text-ink",
                     )}
                   >
                     {qf.label}
@@ -342,21 +358,21 @@ function ReportFilterBar({
           <div className="flex flex-wrap items-center gap-3 border-t border-line/60 pt-3">
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-ink-muted">From:</span>
-              <input
-                type="date"
-                value={currentStart}
-                onChange={(e) => updateParams({ startDate: e.target.value })}
-                className="h-9 rounded-[8px] border border-line bg-surface px-2.5 text-[13px] text-ink focus:outline-primary"
-              />
+              <div className="w-44">
+                <DatePicker
+                  value={currentStart}
+                  onChange={(val) => updateParams({ startDate: val })}
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-ink-muted">To:</span>
-              <input
-                type="date"
-                value={currentEnd}
-                onChange={(e) => updateParams({ endDate: e.target.value })}
-                className="h-9 rounded-[8px] border border-line bg-surface px-2.5 text-[13px] text-ink focus:outline-primary"
-              />
+              <div className="w-44">
+                <DatePicker
+                  value={currentEnd}
+                  onChange={(val) => updateParams({ endDate: val })}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -461,8 +477,21 @@ function ReportFilterBar({
                   value={searchVal}
                   onChange={(e) => setSearchVal(e.target.value)}
                   placeholder={filterConfig.searchPlaceholder || "Search..."}
-                  className="h-9 w-full rounded-[8px] border border-line bg-surface pr-3 pl-8 text-[13px] text-ink placeholder:text-ink-faint focus:outline-primary"
+                  className="h-9 w-full rounded-[8px] border border-line bg-surface pr-8 pl-8 text-[13px] text-ink placeholder:text-ink-faint focus:outline-primary"
                 />
+                {searchVal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchVal("");
+                      updateParams({ q: null });
+                    }}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-muted hover:text-ink"
+                    title="Clear search"
+                  >
+                    <X weight="bold" className="size-3" />
+                  </button>
+                )}
               </div>
               <Button type="submit" variant="secondary" size="sm">
                 Search

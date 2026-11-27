@@ -40,5 +40,7 @@ export function resolveTrustedOrigins(env: EnvLike = process.env): string[] {
   }
   origins.add("http://localhost:3000");
   origins.add("http://127.0.0.1:3000");
+  origins.add("http://localhost:*");
+  origins.add("http://127.0.0.1:*");
   return [...origins];
 }

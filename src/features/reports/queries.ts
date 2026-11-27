@@ -448,7 +448,14 @@ export async function getSoldUnitsReport(
       filters.endDate,
     );
 
-    const conditions = [gte(sales.soldAt, startDate), lte(sales.soldAt, endDate)];
+    const hasSearch = Boolean(filters.q && filters.q.trim());
+    const hasCustomDates = Boolean(filters.startDate || filters.endDate);
+    const hasExplicitPreset = Boolean(filters.preset && filters.preset !== "this_month");
+
+    const conditions = [];
+    if (!hasSearch || hasExplicitPreset || hasCustomDates) {
+      conditions.push(gte(sales.soldAt, startDate), lte(sales.soldAt, endDate));
+    }
 
     if (filters.floorId && filters.floorId !== "ALL") {
       conditions.push(eq(units.floorId, filters.floorId));
@@ -457,14 +464,26 @@ export async function getSoldUnitsReport(
       conditions.push(eq(units.categoryId, filters.categoryId));
     }
     if (filters.q && filters.q.trim()) {
-      const term = `%${filters.q.trim()}%`;
-      conditions.push(
-        or(
-          ilike(units.unitCode, term),
-          ilike(clients.fullName, term),
-          ilike(clients.cnic, term),
-        )!,
-      );
+      const trimmed = filters.q.trim();
+      const term = `%${trimmed}%`;
+      const cleanDigits = trimmed.replace(/\D/g, "");
+      const digitTerm = cleanDigits ? `%${cleanDigits}%` : null;
+
+      const searchConditions = [
+        ilike(units.unitCode, term),
+        ilike(clients.fullName, term),
+        ilike(clients.cnic, term),
+        ilike(clients.phone, term),
+      ];
+
+      if (digitTerm && cleanDigits.length >= 3) {
+        searchConditions.push(
+          sql`replace(${clients.cnic}, '-', '') ILIKE ${digitTerm}`,
+          sql`replace(${clients.phone}, '-', '') ILIKE ${digitTerm}`,
+        );
+      }
+
+      conditions.push(or(...searchConditions)!);
     }
 
     const rows = await db
@@ -593,10 +612,17 @@ export async function getBookedUnitsReport(
     );
     const now = new Date();
 
-    const conditions = [
-      gte(bookings.createdAt, startDate),
-      lte(bookings.createdAt, endDate),
-    ];
+    const hasSearch = Boolean(filters.q && filters.q.trim());
+    const hasCustomDates = Boolean(filters.startDate || filters.endDate);
+    const hasExplicitPreset = Boolean(filters.preset && filters.preset !== "this_month");
+
+    const conditions = [];
+    if (!hasSearch || hasExplicitPreset || hasCustomDates) {
+      conditions.push(
+        gte(bookings.createdAt, startDate),
+        lte(bookings.createdAt, endDate),
+      );
+    }
 
     if (filters.status && filters.status !== "ALL") {
       conditions.push(eq(bookings.status, filters.status as BookingStatus));
@@ -608,16 +634,27 @@ export async function getBookedUnitsReport(
       conditions.push(eq(units.categoryId, filters.categoryId));
     }
     if (filters.q && filters.q.trim()) {
-      const term = `%${filters.q.trim()}%`;
-      conditions.push(
-        or(
-          ilike(bookings.bookingNo, term),
-          ilike(units.unitCode, term),
-          ilike(clients.fullName, term),
-          ilike(clients.cnic, term),
-          ilike(clients.phone, term),
-        )!,
-      );
+      const trimmed = filters.q.trim();
+      const term = `%${trimmed}%`;
+      const cleanDigits = trimmed.replace(/\D/g, "");
+      const digitTerm = cleanDigits ? `%${cleanDigits}%` : null;
+
+      const searchConditions = [
+        ilike(bookings.bookingNo, term),
+        ilike(units.unitCode, term),
+        ilike(clients.fullName, term),
+        ilike(clients.cnic, term),
+        ilike(clients.phone, term),
+      ];
+
+      if (digitTerm && cleanDigits.length >= 3) {
+        searchConditions.push(
+          sql`replace(${clients.cnic}, '-', '') ILIKE ${digitTerm}`,
+          sql`replace(${clients.phone}, '-', '') ILIKE ${digitTerm}`,
+        );
+      }
+
+      conditions.push(or(...searchConditions)!);
     }
 
     const rows = await db
@@ -908,14 +945,18 @@ export interface InstallmentsReportRow {
   bookingId: string;
   bookingNo: string;
   clientName: string;
+  clientPhone: string;
   unitCode: string;
   seq: number;
+  label?: string | null;
+  type?: string | null;
   dueDate: Date;
   amount: string;
   paid: string;
   balance: string;
   status: string;
   receiptNos: string | null;
+  overdueDays?: number;
 }
 
 export interface InstallmentsReportData {
@@ -968,8 +1009,18 @@ export async function getInstallmentsReport(
       conditions.push(sql`${installments.paidAmount} < ${installments.amount}`);
     } else {
       // Normal date filter
-      conditions.push(gte(installments.dueDate, startDate));
-      conditions.push(lte(installments.dueDate, endDate));
+      // If user provided a search query and didn't explicitly pick a non-default date preset or custom range,
+      // search across ALL dates so matching clients/units aren't hidden by the default single-month window!
+      const hasSearch = Boolean(filters.q && filters.q.trim());
+      const hasCustomDates = Boolean(filters.startDate || filters.endDate);
+      const hasExplicitPreset = Boolean(
+        filters.preset && filters.preset !== "this_month",
+      );
+
+      if (!hasSearch || hasExplicitPreset || hasCustomDates) {
+        conditions.push(gte(installments.dueDate, startDate));
+        conditions.push(lte(installments.dueDate, endDate));
+      }
     }
 
     if (filters.status && filters.status !== "ALL") {
@@ -979,14 +1030,27 @@ export async function getInstallmentsReport(
       conditions.push(eq(units.floorId, filters.floorId));
     }
     if (filters.q && filters.q.trim()) {
-      const term = `%${filters.q.trim()}%`;
-      conditions.push(
-        or(
-          ilike(bookings.bookingNo, term),
-          ilike(units.unitCode, term),
-          ilike(clients.fullName, term),
-        )!,
-      );
+      const trimmed = filters.q.trim();
+      const term = `%${trimmed}%`;
+      const cleanDigits = trimmed.replace(/\D/g, "");
+      const digitTerm = cleanDigits ? `%${cleanDigits}%` : null;
+
+      const searchConditions = [
+        ilike(bookings.bookingNo, term),
+        ilike(units.unitCode, term),
+        ilike(clients.fullName, term),
+        ilike(clients.cnic, term),
+        ilike(clients.phone, term),
+      ];
+
+      if (digitTerm && cleanDigits.length >= 3) {
+        searchConditions.push(
+          sql`replace(${clients.cnic}, '-', '') ILIKE ${digitTerm}`,
+          sql`replace(${clients.phone}, '-', '') ILIKE ${digitTerm}`,
+        );
+      }
+
+      conditions.push(or(...searchConditions)!);
     }
 
     const rows = await db
@@ -995,8 +1059,11 @@ export async function getInstallmentsReport(
         bookingId: bookings.id,
         bookingNo: bookings.bookingNo,
         clientName: clients.fullName,
+        clientPhone: clients.phone,
         unitCode: units.unitCode,
         seq: installments.seq,
+        label: installments.label,
+        type: installments.type,
         dueDate: installments.dueDate,
         amount: installments.amount,
         paidAmount: installments.paidAmount,
@@ -1025,9 +1092,17 @@ export async function getInstallmentsReport(
       totalPaidPaisa += paidP;
       totalBalPaisa += balP;
 
-      if (r.dueDate < now && balP > 0n) {
+      const isLate = r.dueDate < now && balP > 0n;
+      let overdueDays: number | undefined = undefined;
+      if (isLate) {
         overduePaisa += balP;
         overdueCount++;
+        overdueDays = Math.max(
+          1,
+          Math.floor(
+            (now.getTime() - new Date(r.dueDate).getTime()) / (1000 * 60 * 60 * 24),
+          ),
+        );
       }
 
       return {
@@ -1035,14 +1110,18 @@ export async function getInstallmentsReport(
         bookingId: r.bookingId,
         bookingNo: r.bookingNo,
         clientName: r.clientName,
+        clientPhone: r.clientPhone,
         unitCode: r.unitCode,
         seq: r.seq,
+        label: r.label,
+        type: r.type,
         dueDate: r.dueDate,
         amount: r.amount,
         paid: r.paidAmount,
         balance: formatDecimal(balP),
         status: r.status,
         receiptNos: r.receiptNos,
+        overdueDays,
       };
     });
 

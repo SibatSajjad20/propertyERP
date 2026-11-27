@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   DownloadSimple,
   FileText,
@@ -11,33 +10,12 @@ import {
   Printer,
   UploadSimple,
 } from "@phosphor-icons/react";
-import { toast } from "sonner";
 import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { formatPkr } from "@/lib/money";
 import type { AgreementCandidate, AgreementListItem } from "../queries";
-import { createAgreement } from "../actions";
 
 interface AgreementsScreenProps {
   agreements: AgreementListItem[];
@@ -48,33 +26,10 @@ interface AgreementsScreenProps {
 
 export function AgreementsScreen({
   agreements: initialAgreements,
-  candidates,
-  preselectedBookingId,
-  preselectedSaleId,
+  candidates = [],
 }: AgreementsScreenProps) {
-  const router = useRouter();
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("ALL");
-
-  const [createOpen, setCreateOpen] = React.useState(
-    Boolean(preselectedBookingId || preselectedSaleId),
-  );
-  const [selectedCandidateKey, setSelectedCandidateKey] = React.useState(() => {
-    if (preselectedBookingId) return `BOOKING:${preselectedBookingId}`;
-    if (preselectedSaleId) return `SALE:${preselectedSaleId}`;
-    return "";
-  });
-  const [sellerName, setSellerName] = React.useState("Mr. Afnan Khan");
-  const [agreementDate, setAgreementDate] = React.useState(
-    new Date().toISOString().slice(0, 10),
-  );
-  const [completionDate, setCompletionDate] = React.useState("Feb-2029");
-  const [buyerNationality, setBuyerNationality] = React.useState("Pakistani");
-  const [nomineeNationality, setNomineeNationality] = React.useState("Pakistani");
-  const [witness1Name, setWitness1Name] = React.useState("");
-  const [witness2Name, setWitness2Name] = React.useState("");
-  const [notes, setNotes] = React.useState("");
-  const [creating, setCreating] = React.useState(false);
 
   const signedCount = initialAgreements.filter(
     (a) => a.status === "SIGNED_UPLOADED",
@@ -96,46 +51,17 @@ export function AgreementsScreen({
     });
   }, [initialAgreements, search, statusFilter]);
 
-  async function handleCreateAgreement(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedCandidateKey) {
-      toast.error("Please select a linked booking or sale record.");
-      return;
-    }
-    const [kind, id] = selectedCandidateKey.split(":");
-    setCreating(true);
-    try {
-      const created = await createAgreement({
-        bookingId: kind === "BOOKING" ? id : null,
-        saleId: kind === "SALE" ? id : null,
-        sellerName,
-        agreementDate,
-        anticipatedCompletionDate: completionDate,
-        buyerNationality,
-        nomineeNationality,
-        witness1Name: witness1Name || null,
-        witness2Name: witness2Name || null,
-        notes: notes || null,
-      });
-      toast.success(`Agreement ${created.agreementNo} created!`);
-      setCreateOpen(false);
-      router.push(`/agreements/${created.id}` as never);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create agreement");
-    } finally {
-      setCreating(false);
-    }
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-5">
       <PageHeader
         title="Agreements"
         description="Maintain customer-wise Sale & Purchase Agreements linked to bookings and units. View, download, print, and upload signed copies."
         actions={
-          <Button variant="primary" size="md" onClick={() => setCreateOpen(true)}>
-            <Plus weight="bold" className="mr-1.5 size-4" />
-            New Agreement
+          <Button variant="primary" size="md" asChild>
+            <Link href="/agreements/new">
+              <Plus weight="bold" className="mr-1.5 size-4" />
+              New Agreement
+            </Link>
           </Button>
         }
       />
@@ -334,134 +260,6 @@ export function AgreementsScreen({
           </table>
         </div>
       </div>
-
-      {/* Create Agreement Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText weight="light" className="size-5 text-primary" />
-              Create Sale &amp; Purchase Agreement
-            </DialogTitle>
-            <DialogDescription>
-              Link a booking or sold unit to automatically populate the official
-              SARDAR&apos;S MALL Sale &amp; Purchase Agreement, Schedule-A, and
-              Schedule-B.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateAgreement} className="space-y-4 py-2">
-            <div>
-              <Label className="mb-1 block text-[12px]">Linked Booking / Sale *</Label>
-              <Select
-                value={selectedCandidateKey}
-                onValueChange={setSelectedCandidateKey}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a booking or sold unit…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {candidates.map((c) => (
-                    <SelectItem key={`${c.kind}:${c.id}`} value={`${c.kind}:${c.id}`}>
-                      {c.unitDisplay} — {c.clientName} ({c.refNo} ·{" "}
-                      {formatPkr(c.totalPricePkr)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label className="mb-1 block text-[12px]">Seller / Vendor Name *</Label>
-                <Input
-                  value={sellerName}
-                  onChange={(e) => setSellerName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">Agreement Date *</Label>
-                <Input
-                  type="date"
-                  value={agreementDate}
-                  onChange={(e) => setAgreementDate(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">
-                  Anticipated Completion Date *
-                </Label>
-                <Input
-                  value={completionDate}
-                  onChange={(e) => setCompletionDate(e.target.value)}
-                  placeholder="e.g. Feb-2029"
-                  required
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">Buyer Nationality</Label>
-                <Input
-                  value={buyerNationality}
-                  onChange={(e) => setBuyerNationality(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">Nominee Nationality</Label>
-                <Input
-                  value={nomineeNationality}
-                  onChange={(e) => setNomineeNationality(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">Witness 1 Name</Label>
-                <Input
-                  value={witness1Name}
-                  onChange={(e) => setWitness1Name(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <Label className="mb-1 block text-[12px]">Witness 2 Name</Label>
-                <Input
-                  value={witness2Name}
-                  onChange={(e) => setWitness2Name(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className="mb-1 block text-[12px]">Internal Notes</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                placeholder="Optional notes regarding execution or stamp paper…"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setCreateOpen(false)}
-                disabled={creating}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={creating || !selectedCandidateKey}
-              >
-                {creating ? "Generating…" : "Create Agreement"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

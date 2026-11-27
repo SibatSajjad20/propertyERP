@@ -1,16 +1,32 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUUpLeft, FileText, Printer } from "@phosphor-icons/react";
+import {
+  ArrowUUpLeft,
+  DotsThree,
+  DownloadSimple,
+  FileText,
+  Printer,
+  Receipt,
+} from "@phosphor-icons/react";
 import { Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { StatStrip, StatCell } from "@/components/ui/stat-strip";
 import { Panel } from "@/components/ui/panel";
 import { DefinitionList, DefinitionRow } from "@/components/ui/definition-list";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -28,14 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr } from "@/lib/money";
 import { cn } from "@/lib/cn";
 import { toast } from "sonner";
 import type { UserRole, PaymentMethod } from "@/db/schema/enums";
 import { DocumentsSection } from "@/features/documents/components/documents-section";
-import { PdfDownloadBar } from "@/features/documents/components/pdf-download-bar";
-import { DownPaymentReceiptButton } from "@/features/documents/components/down-payment-receipt-button";
 import { buybackSale } from "../actions";
 import { calculateBuyback } from "../calculator";
 import { PrintableReceiptDialog } from "./printable-documents";
@@ -52,8 +67,14 @@ export function SoldDetailScreen({
   signatories = [],
 }: SoldDetailScreenProps) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = React.useState("overview");
   const [buybackOpen, setBuybackOpen] = React.useState(false);
   const [receiptOpen, setReceiptOpen] = React.useState(false);
+  const [downPaymentModalOpen, setDownPaymentModalOpen] = React.useState(false);
+  const [selectedSignatoryId, setSelectedSignatoryId] = React.useState(
+    signatories[0]?.id ?? "",
+  );
+  const [appendix, setAppendix] = React.useState(true);
 
   // Buyback form fields
   const [buybackAmount, setBuybackAmount] = React.useState("");
@@ -70,6 +91,8 @@ export function SoldDetailScreen({
   const clientId = isDirect ? data.data.clientId : data.data.booking.clientId;
   const kin = isDirect ? data.data.nextOfKin : data.data.nextOfKin;
   const documents = isDirect ? data.data.documents : data.data.documents;
+  const installments = !isDirect ? (data.data.installments ?? []) : [];
+  const payments = !isDirect ? (data.data.payments ?? []) : [];
 
   const originalPrice = isDirect ? item.salePrice : item.netPrice;
   const isBoughtBack = item.status === "BOUGHT_BACK" || Boolean(buybackRecord);
@@ -91,6 +114,21 @@ export function SoldDetailScreen({
   }, [originalPrice, buybackAmount]);
 
   const isAdmin = role === "ADMIN";
+
+  const targetId = isDirect ? data.data.id : data.data.booking.id;
+  const basePdfUrl = `/api/documents/sale/${targetId}/pdf`;
+  const pdfViewUrl = `${basePdfUrl}${appendix ? "?appendix=1" : ""}`;
+  const pdfDownloadUrl = `${basePdfUrl}?download=1${appendix ? "&appendix=1" : ""}`;
+  const downPaymentBaseUrl = isDirect
+    ? `/api/documents/sale/${data.data.id}/receipt.pdf`
+    : `/api/documents/booking/${data.data.booking.id}/receipt.pdf`;
+  const agreementUrl = isDirect
+    ? `/agreements/new?saleId=${data.data.id}`
+    : `/agreements/new?bookingId=${data.data.booking.id}`;
+
+  const hasPaymentReceipt = isDirect
+    ? true
+    : payments.some((p: { isVoided?: boolean }) => !p.isVoided);
 
   async function handleConfirmBuyback() {
     if (!buybackAmount || Number(buybackAmount) <= 0) {
@@ -128,6 +166,7 @@ export function SoldDetailScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-5 pb-16">
+      {/* Header bar designed identically to Booking Detail Screen */}
       <PageHeader
         back={{ href: "/sold", label: "Sold Units" }}
         idTitle={true}
@@ -137,67 +176,99 @@ export function SoldDetailScreen({
             {isBoughtBack ? "Bought Back (Available)" : "Sold"}
           </Pill>
         }
-        description={`Serial ${item.serialNo} · ${item.applicationFormNo} · ${item.registrationNo}`}
+        meta={[
+          `Serial #${item.serialNo}`,
+          item.applicationFormNo,
+          `Unit ${item.unitCode}`,
+          `Sold ${new Date(isDirect ? item.soldAt : item.createdAt).toLocaleDateString(
+            "en-GB",
+            {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            },
+          )}`,
+        ]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <PdfDownloadBar
-              href={`/api/documents/sale/${isDirect ? data.data.id : data.data.booking.id}/pdf`}
-              printLabel="Print"
-            />
-            <DownPaymentReceiptButton
-              href={
-                isDirect
-                  ? `/api/documents/sale/${data.data.id}/receipt.pdf`
-                  : `/api/documents/booking/${data.data.booking.id}/receipt.pdf`
-              }
-              signatories={signatories}
-              hasPayments={
-                isDirect
-                  ? true
-                  : (data.data.payments ?? []).some(
-                      (p: { isVoided?: boolean }) => !p.isVoided,
-                    )
-              }
-            />
-            <Button
-              variant="secondary"
-              size="md"
-              asChild
-              className="gap-1.5 text-[13px] font-medium"
-            >
-              <Link
-                href={
-                  (isDirect
-                    ? `/agreements?saleId=${data.data.id}`
-                    : `/agreements?bookingId=${data.data.booking.id}`) as never
-                }
-              >
-                <FileText weight="light" className="size-4" />
-                Agreement
-              </Link>
+          <div className="flex items-center gap-2">
+            {/* More dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="md" className="gap-1.5">
+                  <DotsThree weight="bold" className="size-4" />
+                  More
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <a href={pdfViewUrl} target="_blank" rel="noopener noreferrer">
+                    <Printer weight="light" className="mr-2 size-4 text-ink-muted" />
+                    Print
+                  </a>
+                </DropdownMenuItem>
+
+                <DropdownMenuCheckboxItem
+                  checked={appendix}
+                  onCheckedChange={setAppendix}
+                >
+                  Include CNIC appendix
+                </DropdownMenuCheckboxItem>
+
+                <DropdownMenuItem
+                  onClick={() => setDownPaymentModalOpen(true)}
+                  disabled={!hasPaymentReceipt}
+                >
+                  <Receipt weight="light" className="mr-2 size-4 text-ink-muted" />
+                  Down payment receipt
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link href={agreementUrl as never}>
+                    <FileText weight="light" className="mr-2 size-4 text-ink-muted" />
+                    Agreement
+                  </Link>
+                </DropdownMenuItem>
+
+                {buybackRecord && (
+                  <DropdownMenuItem onClick={() => setReceiptOpen(true)}>
+                    <Printer weight="light" className="mr-2 size-4 text-ink-muted" />
+                    Buyback Receipt
+                  </DropdownMenuItem>
+                )}
+
+                {!isBoughtBack && isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="danger"
+                      onClick={() => setBuybackOpen(true)}
+                    >
+                      <ArrowUUpLeft weight="light" className="mr-2 size-4 text-sold" />
+                      Unit Buyback
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Download PDF button */}
+            <Button variant="secondary" size="md" asChild className="gap-1.5">
+              <a href={pdfDownloadUrl} download>
+                <DownloadSimple weight="light" className="size-4" />
+                Download PDF
+              </a>
             </Button>
 
+            {/* Buyback button */}
             {!isBoughtBack && isAdmin && (
               <Button
                 variant="secondary"
                 size="md"
                 onClick={() => setBuybackOpen(true)}
-                className="gap-1.5 text-[13px] font-medium text-sold hover:bg-sold/10"
+                className="gap-1.5 text-sold hover:bg-sold/10"
               >
                 <ArrowUUpLeft weight="bold" className="size-4" />
                 Unit Buyback
-              </Button>
-            )}
-
-            {buybackRecord && (
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => setReceiptOpen(true)}
-                className="gap-1.5"
-              >
-                <Printer weight="light" className="size-4" />
-                Buyback Receipt
               </Button>
             )}
           </div>
@@ -209,7 +280,13 @@ export function SoldDetailScreen({
         <StatCell
           label="Realized Sale"
           value={formatPkr(originalPrice)}
-          subLine={`Sold on ${new Date(isDirect ? item.soldAt : item.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+          subLine={`Sold on ${new Date(
+            isDirect ? item.soldAt : item.createdAt,
+          ).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}`}
           valueClassName="text-sold"
         />
         <StatCell
@@ -226,101 +303,224 @@ export function SoldDetailScreen({
         />
       </StatStrip>
 
-      {/* Two-Column Buyer & Unit Definition Panels */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-        <Panel
-          title="Registered Buyer"
-          hint="Primary purchaser recorded in sales register"
-        >
-          <DefinitionList>
-            <DefinitionRow label="Full Name" value={item.clientName} />
-            <DefinitionRow label="National ID (CNIC)" value={item.clientCnic} />
-            <DefinitionRow label="Mobile Phone" value={item.clientPhone} />
-            <DefinitionRow label="Residential Address" value={item.homeAddress} />
-          </DefinitionList>
-        </Panel>
+      {/* Navigation Tabs matching Booking Detail Screen */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="border-b border-line">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          {installments.length > 0 && (
+            <TabsTrigger value="schedule">
+              Payment schedule ({installments.length})
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="documents">
+            Documents ({documents?.length ?? 0})
+          </TabsTrigger>
+        </TabsList>
 
-        <Panel
-          title="Property Unit"
-          hint="Physical commercial space specification"
-          actions={
-            <Link
-              href={`/units/${item.unitId}`}
-              className="unit-code font-sans text-[12px] font-semibold text-primary hover:underline"
+        {/* 1. Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+            <Panel
+              title="Property Unit"
+              hint="Physical commercial space specification"
+              actions={
+                <Link
+                  href={`/units/${item.unitId}`}
+                  className="unit-code font-sans text-[12px] font-semibold text-primary hover:underline"
+                >
+                  View Unit Details →
+                </Link>
+              }
             >
-              View Unit Details →
-            </Link>
-          }
-        >
-          <DefinitionList>
-            <DefinitionRow
-              label="Unit Code"
-              value={formatUnitDisplayCode(item.unitCode, item.categoryName)}
-            />
-            <DefinitionRow
-              label="Floor & Block"
-              value={`${item.floorName} · ${item.blockName}`}
-            />
-            <DefinitionRow label="Category" value={item.categoryName} />
-            <DefinitionRow
-              label="Gross Area"
-              value={`${effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft`}
-            />
-          </DefinitionList>
-        </Panel>
-      </div>
+              <DefinitionList>
+                <DefinitionRow
+                  label="Unit Code"
+                  value={formatUnitDisplayCode(item.unitCode, item.categoryName)}
+                />
+                <DefinitionRow
+                  label="Floor & Block"
+                  value={`${item.floorName} · ${item.blockName}`}
+                />
+                <DefinitionRow label="Category" value={item.categoryName} />
+                <DefinitionRow
+                  label="Gross Area"
+                  value={`${effectivePricingArea(item.grossAreaSqft, item.netAreaSqft)} sq ft`}
+                />
+              </DefinitionList>
+            </Panel>
 
-      {/* Official Buyback Record if present */}
-      {buybackRecord && (
-        <Panel
-          title="Official Buyback Record"
-          hint={`Approved by ${buybackRecord.approvedByName || "Admin"}`}
-        >
-          <div className="space-y-4">
-            <DefinitionList>
-              <DefinitionRow
-                label="Original Sale Price"
-                value={formatPkr(buybackRecord.originalPrice)}
-              />
-              <DefinitionRow
-                label="Buyback Amount Paid"
-                value={formatPkr(buybackRecord.buybackAmount)}
-              />
-              <DefinitionRow
-                label="Settlement Date"
-                value={new Date(buybackRecord.paidAt).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              />
-              <DefinitionRow
-                label="Settlement Method"
-                value={`${buybackRecord.method}${buybackRecord.bank ? ` (${buybackRecord.bank})` : ""}`}
-              />
-              <DefinitionRow
-                label="Approval Justification"
-                value={buybackRecord.reason}
-              />
-            </DefinitionList>
+            <Panel
+              title="Registered Buyer"
+              hint="Primary purchaser recorded in sales register"
+            >
+              <DefinitionList>
+                <DefinitionRow label="Full Name" value={item.clientName} />
+                <DefinitionRow label="National ID (CNIC)" value={item.clientCnic} />
+                <DefinitionRow label="Mobile Phone" value={item.clientPhone} />
+                <DefinitionRow label="Residential Address" value={item.homeAddress} />
+              </DefinitionList>
+            </Panel>
           </div>
-        </Panel>
-      )}
 
-      {/* Documents Section */}
-      <Panel title="Associated Documents" hint="Identity and ownership records">
-        <DocumentsSection
-          clientId={clientId}
-          kinId={kin?.id ?? null}
-          documents={documents ?? []}
-          initialUrls={isDirect ? data.data.signedUrls : data.data.signedUrls}
-          urlKey={isDirect ? data.data.id : data.data.booking.id}
-          role={role}
-          replacePermission="sales.create"
-        />
-      </Panel>
+          {/* Next of Kin if present */}
+          {kin && (
+            <Panel title="Nominee / Next of Kin" hint="Recorded beneficiary details">
+              <DefinitionList>
+                <DefinitionRow label="Full Name" value={kin.name} />
+                <DefinitionRow
+                  label="Relationship"
+                  value={`${kin.relationPrefix ?? "S/O"} ${kin.relationName ?? ""} (${kin.relation ?? "Nominee"})`}
+                />
+                <DefinitionRow label="CNIC" value={kin.cnic || "—"} />
+                <DefinitionRow label="Phone" value={kin.phone || "—"} />
+              </DefinitionList>
+            </Panel>
+          )}
 
-      {/* Buyback Dialog with Live Gain/Loss preview */}
+          {/* Official Buyback Record if present */}
+          {buybackRecord && (
+            <Panel
+              title="Official Buyback Record"
+              hint={`Approved by ${buybackRecord.approvedByName || "Admin"}`}
+            >
+              <DefinitionList>
+                <DefinitionRow
+                  label="Original Sale Price"
+                  value={formatPkr(buybackRecord.originalPrice)}
+                />
+                <DefinitionRow
+                  label="Buyback Amount Paid"
+                  value={formatPkr(buybackRecord.buybackAmount)}
+                />
+                <DefinitionRow
+                  label="Settlement Date"
+                  value={new Date(buybackRecord.paidAt).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                />
+                <DefinitionRow
+                  label="Settlement Method"
+                  value={`${buybackRecord.method}${buybackRecord.bank ? ` (${buybackRecord.bank})` : ""}`}
+                />
+                <DefinitionRow
+                  label="Approval Justification"
+                  value={buybackRecord.reason}
+                />
+              </DefinitionList>
+            </Panel>
+          )}
+        </TabsContent>
+
+        {/* 2. Schedule Tab (if booking has installments) */}
+        {installments.length > 0 && (
+          <TabsContent value="schedule" className="space-y-6">
+            <Panel
+              title="Completed Payment Schedule"
+              hint={`${installments.length} installments settled`}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-sans text-[12.5px]">
+                  <thead>
+                    <tr className="border-b border-line bg-subtle/40 text-[11px] font-semibold text-ink-muted uppercase">
+                      <th className="px-3 py-2 text-center">Seq</th>
+                      <th className="px-4 py-2">Due Date</th>
+                      <th className="px-4 py-2 text-right">Amount</th>
+                      <th className="px-4 py-2 text-right">Paid</th>
+                      <th className="px-4 py-2 text-right">Balance</th>
+                      <th className="px-4 py-2 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line/60">
+                    {installments.map((inst: any) => (
+                      <tr key={inst.id} className="hover:bg-[#F8FAFC]">
+                        <td className="px-3 py-2 text-center text-ink-muted tabular-nums">
+                          #{inst.seq}
+                        </td>
+                        <td className="px-4 py-2 tabular-nums">
+                          {new Date(inst.dueDate).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {formatPkr(inst.amount)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-available tabular-nums">
+                          {formatPkr(inst.paidAmount)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold tabular-nums">
+                          {formatPkr(inst.balance)}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <Pill tone="available" className="text-[10px]">
+                            {inst.status}
+                          </Pill>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          </TabsContent>
+        )}
+
+        {/* 3. Documents Tab */}
+        <TabsContent value="documents" className="space-y-6">
+          <DocumentsSection
+            clientId={clientId}
+            kinId={kin?.id ?? null}
+            documents={documents ?? []}
+            initialUrls={data.signedUrls ?? []}
+            urlKey={isDirect ? data.data.id : data.data.booking.id}
+            role={role}
+            replacePermission="sales.create"
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Down Payment Receipt Signatory Dialog */}
+      <Dialog open={downPaymentModalOpen} onOpenChange={setDownPaymentModalOpen}>
+        <DialogContent className="max-w-md rounded-[16px]">
+          <DialogHeader>
+            <DialogTitle>Download down payment receipt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label className="mb-1 block text-[12px]">Authorized signatory</Label>
+            <Select value={selectedSignatoryId} onValueChange={setSelectedSignatoryId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select signatory" />
+              </SelectTrigger>
+              <SelectContent>
+                {signatories.map((sig) => (
+                  <SelectItem key={sig.id} value={sig.id}>
+                    {sig.name} ({sig.designation})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDownPaymentModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" asChild>
+              <a
+                href={`${downPaymentBaseUrl}${selectedSignatoryId ? `?signatoryId=${selectedSignatoryId}` : ""}`}
+                download
+                onClick={() => setDownPaymentModalOpen(false)}
+              >
+                Download PDF
+              </a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Buyback Dialog with Live Gain/Loss preview & DatePicker */}
       <Dialog open={buybackOpen} onOpenChange={setBuybackOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -423,11 +623,7 @@ export function SoldDetailScreen({
               </div>
               <div>
                 <Label className="text-[12px]">Settlement Date</Label>
-                <Input
-                  type="date"
-                  value={paidAt}
-                  onChange={(e) => setPaidAt(e.target.value)}
-                />
+                <DatePicker value={paidAt} onChange={(val) => setPaidAt(val)} />
               </div>
             </div>
 

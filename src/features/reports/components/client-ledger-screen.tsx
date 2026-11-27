@@ -14,6 +14,7 @@ import {
   FileText,
   CurrencyDollar,
   ArrowRight,
+  Warning,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { Pill } from "@/components/ui/badge";
@@ -24,12 +25,14 @@ import { DefinitionList, DefinitionRow } from "@/components/ui/definition-list";
 import { cn } from "@/lib/cn";
 import { formatPkr } from "@/lib/money";
 import { reportPresets, type ReportPreset } from "../schema";
-import type { ClientLedgerReportData } from "../queries";
+import type { ClientLedgerReportData, ClientLedgerScheduleRow } from "../queries";
+import { OverdueNoticeDialog } from "./overdue-notice-dialog";
 
 export interface ClientLedgerScreenProps {
   ledgerData: ClientLedgerReportData | null;
   searchedClients: Array<{ id: string; fullName: string; cnic: string; phone: string }>;
   currentClientId?: string;
+  currentUserName?: string | null;
 }
 
 const PRESET_LABELS: Record<ReportPreset, string> = {
@@ -103,6 +106,7 @@ function ClientLedgerScreenInner({
   ledgerData,
   searchedClients,
   currentClientId,
+  currentUserName,
 }: ClientLedgerScreenProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -110,6 +114,14 @@ function ClientLedgerScreenInner({
 
   const currentPreset = (searchParams.get("preset") as ReportPreset) || "all";
   const [searchVal, setSearchVal] = React.useState(searchParams.get("q") || "");
+  const [noticeDialogOpen, setNoticeDialogOpen] = React.useState(false);
+  const [selectedNoticeRow, setSelectedNoticeRow] =
+    React.useState<ClientLedgerScheduleRow | null>(null);
+
+  function handleOpenNotice(row: ClientLedgerScheduleRow | null) {
+    setSelectedNoticeRow(row);
+    setNoticeDialogOpen(true);
+  }
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -170,6 +182,12 @@ function ClientLedgerScreenInner({
   const paidPercent =
     finalTotalDue > 0 ? Math.round((finalTotalPaid / finalTotalDue) * 100) : 0;
 
+  const hasOverdueRows = scheduleRows.some(
+    (r) =>
+      r.status?.toUpperCase() === "OVERDUE" ||
+      (r.status?.toUpperCase() !== "PAID" && r.seq > 0),
+  );
+
   return (
     <div className="flex flex-col gap-6 select-none print:p-0">
       {/* Screen Page Header */}
@@ -180,6 +198,17 @@ function ClientLedgerScreenInner({
           actions={
             ledgerData ? (
               <div className="flex items-center gap-2">
+                {hasOverdueRows && (
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() => handleOpenNotice(null)}
+                    className="gap-1.5 border-sold/30 text-sold hover:bg-sold/10 hover:text-sold"
+                  >
+                    <Warning weight="bold" className="size-4 text-sold" />
+                    <span>Overdue Notice</span>
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="md"
@@ -267,7 +296,7 @@ function ClientLedgerScreenInner({
                   key={c.id}
                   type="button"
                   onClick={() => handleSelectClient(c.id)}
-                  className="flex cursor-pointer flex-col rounded-[8px] border border-line bg-subtle/40 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft"
+                  className="flex cursor-pointer flex-col rounded-[8px] border border-border bg-surface p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft"
                 >
                   <span className="text-[13px] font-medium text-ink">{c.fullName}</span>
                   <span className="font-sans text-[11px] text-ink-muted tabular-nums">
@@ -295,117 +324,7 @@ function ClientLedgerScreenInner({
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          {/* Period Presets Filter (screen only) */}
-          <div className="flex items-center gap-2 print:hidden">
-            <span className="text-[12px] font-medium text-ink-muted">
-              Statement Period:
-            </span>
-            {reportPresets.map((preset) => {
-              const active = currentPreset === preset;
-              return (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handlePresetChange(preset)}
-                  className={cn(
-                    "cursor-pointer rounded-[6px] px-2.5 py-1 text-[12px] font-medium transition-colors",
-                    active
-                      ? "bg-primary text-white"
-                      : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
-                  )}
-                >
-                  {PRESET_LABELS[preset]}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 4-Cell StatStrip */}
-          <StatStrip columns={4}>
-            <StatCell
-              label="Total Contract Due"
-              value={formatPkr(finalTotalDue.toFixed(0))}
-              subLine="total scheduled contract amount"
-            />
-            <StatCell
-              label="Total Paid"
-              value={formatPkr(finalTotalPaid.toFixed(0))}
-              subLine={`${paidPercent}% settled`}
-              progress={paidPercent}
-              valueClassName="text-available"
-            />
-            <StatCell
-              label="Remaining Balance"
-              value={formatPkr(finalTotalBalanceDue.toFixed(0))}
-              subLine="outstanding receivable"
-              valueClassName="text-primary"
-            />
-            <StatCell
-              label="Surcharge / Overdue"
-              value={formatPkr(financials?.surchargeAmount || "0.00")}
-              subLine="penalty / late surcharge"
-              valueClassName={
-                financials?.surchargeAmount && Number(financials.surchargeAmount) > 0
-                  ? "text-sold"
-                  : undefined
-              }
-            />
-          </StatStrip>
-
-          {/* Client & Next of Kin Panels */}
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-            <Panel title="Client Credentials" hint="Registered primary buyer">
-              <DefinitionList>
-                <DefinitionRow
-                  label="Full Name"
-                  value={`${ledgerData.client.title ? `${ledgerData.client.title} ` : ""}${ledgerData.client.fullName}`}
-                />
-                <DefinitionRow
-                  label="Relation Name"
-                  value={
-                    ledgerData.client.relationPrefix && ledgerData.client.relationName
-                      ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
-                      : ledgerData.client.relationName || "—"
-                  }
-                />
-                <DefinitionRow label="CNIC" value={ledgerData.client.cnic} />
-                <DefinitionRow label="Phone" value={ledgerData.client.phone} />
-                <DefinitionRow label="Email" value={ledgerData.client.email || "—"} />
-                <DefinitionRow
-                  label="Present Address"
-                  value={ledgerData.client.homeAddress}
-                />
-                <DefinitionRow
-                  label="Permanent Address"
-                  value={ledgerData.client.postalAddress || ledgerData.client.homeAddress}
-                />
-              </DefinitionList>
-            </Panel>
-
-            <Panel title="Nominee / Next of Kin Details" hint="Legal successor nominee">
-              {ledgerData.nextOfKin ? (
-                <DefinitionList>
-                  <DefinitionRow label="Nominee Name" value={ledgerData.nextOfKin.name} />
-                  <DefinitionRow label="Relation" value={ledgerData.nextOfKin.relation} />
-                  <DefinitionRow
-                    label="Nominee CNIC"
-                    value={ledgerData.nextOfKin.cnic || "—"}
-                  />
-                  <DefinitionRow label="Phone" value={ledgerData.nextOfKin.phone} />
-                  <DefinitionRow
-                    label="Address"
-                    value={ledgerData.nextOfKin.address || "—"}
-                  />
-                </DefinitionList>
-              ) : (
-                <p className="text-[12px] text-ink-muted">
-                  No nominee / next of kin recorded for this client.
-                </p>
-              )}
-            </Panel>
-          </div>
-
-          {/* Associated Units Header / Switcher */}
+          {/* Associated Units Header / Switcher (Positioned at TOP of count cards) */}
           <div className="card rounded-[12px] p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -437,7 +356,7 @@ function ClientLedgerScreenInner({
                         "flex cursor-pointer items-center gap-2.5 rounded-[8px] border px-3 py-1.5 text-left transition-all",
                         isSelected
                           ? "border-primary bg-primary-soft shadow-xs ring-2 ring-primary/30"
-                          : "border-line bg-subtle/50 hover:border-primary/40 hover:bg-subtle/80",
+                          : "border-border bg-surface text-ink hover:border-primary/40 hover:bg-[#F1F3F6]",
                       )}
                     >
                       <span className="unit-code text-[12px] font-semibold text-ink">
@@ -469,60 +388,247 @@ function ClientLedgerScreenInner({
 
           {/* If Unit Selection is Mandatory and Not Yet Picked */}
           {ledgerData.requiresUnitSelection ? (
-            <div className="card rounded-[12px] border-2 border-primary/40 bg-primary/5 p-6 text-center">
-              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Buildings weight="light" className="size-6" />
-              </div>
-              <h3 className="mt-3 text-[16px] font-semibold text-ink">
-                Unit Selection Required
-              </h3>
-              <p className="mx-auto mt-1 max-w-lg text-[13px] text-ink-muted">
-                This client owns {ledgerData.units.length} booked / sold units. Please
-                select a unit below to generate its official allotment ledger statement
-                and Schedule-B payment plan.
-              </p>
-              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {ledgerData.units.map((u) => (
-                  <button
-                    key={u.unitId}
-                    type="button"
-                    onClick={() => handleSelectUnit(u.unitId)}
-                    className="group flex cursor-pointer flex-col rounded-[10px] border border-line bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="unit-code text-[14px] font-bold text-ink group-hover:text-primary">
-                        {u.unitCode}
+            <>
+              <div className="card rounded-[12px] border-2 border-primary/40 bg-primary/5 p-6 text-center">
+                <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Buildings weight="light" className="size-6" />
+                </div>
+                <h3 className="mt-3 text-[16px] font-semibold text-ink">
+                  Unit Selection Required
+                </h3>
+                <p className="mx-auto mt-1 max-w-lg text-[13px] text-ink-muted">
+                  This client owns {ledgerData.units.length} booked / sold units. Please
+                  select an associated unit above to generate its official allotment
+                  ledger statement, financial summary, and Schedule-B payment plan.
+                </p>
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {ledgerData.units.map((u) => (
+                    <button
+                      key={u.unitId}
+                      type="button"
+                      onClick={() => handleSelectUnit(u.unitId)}
+                      className="group flex cursor-pointer flex-col rounded-[10px] border border-border bg-surface p-4 text-left transition-all hover:border-primary hover:shadow-md"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="unit-code text-[14px] font-bold text-ink group-hover:text-primary">
+                          {u.unitCode}
+                        </span>
+                        <Pill
+                          tone={
+                            u.relationType === "SOLD"
+                              ? "sold"
+                              : u.relationType === "BOOKED"
+                                ? "primary"
+                                : u.relationType === "RESERVED"
+                                  ? "accent"
+                                  : "muted"
+                          }
+                        >
+                          {u.relationType}
+                        </Pill>
+                      </div>
+                      <span className="mt-1 text-[12px] text-ink-muted">
+                        {u.floorName} {u.categoryName ? `• ${u.categoryName}` : ""}
                       </span>
-                      <Pill
-                        tone={
-                          u.relationType === "SOLD"
-                            ? "sold"
-                            : u.relationType === "BOOKED"
-                              ? "primary"
-                              : u.relationType === "RESERVED"
-                                ? "accent"
-                                : "muted"
-                        }
-                      >
-                        {u.relationType}
-                      </Pill>
-                    </div>
-                    <span className="mt-1 text-[12px] text-ink-muted">
-                      {u.floorName} {u.categoryName ? `• ${u.categoryName}` : ""}
-                    </span>
-                    <span className="mt-2 text-[14px] font-semibold text-ink tabular-nums">
-                      {formatPkr(u.amountPkr)}
-                    </span>
-                    <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary group-hover:underline">
-                      <span>Select Unit &amp; View Schedule</span>
-                      <ArrowRight weight="bold" className="size-3" />
-                    </span>
-                  </button>
-                ))}
+                      <span className="mt-2 text-[14px] font-semibold text-ink tabular-nums">
+                        {formatPkr(u.amountPkr)}
+                      </span>
+                      <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary group-hover:underline">
+                        <span>Select Unit &amp; View Schedule</span>
+                        <ArrowRight weight="bold" className="size-3" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              {/* Client & Next of Kin Panels (Visible when unit is pending selection) */}
+              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+                <Panel title="Client Credentials" hint="Registered primary buyer">
+                  <DefinitionList>
+                    <DefinitionRow
+                      label="Full Name"
+                      value={`${ledgerData.client.title ? `${ledgerData.client.title} ` : ""}${ledgerData.client.fullName}`}
+                    />
+                    <DefinitionRow
+                      label="Relation Name"
+                      value={
+                        ledgerData.client.relationPrefix && ledgerData.client.relationName
+                          ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
+                          : ledgerData.client.relationName || "—"
+                      }
+                    />
+                    <DefinitionRow label="CNIC" value={ledgerData.client.cnic} />
+                    <DefinitionRow label="Phone" value={ledgerData.client.phone} />
+                    <DefinitionRow label="Email" value={ledgerData.client.email || "—"} />
+                    <DefinitionRow
+                      label="Present Address"
+                      value={ledgerData.client.homeAddress}
+                    />
+                    <DefinitionRow
+                      label="Permanent Address"
+                      value={
+                        ledgerData.client.postalAddress || ledgerData.client.homeAddress
+                      }
+                    />
+                  </DefinitionList>
+                </Panel>
+
+                <Panel
+                  title="Nominee / Next of Kin Details"
+                  hint="Legal successor nominee"
+                >
+                  {ledgerData.nextOfKin ? (
+                    <DefinitionList>
+                      <DefinitionRow
+                        label="Nominee Name"
+                        value={ledgerData.nextOfKin.name}
+                      />
+                      <DefinitionRow
+                        label="Relation"
+                        value={ledgerData.nextOfKin.relation}
+                      />
+                      <DefinitionRow
+                        label="Nominee CNIC"
+                        value={ledgerData.nextOfKin.cnic || "—"}
+                      />
+                      <DefinitionRow label="Phone" value={ledgerData.nextOfKin.phone} />
+                      <DefinitionRow
+                        label="Address"
+                        value={ledgerData.nextOfKin.address || "—"}
+                      />
+                    </DefinitionList>
+                  ) : (
+                    <p className="text-[12px] text-ink-muted">
+                      No nominee / next of kin recorded for this client.
+                    </p>
+                  )}
+                </Panel>
+              </div>
+            </>
           ) : (
             <>
+              {/* 4-Cell StatStrip (Count Cards shown once unit is selected) */}
+              <StatStrip columns={4}>
+                <StatCell
+                  label="Total Contract Due"
+                  value={formatPkr(finalTotalDue.toFixed(0))}
+                  subLine="total scheduled contract amount"
+                />
+                <StatCell
+                  label="Total Paid"
+                  value={formatPkr(finalTotalPaid.toFixed(0))}
+                  subLine={`${paidPercent}% settled`}
+                  progress={paidPercent}
+                  valueClassName="text-available"
+                />
+                <StatCell
+                  label="Remaining Balance"
+                  value={formatPkr(finalTotalBalanceDue.toFixed(0))}
+                  subLine="outstanding receivable"
+                  valueClassName="text-primary"
+                />
+                <StatCell
+                  label="Surcharge / Overdue"
+                  value={formatPkr(financials?.surchargeAmount || "0.00")}
+                  subLine="penalty / late surcharge"
+                  valueClassName={
+                    financials?.surchargeAmount && Number(financials.surchargeAmount) > 0
+                      ? "text-sold"
+                      : undefined
+                  }
+                />
+              </StatStrip>
+
+              {/* Client & Next of Kin Panels */}
+              <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+                <Panel title="Client Credentials" hint="Registered primary buyer">
+                  <DefinitionList>
+                    <DefinitionRow
+                      label="Full Name"
+                      value={`${ledgerData.client.title ? `${ledgerData.client.title} ` : ""}${ledgerData.client.fullName}`}
+                    />
+                    <DefinitionRow
+                      label="Relation Name"
+                      value={
+                        ledgerData.client.relationPrefix && ledgerData.client.relationName
+                          ? `${ledgerData.client.relationPrefix} ${ledgerData.client.relationName}`
+                          : ledgerData.client.relationName || "—"
+                      }
+                    />
+                    <DefinitionRow label="CNIC" value={ledgerData.client.cnic} />
+                    <DefinitionRow label="Phone" value={ledgerData.client.phone} />
+                    <DefinitionRow label="Email" value={ledgerData.client.email || "—"} />
+                    <DefinitionRow
+                      label="Present Address"
+                      value={ledgerData.client.homeAddress}
+                    />
+                    <DefinitionRow
+                      label="Permanent Address"
+                      value={
+                        ledgerData.client.postalAddress || ledgerData.client.homeAddress
+                      }
+                    />
+                  </DefinitionList>
+                </Panel>
+
+                <Panel
+                  title="Nominee / Next of Kin Details"
+                  hint="Legal successor nominee"
+                >
+                  {ledgerData.nextOfKin ? (
+                    <DefinitionList>
+                      <DefinitionRow
+                        label="Nominee Name"
+                        value={ledgerData.nextOfKin.name}
+                      />
+                      <DefinitionRow
+                        label="Relation"
+                        value={ledgerData.nextOfKin.relation}
+                      />
+                      <DefinitionRow
+                        label="Nominee CNIC"
+                        value={ledgerData.nextOfKin.cnic || "—"}
+                      />
+                      <DefinitionRow label="Phone" value={ledgerData.nextOfKin.phone} />
+                      <DefinitionRow
+                        label="Address"
+                        value={ledgerData.nextOfKin.address || "—"}
+                      />
+                    </DefinitionList>
+                  ) : (
+                    <p className="text-[12px] text-ink-muted">
+                      No nominee / next of kin recorded for this client.
+                    </p>
+                  )}
+                </Panel>
+              </div>
+
+              {/* Period Presets Filter (screen only) */}
+              <div className="flex items-center gap-2 print:hidden">
+                <span className="text-[12px] font-medium text-ink-muted">
+                  Statement Period:
+                </span>
+                {reportPresets.map((preset) => {
+                  const active = currentPreset === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handlePresetChange(preset)}
+                      className={cn(
+                        "cursor-pointer rounded-[6px] px-2.5 py-1 text-[12px] font-medium transition-colors",
+                        active
+                          ? "bg-primary text-white shadow-xs"
+                          : "border border-border bg-surface text-ink-muted hover:border-line-strong hover:bg-[#F1F3F6] hover:text-ink",
+                      )}
+                    >
+                      {PRESET_LABELS[preset]}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* File Details & Financial Details Side-by-Side */}
               <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
                 <Panel title="File Details" hint="Property allotment specifications">
@@ -671,13 +777,14 @@ function ClientLedgerScreenInner({
                         <th className="px-3 text-center font-medium">Receipt No</th>
                         <th className="px-3 text-right font-medium">Surcharge</th>
                         <th className="px-3 text-center font-medium">Status</th>
+                        <th className="px-3 text-center font-medium">Notice</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
                       {rowsWithBalance.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={10}
+                            colSpan={11}
                             className="px-4 py-6 text-center text-ink-muted"
                           >
                             No installment schedule found for this unit.
@@ -755,6 +862,21 @@ function ClientLedgerScreenInner({
                                   {row.status?.toUpperCase() || "PENDING"}
                                 </Pill>
                               </td>
+                              <td className="px-3 py-2 text-center">
+                                {isOverdue || (!isPaid && row.seq > 0) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenNotice(row)}
+                                    title="Issue Overdue Installment Payment Reminder Notice"
+                                    className="inline-flex cursor-pointer items-center gap-1 rounded-[5px] border border-sold/30 bg-sold/5 px-2 py-0.5 text-[11px] font-medium text-sold transition-colors hover:bg-sold hover:text-white"
+                                  >
+                                    <Warning weight="bold" className="size-3" />
+                                    <span>Notice</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] text-ink-muted">—</span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })
@@ -781,6 +903,7 @@ function ClientLedgerScreenInner({
                         <td className="px-3 py-2 text-center text-ink-muted">—</td>
                         <td className="px-3 py-2 text-right text-ink-muted">—</td>
                         <td className="px-3 py-2 text-center text-ink-muted">—</td>
+                        <td className="px-3 py-2 text-center text-ink-muted">—</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -798,6 +921,16 @@ function ClientLedgerScreenInner({
             </>
           )}
         </div>
+      )}
+
+      {ledgerData && (
+        <OverdueNoticeDialog
+          open={noticeDialogOpen}
+          onOpenChange={setNoticeDialogOpen}
+          ledgerData={ledgerData}
+          initialInstallment={selectedNoticeRow}
+          currentUserName={currentUserName}
+        />
       )}
     </div>
   );

@@ -153,9 +153,11 @@ export function legalPdfPlainText(props: {
 function PageFooter({
   applicationFormNo,
   unitCode,
+  printDate,
 }: {
   applicationFormNo: string;
   unitCode: string;
+  printDate?: Date | string;
 }) {
   return (
     <View style={pdfStyles.footer} fixed>
@@ -163,6 +165,7 @@ function PageFooter({
         render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
       />
       <Text>{`${applicationFormNo} • Unit ${unitCode}`}</Text>
+      <Text>{`Print Date: ${dateLabel(printDate || new Date())}`}</Text>
       <Text>{COMPANY_LEGAL_NAME}</Text>
     </View>
   );
@@ -267,40 +270,49 @@ export function FormalFormPdf(props: FormPdfProps) {
       <Page size="A4" style={pdfStyles.page}>
         {/* Header */}
         <View style={pdfStyles.headerRow}>
-          <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-start" }}>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "flex-start",
+              marginRight: 10,
+            }}
+          >
             <Image src={SARDARS_MALL_MARK_DATA_URL} style={pdfStyles.brandLogo} />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={pdfStyles.company}>SARDAR'S MALL</Text>
               <Text style={pdfStyles.subtitle}>
                 A Premier Project by {COMPANY_LEGAL_NAME}
               </Text>
               <Text style={pdfStyles.title}>{title}</Text>
+              <View style={pdfStyles.headerMetaBox}>
+                <View style={pdfStyles.headerMetaItem}>
+                  <Text style={pdfStyles.headerMetaLabel}>Serial No</Text>
+                  <Text style={pdfStyles.headerMetaValue}>{String(props.serialNo)}</Text>
+                </View>
+                <View style={pdfStyles.headerMetaItem}>
+                  <Text style={pdfStyles.headerMetaLabel}>Application Form No</Text>
+                  <Text style={pdfStyles.headerMetaValue}>{props.applicationFormNo}</Text>
+                </View>
+                <View style={pdfStyles.headerMetaItem}>
+                  <Text style={pdfStyles.headerMetaLabel}>Registration No</Text>
+                  <Text style={pdfStyles.headerMetaValue}>{props.registrationNo}</Text>
+                </View>
+                <View style={pdfStyles.headerMetaItem}>
+                  <Text style={pdfStyles.headerMetaLabel}>
+                    {props.kind === "sale" ? "Sale Date" : "Booking Date"}
+                  </Text>
+                  <Text style={pdfStyles.headerMetaValue}>{dateLabel(props.date)}</Text>
+                </View>
+              </View>
             </View>
           </View>
-          <View style={pdfStyles.photoPair}>
-            <View style={pdfStyles.metaBlock}>
-              <Text style={pdfStyles.metaLabel}>Serial No</Text>
-              <Text style={pdfStyles.metaValue}>{String(props.serialNo)}</Text>
-              <Text style={pdfStyles.metaLabel}>Application Form No</Text>
-              <Text style={pdfStyles.metaValue}>{props.applicationFormNo}</Text>
-              <Text style={pdfStyles.metaLabel}>Registration No</Text>
-              <Text style={pdfStyles.metaValue}>{props.registrationNo}</Text>
-              <Text style={pdfStyles.metaLabel}>
-                {props.kind === "sale" ? "Sale Date" : "Booking Date"}
-              </Text>
-              <Text style={pdfStyles.metaValue}>{dateLabel(props.date)}</Text>
-              <Text style={pdfStyles.metaLabel}>Print Date</Text>
-              <Text style={pdfStyles.metaValue}>
-                {dateLabel(props.printDate || new Date())}
-              </Text>
-            </View>
-            <PhotoBox
-              image={props.photo}
-              styleBox={pdfStyles.photoBox}
-              styleImage={pdfStyles.photo}
-              placeholder="AFFIX PASSPORT PHOTOGRAPH"
-            />
-          </View>
+          <PhotoBox
+            image={props.photo}
+            styleBox={pdfStyles.photoBox}
+            styleImage={pdfStyles.photo}
+            placeholder="AFFIX PASSPORT PHOTOGRAPH"
+          />
         </View>
 
         {/* Section 1: Unit Specifications & Pricing */}
@@ -394,40 +406,20 @@ export function FormalFormPdf(props: FormPdfProps) {
           </View>
           <View style={pdfStyles.cardBody}>
             <View style={pdfStyles.fieldRow}>
-              <GridField
-                label="Full Name"
-                value={props.client.name}
-                style={{ flex: 1.2 }}
-              />
+              <GridField label="Full Name" value={props.client.name} />
               <GridField
                 label={`Father / Husband (${relationLabel})`}
                 value={props.client.relationName ?? ""}
-                style={{ flex: 1.1 }}
               />
-              <GridField
-                label="CNIC Number"
-                value={props.client.cnic}
-                isMono
-                style={{ flex: 1 }}
-              />
+              <GridField label="CNIC Number" value={props.client.cnic} isMono />
             </View>
             <View style={pdfStyles.fieldRow}>
-              <GridField
-                label="Mobile Contact"
-                value={props.client.phone}
-                isMono
-                style={{ flex: 1 }}
-              />
+              <GridField label="Mobile Contact" value={props.client.phone} isMono />
               <GridField
                 label="Office / Secondary Phone"
                 value={props.client.phoneOffice || props.client.mobile2 || "—"}
-                style={{ flex: 1 }}
               />
-              <GridField
-                label="Email Address"
-                value={props.client.email ?? ""}
-                style={{ flex: 1.2 }}
-              />
+              <GridField label="Email Address" value={props.client.email ?? ""} />
             </View>
             <View style={[pdfStyles.fieldRow, { marginBottom: 0 }]}>
               <GridField
@@ -438,7 +430,7 @@ export function FormalFormPdf(props: FormPdfProps) {
               <GridField
                 label="Postal / Mailing Address"
                 value={props.client.postalAddress || props.client.address}
-                style={{ flex: 1 }}
+                style={{ flex: 2 }}
               />
             </View>
           </View>
@@ -458,39 +450,26 @@ export function FormalFormPdf(props: FormPdfProps) {
             >
               <View style={{ flex: 1 }}>
                 <View style={pdfStyles.fieldRow}>
-                  <GridField
-                    label="Nominee Name"
-                    value={props.nextOfKin.name}
-                    style={{ flex: 1.2 }}
-                  />
+                  <GridField label="Nominee Name" value={props.nextOfKin.name} />
                   <GridField
                     label={`Relation / Prefix (${props.nextOfKin.relationPrefix || "S/O"})`}
                     value={props.nextOfKin.relationName ?? ""}
-                    style={{ flex: 1.1 }}
                   />
                   <GridField
                     label="Relationship"
                     value={props.nextOfKin.relation ?? ""}
-                    style={{ flex: 1 }}
                   />
                 </View>
                 <View style={[pdfStyles.fieldRow, { marginBottom: 0 }]}>
-                  <GridField
-                    label="Nominee CNIC"
-                    value={props.nextOfKin.cnic}
-                    isMono
-                    style={{ flex: 1 }}
-                  />
+                  <GridField label="Nominee CNIC" value={props.nextOfKin.cnic} isMono />
                   <GridField
                     label="Contact Number"
                     value={props.nextOfKin.phone}
                     isMono
-                    style={{ flex: 1 }}
                   />
                   <GridField
                     label="Nominee Address"
                     value={props.nextOfKin.address ?? "Same as applicant"}
-                    style={{ flex: 1.2 }}
                   />
                 </View>
               </View>
@@ -584,6 +563,7 @@ export function FormalFormPdf(props: FormPdfProps) {
         <PageFooter
           applicationFormNo={props.applicationFormNo}
           unitCode={props.unit.unitCode}
+          printDate={props.printDate}
         />
       </Page>
 
@@ -606,10 +586,6 @@ export function FormalFormPdf(props: FormPdfProps) {
               <Text style={pdfStyles.metaValue}>{props.unit.unitCode}</Text>
               <Text style={pdfStyles.metaLabel}>Client Name</Text>
               <Text style={pdfStyles.metaValue}>{props.client.name}</Text>
-              <Text style={pdfStyles.metaLabel}>Print Date</Text>
-              <Text style={pdfStyles.metaValue}>
-                {dateLabel(props.printDate || new Date())}
-              </Text>
             </View>
           </View>
 
@@ -644,7 +620,7 @@ export function FormalFormPdf(props: FormPdfProps) {
               </Text>
             </View>
             <View style={pdfStyles.kpiCard}>
-              <Text style={pdfStyles.kpiLabel}>Scheduled Balance</Text>
+              <Text style={pdfStyles.kpiLabel}>Balance Due</Text>
               <Text style={pdfStyles.kpiValue}>{formatPkr(balanceNum.toFixed(2))}</Text>
             </View>
             <View style={pdfStyles.kpiCard}>
@@ -824,6 +800,7 @@ export function FormalFormPdf(props: FormPdfProps) {
           <PageFooter
             applicationFormNo={props.applicationFormNo}
             unitCode={props.unit.unitCode}
+            printDate={props.printDate}
           />
         </Page>
       ) : null}
@@ -956,6 +933,7 @@ export function FormalFormPdf(props: FormPdfProps) {
         <PageFooter
           applicationFormNo={props.applicationFormNo}
           unitCode={props.unit.unitCode}
+          printDate={props.printDate}
         />
       </Page>
 
@@ -1015,6 +993,7 @@ export function FormalFormPdf(props: FormPdfProps) {
           <PageFooter
             applicationFormNo={props.applicationFormNo}
             unitCode={props.unit.unitCode}
+            printDate={props.printDate}
           />
         </Page>
       ) : null}

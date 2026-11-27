@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
 import { FormSection } from "@/components/ui/form-section";
-import { Pill, StatusDot } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { saveCompanySettings } from "../actions";
 
 type SignatoryDraft = {
@@ -201,13 +201,9 @@ export function CompanySettingsScreen({
                           title="Click to toggle active status"
                         >
                           {row.isActive ? (
-                            <Pill tone="ok">
-                              <StatusDot status="AVAILABLE">Active</StatusDot>
-                            </Pill>
+                            <Pill tone="ok">Active</Pill>
                           ) : (
-                            <Pill tone="muted">
-                              <StatusDot status="PENDING">Inactive</StatusDot>
-                            </Pill>
+                            <Pill tone="muted">Inactive</Pill>
                           )}
                         </button>
                       </td>

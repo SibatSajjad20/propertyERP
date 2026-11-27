@@ -50,6 +50,7 @@ export default async function ClientLedgerPage({
       ledgerData={ledgerData}
       searchedClients={searchedClients}
       currentClientId={clientId}
+      currentUserName={session.user.name}
     />
   );
 }

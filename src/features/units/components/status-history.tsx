@@ -1,3 +1,4 @@
+import { cn } from "@/lib/cn";
 import { formatKarachiDateTime } from "@/lib/datetime";
 import { formatPkrLedger } from "@/lib/money";
 import { UnitStatusBadge } from "@/components/ui/unit-status-badge";
@@ -5,6 +6,7 @@ import type { StatusHistoryEntry } from "../types";
 
 type StatusHistoryProps = {
   entries: StatusHistoryEntry[];
+  className?: string;
 };
 
 function formatStatusLabel(status: string): string {
@@ -22,13 +24,13 @@ function formatStatusLabel(status: string): string {
   }
 }
 
-export function StatusHistory({ entries }: StatusHistoryProps) {
+export function StatusHistory({ entries, className }: StatusHistoryProps) {
   return (
-    <div className="mt-4 pt-2">
+    <div className={cn("pt-1", className)}>
       {entries.length === 0 ? (
-        <p className="py-2 text-[13px] text-ink-muted">No status changes recorded yet.</p>
+        <p className="py-4 text-[13px] text-ink-muted">No status changes recorded yet.</p>
       ) : (
-        <ol className="relative ml-2 space-y-0 border-l border-line">
+        <ol className="relative ml-2 space-y-0 border-l border-line pt-2">
           {entries.map((entry) => (
             <li key={entry.id} className="relative pb-6 pl-5 last:pb-1">
               <span
@@ -65,7 +67,7 @@ export function StatusHistory({ entries }: StatusHistoryProps) {
               {entry.bookingRef ? (
                 <p className="mt-1 text-[12px] text-ink-muted">
                   Booking ref{" "}
-                  <span className="unit-code font-sans tabular-nums font-medium text-ink">
+                  <span className="unit-code font-mono font-medium text-ink tabular-nums">
                     {entry.bookingRef}
                   </span>
                 </p>

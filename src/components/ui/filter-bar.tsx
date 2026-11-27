@@ -75,8 +75,10 @@ export function FilterChip({
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex w-full cursor-pointer items-center justify-between rounded-[4px] px-2 py-1.5 text-left text-[13px] transition-colors outline-none select-none hover:bg-subtle focus:bg-subtle",
-                    selected ? "bg-subtle/60 font-medium text-ink" : "text-ink-muted",
+                    "flex w-full cursor-pointer items-center justify-between rounded-[4px] px-2 py-1.5 text-left text-[13px] transition-colors outline-none select-none hover:bg-[#F1F3F6] focus:bg-[#F1F3F6]",
+                    selected
+                      ? "bg-primary-soft font-medium text-primary"
+                      : "text-ink-muted",
                   )}
                 >
                   <span className="truncate">{option.name || placeholder}</span>

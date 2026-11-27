@@ -46,6 +46,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import {
@@ -62,6 +63,7 @@ import { toast } from "sonner";
 import type { UserRole, PaymentMethod, DocumentType } from "@/db/schema/enums";
 import { recordPayment, returnBooking } from "../actions";
 import { allocatePayment, calculateRefund } from "../calculator";
+import { getPaymentAllocationLabel } from "@/features/installments/calculator";
 import {
   calculateInstallmentSurcharge,
   summarizeBookingSurcharges,
@@ -873,17 +875,24 @@ export function BookingDetailScreen({
                         className={cn(
                           "transition-colors",
                           isOverdue && "bg-sold/5 text-sold",
-                          !isOverdue && "hover:bg-subtle/30",
+                          !isOverdue && "hover:bg-[#F8FAFC]",
                         )}
                       >
                         <td className="px-5 py-2.5 font-medium">
-                          <div className="flex items-center gap-2">
-                            <span>{inst.label || `Installment ${inst.seq}`}</span>
-                            {inst.type === "BALLOON" && (
-                              <Badge tone="accent">Balloon</Badge>
-                            )}
-                            {inst.type === "POSSESSION" && (
-                              <Badge tone="primary">Possession</Badge>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span>{inst.label || `Installment ${inst.seq}`}</span>
+                              {inst.type === "BALLOON" && (
+                                <Badge tone="accent">Balloon</Badge>
+                              )}
+                              {inst.type === "POSSESSION" && (
+                                <Badge tone="primary">Possession</Badge>
+                              )}
+                            </div>
+                            {inst.receiptNos && (
+                              <span className="text-[11px] font-normal text-ink-muted">
+                                Paid via Receipt: {inst.receiptNos}
+                              </span>
                             )}
                           </div>
                         </td>
@@ -975,6 +984,7 @@ export function BookingDetailScreen({
                 <thead className="border-b border-line bg-surface text-ink-muted select-none">
                   <tr>
                     <th className="px-5 py-2.5 font-medium">Receipt No</th>
+                    <th className="px-5 py-2.5 font-medium">Paid For</th>
                     <th className="px-5 py-2.5 font-medium">Date</th>
                     <th className="px-5 py-2.5 text-right font-medium">Amount</th>
                     <th className="px-5 py-2.5 font-medium">Method</th>
@@ -985,15 +995,28 @@ export function BookingDetailScreen({
                 <tbody className="divide-y divide-line/60">
                   {payments.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-6 text-center text-ink-muted">
+                      <td colSpan={7} className="p-6 text-center text-ink-muted">
                         No payments recorded yet.
                       </td>
                     </tr>
                   ) : (
                     payments.map((p: any) => (
-                      <tr key={p.id} className="hover:bg-subtle/30">
+                      <tr key={p.id} className="hover:bg-[#F8FAFC]">
                         <td className="px-5 py-2.5 font-sans font-semibold text-primary tabular-nums">
                           {p.receiptNo}
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <Badge
+                            tone={
+                              p.category === "DOWN_PAYMENT"
+                                ? "primary"
+                                : p.category === "SURCHARGE"
+                                  ? "sold"
+                                  : "neutral"
+                            }
+                          >
+                            {getPaymentAllocationLabel(p, installments)}
+                          </Badge>
                         </td>
                         <td className="px-5 py-2.5 font-sans text-ink tabular-nums">
                           {new Date(p.paidAt).toLocaleDateString("en-GB", {
@@ -1017,25 +1040,43 @@ export function BookingDetailScreen({
                           {p.receivedByName || "Cashier"}
                         </td>
                         <td className="px-5 py-2.5 text-right">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() =>
-                              setActiveReceipt({
-                                ...p,
-                                clientName: booking.clientName,
-                                clientCnic: booking.clientCnic,
-                                clientPhone: booking.clientPhone,
-                                unitCode: booking.unitCode,
-                                bookingNo: booking.bookingNo,
-                                amountPkr: p.amount,
-                              })
-                            }
-                            className="gap-1"
-                          >
-                            <Printer weight="light" className="size-3.5" />
-                            Receipt
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                window.open(
+                                  `/api/documents/payment/${p.id}/pdf`,
+                                  "_blank",
+                                )
+                              }
+                              className="gap-1 text-[12px]"
+                              title="Open PDF Receipt"
+                            >
+                              <FileText weight="light" className="size-3.5" />
+                              <span>PDF</span>
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                setActiveReceipt({
+                                  ...p,
+                                  id: p.id,
+                                  clientName: booking.clientName,
+                                  clientCnic: booking.clientCnic,
+                                  clientPhone: booking.clientPhone,
+                                  unitCode: booking.unitCode,
+                                  bookingNo: booking.bookingNo,
+                                  amountPkr: p.amount,
+                                })
+                              }
+                              className="gap-1 text-[12px]"
+                            >
+                              <Printer weight="light" className="size-3.5" />
+                              <span>Receipt</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1232,23 +1273,26 @@ export function BookingDetailScreen({
                 <Label htmlFor="pay-dt" className="text-[12px]">
                   Payment Date
                 </Label>
-                <Input
-                  id="pay-dt"
-                  type="date"
-                  value={paidAt}
-                  onChange={(e) => setPaidAt(e.target.value)}
-                />
+                <div className="mt-1">
+                  <DatePicker
+                    id="pay-dt"
+                    value={paidAt}
+                    onChange={(val) => setPaidAt(val)}
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="pay-notes" className="text-[12px]">
                   Notes
                 </Label>
-                <Input
-                  id="pay-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional remark"
-                />
+                <div className="mt-1">
+                  <Input
+                    id="pay-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Optional remark"
+                  />
+                </div>
               </div>
             </div>
 

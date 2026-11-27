@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MoneyInput } from "@/components/ui/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -172,13 +173,9 @@ export function RecordPaymentDialog({
               <label className="text-[11px] font-medium text-ink-muted uppercase">
                 Payment Date *
               </label>
-              <input
-                type="date"
-                value={paidAt}
-                onChange={(e) => setPaidAt(e.target.value)}
-                className="mt-1 h-9 w-full rounded-[6px] border border-line bg-surface px-3 text-[13px] text-ink focus:outline-primary"
-                required
-              />
+              <div className="mt-1">
+                <DatePicker value={paidAt} onChange={(val) => setPaidAt(val)} />
+              </div>
             </div>
           </div>
 
@@ -303,7 +300,9 @@ export function RecordPaymentDialog({
                     key={alloc.installmentId}
                     className="flex items-center justify-between rounded-[4px] border border-line/60 bg-surface p-1.5 text-[11px]"
                   >
-                    <span className="font-sans tabular-nums text-ink">Inst #{alloc.seq}</span>
+                    <span className="font-sans text-ink tabular-nums">
+                      Inst #{alloc.seq}
+                    </span>
                     <span className="text-ink-muted tabular-nums">
                       +Rs {alloc.allocatedPkr}
                     </span>

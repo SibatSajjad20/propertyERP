@@ -12,7 +12,9 @@ import {
   Printer,
   User,
   ArrowRight,
+  ArrowLeft,
   X,
+  FileText,
 } from "@phosphor-icons/react";
 import { PageHeader } from "@/components/page-header";
 import { StatStrip, StatCell } from "@/components/ui/stat-strip";
@@ -21,9 +23,10 @@ import { Badge, Pill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/cn";
-import { formatPkr } from "@/lib/money";
+import { formatPkr, formatDecimal, parseDecimal } from "@/lib/money";
 import type { UserRole } from "@/db/schema/enums";
 import type { ClientProfileWithBookings, DueThisWeekSummary } from "../queries";
+import { getPaymentAllocationLabel } from "../calculator";
 import { getClientProfileAction, searchClientsAction } from "../actions";
 import { DueThisWeekCard } from "./due-this-week-card";
 import { EditPaymentDialog, type EditPaymentDialogProps } from "./edit-payment-dialog";
@@ -118,6 +121,53 @@ export function InstallmentsScreen({
       null
     );
   }, [clientProfile, selectedBookingId]);
+
+  // Financial status for current booking (due this week & overdue)
+  const { bookingDueThisWeek, bookingOverdueCount } = React.useMemo(() => {
+    if (!currentBooking) {
+      return {
+        bookingDueThisWeek: { count: 0, amountPaisa: 0n },
+        bookingOverdueCount: 0,
+      };
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const endOfWeek = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+
+    let dueWeekCount = 0;
+    let dueWeekPaisa = 0n;
+    let overdueInstCount = 0;
+
+    for (const inst of currentBooking.schedule) {
+      const balPaisa = parseDecimal(inst.balance);
+      if (balPaisa > 0n) {
+        const dueDate = new Date(inst.dueDate);
+        if (dueDate < now) {
+          overdueInstCount++;
+        } else if (dueDate >= startOfToday && dueDate <= endOfWeek) {
+          dueWeekCount++;
+          dueWeekPaisa += balPaisa;
+        }
+      }
+    }
+
+    return {
+      bookingDueThisWeek: {
+        count: dueWeekCount,
+        amountPaisa: dueWeekPaisa,
+      },
+      bookingOverdueCount: overdueInstCount,
+    };
+  }, [currentBooking]);
 
   function handleSearchInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
@@ -215,7 +265,7 @@ export function InstallmentsScreen({
                   key={result.id}
                   type="button"
                   onClick={() => handleSelectClient(result.id)}
-                  className="flex cursor-pointer items-center justify-between rounded-[6px] p-2 text-left transition-colors hover:bg-subtle"
+                  className="flex cursor-pointer items-center justify-between rounded-[6px] p-2 text-left transition-colors hover:bg-[#F1F3F6]"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -249,54 +299,100 @@ export function InstallmentsScreen({
         )}
       </Panel>
 
-      {/* When NO Client is selected: show Due This Week full width */}
+      {/* When NO Client is selected: show Due This Week summary cards & table full width */}
       {!selectedClientId && (
-        <DueThisWeekCard
-          summary={initialSummary}
-          onSelectBooking={handleQuickDueBookingSelect}
-        />
+        <div className="space-y-6">
+          <StatStrip columns="1fr 1fr 1fr" className="mb-0">
+            <StatCell
+              label="DUE THIS WEEK"
+              value={formatPkr(initialSummary.dueThisWeekPkr)}
+              valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+              subLine={`${initialSummary.dueThisWeekCount} installment${initialSummary.dueThisWeekCount === 1 ? "" : "s"} due within 7 days`}
+            />
+            <StatCell
+              label="OVERDUE"
+              value={
+                initialSummary.overdueCount > 0 ? (
+                  <span className="font-semibold text-sold">
+                    {formatPkr(initialSummary.overduePkr)}
+                  </span>
+                ) : (
+                  <span className="text-available">Up to date</span>
+                )
+              }
+              valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+              subLine={
+                initialSummary.overdueCount > 0
+                  ? `${initialSummary.overdueCount} account${initialSummary.overdueCount === 1 ? "" : "s"} needing follow-up`
+                  : "No overdue accounts"
+              }
+            />
+            <StatCell
+              label="ACTIVE FOLLOW-UPS"
+              value={String(initialSummary.rows.length)}
+              valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+              subLine="Total schedules requiring action"
+            />
+          </StatStrip>
+
+          <DueThisWeekCard
+            summary={initialSummary}
+            onSelectBooking={handleQuickDueBookingSelect}
+          />
+        </div>
       )}
 
-      {/* When Client IS selected: 2-column layout */}
+      {/* When Client IS selected: full-width layout */}
       {selectedClientId && clientProfile && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Main Column (8 cols): Client details, Bookings, Schedule & Payments */}
-          <div className="space-y-6 lg:col-span-8">
-            {/* Client Header Card */}
-            <Panel className="p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-white">
-                    {clientProfile.client.fullName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join("")}
+        <div className="space-y-6">
+          {/* Client Header Card */}
+          <Panel className="p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-white">
+                  {clientProfile.client.fullName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join("")}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[16px] font-bold text-ink">
+                      {clientProfile.client.fullName}
+                    </h2>
+                    <span className="font-sans text-[12px] text-ink-muted tabular-nums">
+                      CNIC: {clientProfile.client.cnic}
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[16px] font-bold text-ink">
-                        {clientProfile.client.fullName}
-                      </h2>
-                      <span className="font-sans text-[12px] text-ink-muted tabular-nums">
-                        CNIC: {clientProfile.client.cnic}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[12px] text-ink-muted">
-                      <span>
-                        Phone:{" "}
-                        <strong className="text-ink tabular-nums">
-                          {clientProfile.client.phone}
-                        </strong>
-                      </span>
-                      <span>·</span>
-                      <span>{clientProfile.client.homeAddress}</span>
-                    </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[12px] text-ink-muted">
+                    <span>
+                      Phone:{" "}
+                      <strong className="text-ink tabular-nums">
+                        {clientProfile.client.phone}
+                      </strong>
+                    </span>
+                    <span>·</span>
+                    <span>{clientProfile.client.homeAddress}</span>
                   </div>
                 </div>
+              </div>
 
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedClientId(null);
+                    setSearchVal("");
+                  }}
+                  className="gap-1.5 text-[12px] text-ink-muted hover:text-ink"
+                >
+                  <ArrowLeft weight="bold" className="size-3.5" />
+                  <span>View all due</span>
+                </Button>
                 {currentBooking && (
-                  <div className="flex items-center gap-2">
+                  <>
                     {userRole === "ADMIN" && (
                       <Button
                         variant="secondary"
@@ -317,337 +413,400 @@ export function InstallmentsScreen({
                       <Coins weight="bold" className="size-3.5" />
                       Record payment
                     </Button>
-                  </div>
+                  </>
                 )}
               </div>
-            </Panel>
+            </div>
+          </Panel>
 
-            {/* Bookings Selector Tabs if multiple */}
-            {clientProfile.bookings.length > 1 && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                <span className="text-[12px] font-medium text-ink-muted">Bookings:</span>
-                {clientProfile.bookings.map((b) => {
-                  const active = b.id === currentBooking?.id;
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => setSelectedBookingId(b.id)}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-[6px] px-3 py-1.5 text-[12px] font-medium transition-colors",
-                        active
-                          ? "bg-primary text-white"
-                          : "bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink",
-                      )}
-                    >
-                      <span className="unit-code font-sans tabular-nums">
-                        {b.unit.unitCode}
+          {/* Bookings Selector Tabs if multiple */}
+          {clientProfile.bookings.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="text-[12px] font-medium text-ink-muted">Bookings:</span>
+              {clientProfile.bookings.map((b) => {
+                const active = b.id === currentBooking?.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => setSelectedBookingId(b.id)}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-[6px] px-3 py-1.5 text-[12px] font-medium transition-colors",
+                      active
+                        ? "bg-primary text-white shadow-xs"
+                        : "border border-border bg-surface text-ink-muted hover:border-line-strong hover:bg-[#F1F3F6] hover:text-ink",
+                    )}
+                  >
+                    <span className="unit-code font-sans tabular-nums">
+                      {b.unit.unitCode}
+                    </span>
+                    <span className="font-sans tabular-nums">({b.bookingNo})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Booking Overview & Tables */}
+          {currentBooking ? (
+            <div className="space-y-6">
+              {/* 5-Cell StatStrip with Due This Week & Overdue mentioned within */}
+              <StatStrip columns="1.05fr 1.05fr 1.15fr 1.1fr 1.05fr" className="mb-0">
+                <StatCell
+                  label="CONTRACT PRICE"
+                  value={formatPkr(currentBooking.netPrice)}
+                  valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+                  subLine={`Unit ${currentBooking.unit.unitCode} · ${currentBooking.unit.floorName}`}
+                />
+                <StatCell
+                  label="TOTAL PAID"
+                  value={formatPkr(currentBooking.paidTotal)}
+                  valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+                  subLine={`${currentBooking.paidPercent}% paid`}
+                  progress={Number(currentBooking.paidPercent) || 0}
+                />
+                <StatCell
+                  label="REMAINING"
+                  value={formatPkr(currentBooking.balance)}
+                  valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+                  subLine={`Plan: ${currentBooking.plan.toLowerCase()}`}
+                />
+                <StatCell
+                  label="DUE THIS WEEK"
+                  valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+                  value={
+                    bookingDueThisWeek.count > 0 ? (
+                      <span className="text-accent font-semibold">
+                        {formatPkr(formatDecimal(bookingDueThisWeek.amountPaisa))}
                       </span>
-                      <span className="font-sans tabular-nums">({b.bookingNo})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                    ) : (
+                      <span className="text-available">None this week</span>
+                    )
+                  }
+                  subLine={
+                    bookingDueThisWeek.count > 0
+                      ? `${bookingDueThisWeek.count} installment${bookingDueThisWeek.count > 1 ? "s" : ""} due`
+                      : currentBooking.nextDueDate
+                        ? `Next due: ${new Date(
+                            currentBooking.nextDueDate,
+                          ).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}`
+                        : "Fully settled"
+                  }
+                />
+                <StatCell
+                  label="OVERDUE"
+                  valueClassName="text-[19px] sm:text-[21px] xl:text-[23px]"
+                  value={
+                    currentBooking.overdueAmount !== "0.00" ? (
+                      <span className="font-semibold text-sold">
+                        {formatPkr(currentBooking.overdueAmount)}
+                      </span>
+                    ) : (
+                      <span className="text-available">Up to date</span>
+                    )
+                  }
+                  subLine={
+                    currentBooking.overdueAmount !== "0.00"
+                      ? `${bookingOverdueCount} installment${bookingOverdueCount > 1 ? "s" : ""} past due`
+                      : "All current"
+                  }
+                />
+              </StatStrip>
 
-            {/* Booking Overview & Tables */}
-            {currentBooking ? (
-              <div className="space-y-6">
-                {/* 4-Cell Mini StatStrip */}
-                <StatStrip columns={4}>
-                  <StatCell
-                    label="CONTRACT PRICE"
-                    value={formatPkr(currentBooking.netPrice)}
-                    subLine={`Unit ${currentBooking.unit.unitCode}`}
-                  />
-                  <StatCell
-                    label="TOTAL PAID"
-                    value={formatPkr(currentBooking.paidTotal)}
-                    subLine={`${currentBooking.paidPercent}% paid`}
-                    progress={Number(currentBooking.paidPercent) || 0}
-                  />
-                  <StatCell
-                    label="REMAINING"
-                    value={formatPkr(currentBooking.balance)}
-                    subLine={`Plan: ${currentBooking.plan.toLowerCase()}`}
-                  />
-                  <StatCell
-                    label="OVERDUE"
-                    value={
-                      currentBooking.overdueAmount !== "0.00" ? (
-                        <span className="text-sold">
-                          {formatPkr(currentBooking.overdueAmount)}
-                        </span>
-                      ) : (
-                        <span className="text-available">Up to date</span>
-                      )
-                    }
-                    subLine={
-                      currentBooking.overdueAmount !== "0.00"
-                        ? "Past due balance"
-                        : "All current"
-                    }
-                  />
-                </StatStrip>
+              {/* Schedule & Payment History Tabs */}
+              <Tabs defaultValue="schedule" className="w-full space-y-4">
+                <div className="flex items-center justify-between border-b border-line">
+                  <TabsList>
+                    <TabsTrigger value="schedule">
+                      Installment Schedule ({currentBooking.schedule.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="payments">
+                      Payment History ({currentBooking.payments.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleOpenPdf}
+                    className="gap-1.5 text-[12px] text-ink-muted"
+                  >
+                    <Printer weight="light" className="size-3.5" />
+                    Print / PDF
+                  </Button>
+                </div>
 
-                {/* Schedule & Payment History Tabs */}
-                <Tabs defaultValue="schedule" className="w-full space-y-4">
-                  <div className="flex items-center justify-between border-b border-line">
-                    <TabsList>
-                      <TabsTrigger value="schedule">
-                        Installment Schedule ({currentBooking.schedule.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="payments">
-                        Payment History ({currentBooking.payments.length})
-                      </TabsTrigger>
-                    </TabsList>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleOpenPdf}
-                      className="gap-1.5 text-[12px] text-ink-muted"
-                    >
-                      <Printer weight="light" className="size-3.5" />
-                      Print / PDF
-                    </Button>
-                  </div>
-
-                  {/* Schedule Table Tab */}
-                  <TabsContent value="schedule" className="m-0">
-                    <Panel className="overflow-hidden p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left font-sans text-[12.5px]">
-                          <thead>
-                            <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
-                              <th className="w-12 px-3 text-center font-medium">Seq</th>
-                              <th className="px-4 font-medium">Due Date</th>
-                              <th className="px-4 text-right font-medium">Amount</th>
-                              <th className="px-4 text-right font-medium">Paid</th>
-                              <th className="px-4 text-right font-medium">Balance</th>
-                              <th className="px-4 font-medium">Receipt #</th>
-                              <th className="px-4 text-center font-medium">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-line/60">
-                            {currentBooking.schedule.map((inst) => {
-                              const isOverdue = inst.status === "OVERDUE";
-                              return (
-                                <tr
-                                  key={inst.id}
-                                  className={cn(
-                                    "h-[44px] transition-colors hover:bg-subtle/30",
-                                    isOverdue && "bg-sold/5",
-                                  )}
-                                >
-                                  <td className="px-3 text-center text-ink-muted tabular-nums">
-                                    #{inst.seq}
-                                  </td>
-                                  <td className="px-4 tabular-nums">
-                                    <span
-                                      className={
-                                        isOverdue ? "font-semibold text-sold" : "text-ink"
-                                      }
-                                    >
-                                      {new Date(inst.dueDate).toLocaleDateString(
-                                        "en-GB",
-                                        {
-                                          day: "2-digit",
-                                          month: "short",
-                                          year: "numeric",
-                                        },
-                                      )}
+                {/* Schedule Table Tab */}
+                <TabsContent value="schedule" className="m-0">
+                  <Panel className="overflow-hidden p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left font-sans text-[12.5px]">
+                        <thead>
+                          <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
+                            <th className="w-40 px-4 font-medium">Payment Item</th>
+                            <th className="px-4 font-medium">Due Date</th>
+                            <th className="px-4 text-right font-medium">Amount</th>
+                            <th className="px-4 text-right font-medium">Paid</th>
+                            <th className="px-4 text-right font-medium">Balance</th>
+                            <th className="px-4 font-medium">Receipt #</th>
+                            <th className="px-4 text-center font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line/60">
+                          {currentBooking.schedule.map((inst) => {
+                            const isOverdue = inst.status === "OVERDUE";
+                            return (
+                              <tr
+                                key={inst.id}
+                                className={cn(
+                                  "h-[44px] transition-colors hover:bg-[#F8FAFC]",
+                                  isOverdue && "bg-sold/5",
+                                )}
+                              >
+                                <td className="px-4 tabular-nums">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-ink">
+                                      {inst.label ||
+                                        (inst.type === "BALLOON"
+                                          ? `Balloon #${inst.seq}`
+                                          : inst.type === "POSSESSION"
+                                            ? "Possession"
+                                            : `Installment #${inst.seq}`)}
                                     </span>
-                                  </td>
-                                  <td className="px-4 text-right text-ink tabular-nums">
-                                    {formatPkr(inst.amount)}
-                                  </td>
-                                  <td className="px-4 text-right font-medium text-available tabular-nums">
-                                    {formatPkr(inst.paidAmount)}
-                                  </td>
-                                  <td className="px-4 text-right font-semibold text-ink tabular-nums">
-                                    {formatPkr(inst.balance)}
-                                  </td>
-                                  <td className="px-4 text-[11px] text-primary tabular-nums">
-                                    {inst.receiptNos || "—"}
-                                  </td>
-                                  <td className="px-4 text-center">
-                                    <Badge
-                                      tone={
-                                        inst.status === "PAID"
-                                          ? "available"
-                                          : inst.status === "PARTIAL"
-                                            ? "accent"
-                                            : inst.status === "OVERDUE"
-                                              ? "sold"
-                                              : "muted"
-                                      }
-                                    >
-                                      {inst.status}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Panel>
-                  </TabsContent>
-
-                  {/* Payment History Tab */}
-                  <TabsContent value="payments" className="m-0">
-                    <Panel className="overflow-hidden p-0">
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left font-sans text-[12.5px]">
-                          <thead>
-                            <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
-                              <th className="px-4 font-medium">Receipt #</th>
-                              <th className="px-3 font-medium">Payment Date</th>
-                              <th className="px-3 text-right font-medium">Amount</th>
-                              <th className="px-3 font-medium">Method</th>
-                              <th className="px-3 font-medium">Cheque / Bank</th>
-                              <th className="px-3 font-medium">Notes</th>
-                              <th className="px-3 text-center font-medium">Status</th>
-                              <th className="px-4 text-right font-medium">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-line/60">
-                            {currentBooking.payments.length === 0 ? (
-                              <tr>
-                                <td
-                                  colSpan={8}
-                                  className="p-8 text-center text-ink-muted"
-                                >
-                                  No payments recorded yet.
+                                    {inst.type === "BALLOON" && (
+                                      <Badge tone="accent">Balloon</Badge>
+                                    )}
+                                    {inst.type === "POSSESSION" && (
+                                      <Badge tone="primary">Possession</Badge>
+                                    )}
+                                  </div>
                                 </td>
-                              </tr>
-                            ) : (
-                              currentBooking.payments.map((p) => (
-                                <tr
-                                  key={p.id}
-                                  className={cn(
-                                    "h-[44px] transition-colors hover:bg-subtle/30",
-                                    p.isVoided && "bg-sold/5 opacity-60",
-                                  )}
-                                >
-                                  <td className="px-4 text-[11px] font-bold text-primary tabular-nums">
-                                    {p.receiptNo}
-                                  </td>
-                                  <td className="px-3 text-ink tabular-nums">
-                                    {new Date(p.paidAt).toLocaleDateString("en-GB", {
+                                <td className="px-4 tabular-nums">
+                                  <span
+                                    className={
+                                      isOverdue ? "font-semibold text-sold" : "text-ink"
+                                    }
+                                  >
+                                    {new Date(inst.dueDate).toLocaleDateString("en-GB", {
                                       day: "2-digit",
                                       month: "short",
                                       year: "numeric",
                                     })}
-                                  </td>
-                                  <td className="px-3 text-right font-semibold text-available tabular-nums">
-                                    {formatPkr(p.amount)}
-                                  </td>
-                                  <td className="px-3 text-ink">
-                                    {p.method.replaceAll("_", " ")}
-                                  </td>
-                                  <td className="px-3 text-ink-muted">
-                                    {p.bank && `${p.bank}`}
-                                    {p.chequeNo && ` (#${p.chequeNo})`}
-                                    {!p.bank && !p.chequeNo && "—"}
-                                  </td>
-                                  <td className="max-w-[160px] truncate px-3 text-ink-muted italic">
-                                    {p.notes || "—"}
-                                  </td>
-                                  <td className="px-3 text-center">
-                                    {p.isVoided ? (
-                                      <Badge tone="sold">VOIDED</Badge>
-                                    ) : (
-                                      <Badge tone="available">VALID</Badge>
+                                  </span>
+                                </td>
+                                <td className="px-4 text-right text-ink tabular-nums">
+                                  {formatPkr(inst.amount)}
+                                </td>
+                                <td className="px-4 text-right font-medium text-available tabular-nums">
+                                  {formatPkr(inst.paidAmount)}
+                                </td>
+                                <td className="px-4 text-right font-semibold text-ink tabular-nums">
+                                  {formatPkr(inst.balance)}
+                                </td>
+                                <td className="px-4 text-[11px] text-primary tabular-nums">
+                                  {inst.receiptNos || "—"}
+                                </td>
+                                <td className="px-4 text-center">
+                                  <Badge
+                                    tone={
+                                      inst.status === "PAID"
+                                        ? "available"
+                                        : inst.status === "PARTIAL"
+                                          ? "accent"
+                                          : inst.status === "OVERDUE"
+                                            ? "sold"
+                                            : "muted"
+                                    }
+                                  >
+                                    {inst.status}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Panel>
+                </TabsContent>
+
+                {/* Payment History Tab */}
+                <TabsContent value="payments" className="m-0">
+                  <Panel className="overflow-hidden p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left font-sans text-[12.5px]">
+                        <thead>
+                          <tr className="h-[38px] border-b border-line bg-[#FAFBFC] text-[11px] font-medium text-ink-muted uppercase">
+                            <th className="px-4 font-medium">Receipt #</th>
+                            <th className="px-3 font-medium">Paid For</th>
+                            <th className="px-3 font-medium">Payment Date</th>
+                            <th className="px-3 text-right font-medium">Amount</th>
+                            <th className="px-3 font-medium">Method</th>
+                            <th className="px-3 font-medium">Cheque / Bank</th>
+                            <th className="px-3 font-medium">Notes</th>
+                            <th className="px-3 text-center font-medium">Status</th>
+                            <th className="px-4 text-right font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line/60">
+                          {currentBooking.payments.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-ink-muted">
+                                No payments recorded yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            currentBooking.payments.map((p) => (
+                              <tr
+                                key={p.id}
+                                className={cn(
+                                  "h-[44px] transition-colors hover:bg-[#F8FAFC]",
+                                  p.isVoided && "bg-sold/5 opacity-60",
+                                )}
+                              >
+                                <td className="px-4 text-[11px] font-bold text-primary tabular-nums">
+                                  {p.receiptNo}
+                                </td>
+                                <td className="px-3">
+                                  <Badge
+                                    tone={
+                                      p.category === "DOWN_PAYMENT"
+                                        ? "primary"
+                                        : p.category === "SURCHARGE"
+                                          ? "sold"
+                                          : "neutral"
+                                    }
+                                  >
+                                    {getPaymentAllocationLabel(
+                                      p,
+                                      currentBooking.schedule,
                                     )}
-                                  </td>
-                                  <td className="px-4 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setActiveReceipt({
-                                            receiptNo: p.receiptNo,
-                                            paidAt: p.paidAt,
-                                            amountPkr: p.amount,
-                                            method: p.method,
-                                            chequeNo: p.chequeNo,
-                                            bank: p.bank,
-                                            notes: p.notes,
-                                            clientName: clientProfile.client.fullName,
-                                            clientCnic: clientProfile.client.cnic,
-                                            clientPhone: clientProfile.client.phone,
-                                            bookingNo: currentBooking.bookingNo,
-                                            unitCode: currentBooking.unit.unitCode,
-                                            floorName: currentBooking.unit.floorName,
-                                            receivedByName: p.receiverName,
-                                          });
-                                          setReceiptModalOpen(true);
-                                        }}
-                                        className="h-7 px-2 text-[11px]"
-                                        title="Print Receipt"
-                                      >
-                                        <Printer weight="light" className="size-3.5" />
-                                      </Button>
+                                  </Badge>
+                                </td>
+                                <td className="px-3 text-ink tabular-nums">
+                                  {new Date(p.paidAt).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </td>
+                                <td className="px-3 text-right font-semibold text-available tabular-nums">
+                                  {formatPkr(p.amount)}
+                                </td>
+                                <td className="px-3 text-ink">
+                                  {p.method.replaceAll("_", " ")}
+                                </td>
+                                <td className="px-3 text-ink-muted">
+                                  {p.bank && `${p.bank}`}
+                                  {p.chequeNo && ` (#${p.chequeNo})`}
+                                  {!p.bank && !p.chequeNo && "—"}
+                                </td>
+                                <td className="max-w-[160px] truncate px-3 text-ink-muted italic">
+                                  {p.notes || "—"}
+                                </td>
+                                <td className="px-3 text-center">
+                                  {p.isVoided ? (
+                                    <Badge tone="sold">VOIDED</Badge>
+                                  ) : (
+                                    <Badge tone="available">VALID</Badge>
+                                  )}
+                                </td>
+                                <td className="px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        window.open(
+                                          `/api/documents/payment/${p.id}/pdf`,
+                                          "_blank",
+                                        )
+                                      }
+                                      className="h-7 px-2 text-[11px]"
+                                      title="Open PDF Receipt"
+                                    >
+                                      <FileText
+                                        weight="light"
+                                        className="size-3.5 text-primary"
+                                      />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setActiveReceipt({
+                                          id: p.id,
+                                          receiptNo: p.receiptNo,
+                                          paidAt: p.paidAt,
+                                          amountPkr: p.amount,
+                                          method: p.method,
+                                          chequeNo: p.chequeNo,
+                                          bank: p.bank,
+                                          notes: p.notes,
+                                          clientName: clientProfile.client.fullName,
+                                          clientCnic: clientProfile.client.cnic,
+                                          clientPhone: clientProfile.client.phone,
+                                          bookingNo: currentBooking.bookingNo,
+                                          unitCode: currentBooking.unit.unitCode,
+                                          floorName: currentBooking.unit.floorName,
+                                          receivedByName: p.receiverName,
+                                        });
+                                        setReceiptModalOpen(true);
+                                      }}
+                                      className="h-7 px-2 text-[11px]"
+                                      title="Print Receipt"
+                                    >
+                                      <Printer weight="light" className="size-3.5" />
+                                    </Button>
 
-                                      {userRole === "ADMIN" && !p.isVoided && (
-                                        <>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              setActivePaymentForEdit(p);
-                                              setEditPaymentModalOpen(true);
-                                            }}
-                                            className="h-7 px-2 text-[11px] text-primary"
-                                            title="Edit Payment"
-                                          >
-                                            <PencilSimple
-                                              weight="light"
-                                              className="size-3.5"
-                                            />
-                                          </Button>
+                                    {userRole === "ADMIN" && !p.isVoided && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setActivePaymentForEdit(p);
+                                            setEditPaymentModalOpen(true);
+                                          }}
+                                          className="h-7 px-2 text-[11px] text-primary"
+                                          title="Edit Payment"
+                                        >
+                                          <PencilSimple
+                                            weight="light"
+                                            className="size-3.5"
+                                          />
+                                        </Button>
 
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              setActivePaymentForVoid(p);
-                                              setVoidPaymentModalOpen(true);
-                                            }}
-                                            className="h-7 px-2 text-[11px] text-sold hover:bg-sold/10"
-                                            title="Void Payment"
-                                          >
-                                            <Prohibit
-                                              weight="light"
-                                              className="size-3.5"
-                                            />
-                                          </Button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Panel>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Right Column (4 cols): Due This Week panel */}
-          <div className="space-y-6 lg:col-span-4">
-            <DueThisWeekCard
-              summary={initialSummary}
-              onSelectBooking={handleQuickDueBookingSelect}
-            />
-          </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setActivePaymentForVoid(p);
+                                            setVoidPaymentModalOpen(true);
+                                          }}
+                                          className="h-7 px-2 text-[11px] text-sold hover:bg-sold/10"
+                                          title="Void Payment"
+                                        >
+                                          <Prohibit weight="light" className="size-3.5" />
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Panel>
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : null}
         </div>
       )}
 

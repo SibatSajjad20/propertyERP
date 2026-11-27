@@ -320,7 +320,7 @@ export function MergeUnitsDialog({
                     className="flex items-start justify-between gap-2 rounded-[6px] border border-line bg-surface p-2.5 text-[12px]"
                   >
                     <div className="min-w-0">
-                      <p className="unit-code truncate font-sans tabular-nums font-semibold text-primary">
+                      <p className="unit-code truncate font-sans font-semibold text-primary tabular-nums">
                         {formatUnitDisplayCode(u.unitCode, u.categoryName)}
                       </p>
                       <p className="truncate text-[11px] text-ink-muted">
@@ -349,7 +349,7 @@ export function MergeUnitsDialog({
 
             <div className="max-h-44 overflow-y-auto rounded-[8px] border border-line">
               <table className="w-full text-left text-[12px]">
-                <thead className="sticky top-0 border-b border-line bg-subtle text-[11px] font-medium text-ink-muted">
+                <thead className="sticky top-0 border-b border-line bg-[#F4F6F8] text-[11px] font-medium text-ink-muted">
                   <tr>
                     <th className="w-8 px-2.5 py-2" />
                     <th className="px-2.5 py-2">Unit Code</th>
@@ -373,7 +373,7 @@ export function MergeUnitsDialog({
                         <td className="px-2.5 py-1.5">
                           <Checkbox checked={checked} aria-label={u.unitCode} />
                         </td>
-                        <td className="unit-code px-2.5 py-1.5 font-sans tabular-nums font-medium text-ink">
+                        <td className="unit-code px-2.5 py-1.5 font-sans font-medium text-ink tabular-nums">
                           {formatUnitDisplayCode(u.unitCode, u.categoryName)}
                         </td>
                         <td className="px-2.5 py-1.5 text-ink-muted">{u.floorName}</td>

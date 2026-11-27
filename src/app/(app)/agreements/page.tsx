@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 import { listAgreementCandidates, listAgreements } from "@/features/agreements/queries";
@@ -21,6 +22,13 @@ export default async function AgreementsPage({
   const params = await searchParams;
   const bookingId = typeof params.bookingId === "string" ? params.bookingId : undefined;
   const saleId = typeof params.saleId === "string" ? params.saleId : undefined;
+
+  if (bookingId || saleId) {
+    const qs = new URLSearchParams();
+    if (bookingId) qs.set("bookingId", bookingId);
+    if (saleId) qs.set("saleId", saleId);
+    redirect(`/agreements/new?${qs.toString()}`);
+  }
 
   const agreements = await listAgreements();
   const candidates = await listAgreementCandidates();

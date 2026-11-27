@@ -84,6 +84,33 @@ export const pdfStyles = StyleSheet.create({
     padding: "4 8",
     alignItems: "flex-end",
   },
+  headerMetaBox: {
+    flexDirection: "row",
+    backgroundColor: BG_LIGHT,
+    borderWidth: 0.5,
+    borderColor: LINE,
+    paddingVertical: 3.5,
+    paddingHorizontal: 8,
+    marginTop: 5,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerMetaItem: {
+    flexDirection: "column",
+  },
+  headerMetaLabel: {
+    fontSize: 6,
+    color: MUTED,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginBottom: 1,
+  },
+  headerMetaValue: {
+    fontSize: 7.5,
+    fontWeight: 700,
+    color: INK,
+    fontFamily: "Geist",
+  },
   metaLabel: {
     fontSize: 6.5,
     color: MUTED,

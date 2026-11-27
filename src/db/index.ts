@@ -12,8 +12,18 @@ function createClient() {
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
+  let isLocalhost = false;
+  try {
+    const parsedUrl = new URL(url);
+    isLocalhost = /^(localhost|127\.0\.0\.1|::1)$/i.test(parsedUrl.hostname);
+  } catch {
+    // If URL parsing fails, let postgres-js handle it
+  }
+  const isSslDisabled =
+    /[?&]sslmode=disable/i.test(url) ||
+    (isLocalhost && !/[?&]sslmode=require/i.test(url));
   const lacksSslMode = !/[?&]sslmode=/i.test(url);
-  if (lacksSslMode) {
+  if (lacksSslMode && !isSslDisabled) {
     url += url.includes("?") ? "&sslmode=require" : "?sslmode=require";
   }
   const max = process.env.DB_MAX_CONNECTIONS
@@ -27,7 +37,7 @@ function createClient() {
     max_lifetime: 60 * 30,
     keep_alive: 30,
     connect_timeout: 30,
-    ...(lacksSslMode ? { ssl: "require" as const } : {}),
+    ssl: isSslDisabled ? false : "require",
     connection: { statement_timeout: 45000 },
   } as unknown as postgres.Options<Record<string, never>>);
 }

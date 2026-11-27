@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Panel } from "@/components/ui/panel";
-import { Pill, StatusDot } from "@/components/ui/badge";
+import { Pill } from "@/components/ui/badge";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   Dialog,
@@ -268,18 +268,18 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                     return (
                       <tr
                         key={row.id}
-                        className="group h-[44px] transition-colors hover:bg-subtle/50"
+                        className="group h-[44px] transition-colors hover:bg-[#F8FAFC]"
                       >
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line-strong bg-subtle text-[11px] font-semibold text-primary">
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line bg-[#F1F5F9] text-[11px] font-semibold text-primary">
                               {getInitials(row.name)}
                             </div>
                             <div className="min-w-0">
                               <span className="block truncate font-medium text-ink">
                                 {row.name}
                                 {isSelf && (
-                                  <span className="ml-1.5 rounded bg-subtle px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">
+                                  <span className="ml-1.5 rounded-[4px] border border-line bg-[#F1F5F9] px-1.5 py-0.5 text-[10.5px] font-medium text-ink-muted">
                                     You
                                   </span>
                                 )}
@@ -295,13 +295,9 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
                           {row.disabled ? (
-                            <Pill tone="bad">
-                              <StatusDot status="SOLD">Disabled</StatusDot>
-                            </Pill>
+                            <Pill tone="bad">Disabled</Pill>
                           ) : (
-                            <Pill tone="ok">
-                              <StatusDot status="AVAILABLE">Active</StatusDot>
-                            </Pill>
+                            <Pill tone="ok">Active</Pill>
                           )}
                         </td>
                         <td className="px-4 py-2 text-right font-sans text-[12px] whitespace-nowrap text-ink-muted tabular-nums">
@@ -315,7 +311,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                               <button
                                 type="button"
                                 aria-label={`Actions for ${row.name}`}
-                                className="flex size-7 items-center justify-center rounded-[6px] text-ink-muted transition-colors hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                                className="flex size-7 items-center justify-center rounded-[6px] text-ink-muted transition-colors hover:bg-[#F1F3F6] hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                               >
                                 <DotsThree weight="bold" className="size-4" />
                               </button>
@@ -382,7 +378,7 @@ export function UsersScreen({ users, currentUserId }: UsersScreenProps) {
                     <UsersIcon weight="regular" className="size-4 text-ink-muted" />
                     <span className="font-semibold text-ink">Inventory Manager</span>
                   </div>
-                  <span className="rounded bg-subtle px-2 py-0.5 font-sans text-[11px] font-medium text-ink-muted tabular-nums">
+                  <span className="rounded-[4px] border border-line bg-[#F1F5F9] px-2 py-0.5 font-sans text-[11px] font-medium text-ink-muted tabular-nums">
                     {inventoryCount} {inventoryCount === 1 ? "user" : "users"}
                   </span>
                 </div>

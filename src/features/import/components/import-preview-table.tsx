@@ -258,7 +258,7 @@ export function ImportPreviewTable({
                     key={item.rowIndex}
                     data-index={virtualRow.index}
                     ref={rowVirtualizer.measureElement}
-                    className={`absolute top-0 left-0 grid w-full grid-cols-12 items-center gap-2 border-b border-line px-4 py-2 text-[12px] transition-colors hover:bg-subtle/30 ${
+                    className={`absolute top-0 left-0 grid w-full grid-cols-12 items-center gap-2 border-b border-line px-4 py-2 text-[12px] transition-colors hover:bg-[#F8FAFC] ${
                       item.status === "ERROR"
                         ? "bg-[color-mix(in_srgb,var(--sold)_3%,transparent)]"
                         : item.status === "WARNING"

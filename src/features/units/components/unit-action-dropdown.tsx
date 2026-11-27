@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CaretDown, CalendarCheck, CheckCircle, Clock } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,13 +13,18 @@ import {
 
 interface UnitActionDropdownProps {
   unitId: string;
+  className?: string;
 }
 
-export function UnitActionDropdown({ unitId }: UnitActionDropdownProps) {
+export function UnitActionDropdown({ unitId, className }: UnitActionDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="primary" size="md">
+        <Button
+          variant="primary"
+          size="md"
+          className={cn("h-[36px] w-[195px] justify-center", className)}
+        >
           <span>Mark as sold / Action</span>
           <CaretDown weight="bold" className="ml-1.5 size-3.5" />
         </Button>

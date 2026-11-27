@@ -77,7 +77,7 @@ export function ImportBatchHistory({
               <div
                 key={batch.id}
                 className={`flex flex-col justify-between gap-3 p-4 transition-colors sm:flex-row sm:items-center ${
-                  isRolledBack ? "bg-subtle/20 opacity-70" : "hover:bg-subtle/30"
+                  isRolledBack ? "bg-subtle/20 opacity-70" : "hover:bg-[#F8FAFC]"
                 }`}
               >
                 <div className="flex items-start gap-3">

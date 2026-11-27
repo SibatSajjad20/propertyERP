@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatPkr } from "@/lib/money";
 
 export interface PrintableReceiptData {
+  id?: string;
   receiptNo: string;
   paidAt: Date | string;
   amountPkr: string;
@@ -41,12 +42,17 @@ export function PaymentReceiptDialog({
   if (!receipt) return null;
 
   function handlePrint() {
-    window.print();
+    const targetId = receipt?.id || receipt?.receiptNo;
+    if (targetId) {
+      window.open(`/api/documents/payment/${targetId}/pdf`, "_blank");
+    } else {
+      window.print();
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-hidden p-0">
+      <DialogContent hideCloseButton={true} className="max-w-lg overflow-hidden p-0">
         <DialogHeader className="border-b border-line bg-subtle/30 p-4 print:hidden">
           <div className="flex items-center justify-between">
             <div>
@@ -57,15 +63,20 @@ export function PaymentReceiptDialog({
                 Official acknowledgment of payment received
               </DialogDescription>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handlePrint}
-              className="gap-1.5"
-            >
-              <Printer weight="light" className="size-4" />
-              <span>Print Receipt</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handlePrint}
+                className="gap-1.5"
+              >
+                <Printer weight="light" className="size-4" />
+                <span>Print Receipt</span>
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 

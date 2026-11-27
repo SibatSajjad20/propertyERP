@@ -9,6 +9,7 @@ import { effectivePricingArea, formatUnitDisplayCode } from "@/lib/area";
 import { formatPkr } from "@/lib/money";
 
 interface PrintableReceiptProps {
+  id?: string;
   receiptNo: string;
   paidAt: Date | string;
   clientName: string;
@@ -35,6 +36,15 @@ export function PrintableReceiptDialog({
 }) {
   if (!receipt) return null;
 
+  function handlePrint() {
+    const targetId = receipt?.id || receipt?.receiptNo;
+    if (targetId) {
+      window.open(`/api/documents/payment/${targetId}/pdf`, "_blank");
+    } else {
+      window.print();
+    }
+  }
+
   const dateStr =
     receipt.paidAt instanceof Date
       ? receipt.paidAt.toLocaleDateString("en-GB", {
@@ -50,19 +60,17 @@ export function PrintableReceiptDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl overflow-hidden bg-white p-0 text-ink print:m-0 print:border-none print:p-0 print:shadow-none">
+      <DialogContent
+        hideCloseButton={true}
+        className="max-w-2xl overflow-hidden bg-white p-0 text-ink print:m-0 print:border-none print:p-0 print:shadow-none"
+      >
         {/* Print controls header */}
         <div className="flex items-center justify-between border-b border-line bg-subtle px-6 py-3 print:hidden">
           <span className="text-[13px] font-medium text-ink">
             Official Payment Receipt
           </span>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => window.print()}
-              className="gap-1.5"
-            >
+            <Button size="sm" variant="primary" onClick={handlePrint} className="gap-1.5">
               <Printer weight="light" className="size-4" />
               Print Receipt
             </Button>

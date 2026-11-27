@@ -366,3 +366,43 @@ export function calculateClientLedger(
     entries: entriesWithRunning,
   };
 }
+
+export function getPaymentAllocationLabel(
+  payment: { receiptNo: string; category?: string | null },
+  schedule?: Array<{
+    seq: number;
+    label?: string | null;
+    type?: string | null;
+    receiptNos?: string | null;
+  }> | null,
+): string {
+  if (schedule && schedule.length > 0) {
+    const matched = schedule.filter((inst) =>
+      inst.receiptNos
+        ?.split(",")
+        .map((s) => s.trim())
+        .includes(payment.receiptNo),
+    );
+    if (matched.length > 0) {
+      return matched
+        .map(
+          (inst) =>
+            inst.label ||
+            (inst.type === "BALLOON"
+              ? `Balloon #${inst.seq}`
+              : inst.type === "POSSESSION"
+                ? "Possession"
+                : `Installment #${inst.seq}`),
+        )
+        .join(", ");
+    }
+  }
+
+  if (payment.category === "DOWN_PAYMENT") return "Down Payment";
+  if (payment.category === "TOKEN") return "Token Advance";
+  if (payment.category === "SURCHARGE") return "Late Surcharge";
+  if (payment.category === "BALLOON") return "Balloon Payment";
+  if (payment.category === "POSSESSION") return "Possession";
+  if (payment.category === "INSTALLMENT") return "Installment";
+  return payment.category ? payment.category.replaceAll("_", " ") : "Payment";
+}

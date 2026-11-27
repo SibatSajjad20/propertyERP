@@ -5,6 +5,7 @@ import { DownloadSimple, MagnifyingGlass, Plus, DotsThree } from "@phosphor-icon
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -98,14 +99,9 @@ export function DevUiScreen() {
             </div>
 
             {/* Date Picker */}
-            <div className="flex w-40 flex-col gap-1">
+            <div className="flex w-44 flex-col gap-1">
               <span className="text-[11px] font-medium text-ink-muted">Date (36px)</span>
-              <input
-                type="date"
-                value={dateVal}
-                onChange={(e) => setDateVal(e.target.value)}
-                className="h-9 w-full rounded-[8px] border border-line bg-surface px-2.5 text-[13px] text-ink outline-none hover:border-line-strong focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-              />
+              <DatePicker value={dateVal} onChange={(val) => setDateVal(val)} />
             </div>
 
             {/* Search Box */}

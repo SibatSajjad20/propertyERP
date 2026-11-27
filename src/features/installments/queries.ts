@@ -221,6 +221,8 @@ export interface BookingScheduleDetail {
   schedule: Array<{
     id: string;
     seq: number;
+    label?: string | null;
+    type?: string | null;
     dueDate: Date;
     amount: string;
     paidAmount: string;
@@ -232,6 +234,7 @@ export interface BookingScheduleDetail {
   payments: Array<{
     id: string;
     receiptNo: string;
+    category?: string | null;
     amount: string;
     method: string;
     chequeNo: string | null;
@@ -311,100 +314,103 @@ export async function getClientProfileWithBookings(
       .orderBy(desc(bookings.createdAt));
 
     const now = new Date();
-    const detailedBookings: BookingScheduleDetail[] = [];
+    const detailedBookings: BookingScheduleDetail[] = await Promise.all(
+      bookingRows.map(async (b) => {
+        // Fetch installments and payments concurrently in parallel
+        const [instRows, paymentRows] = await Promise.all([
+          db
+            .select()
+            .from(installments)
+            .where(eq(installments.bookingId, b.id))
+            .orderBy(asc(installments.seq)),
+          db
+            .select({
+              id: payments.id,
+              receiptNo: payments.receiptNo,
+              category: payments.category,
+              amount: payments.amount,
+              method: payments.method,
+              chequeNo: payments.chequeNo,
+              bank: payments.bank,
+              paidAt: payments.paidAt,
+              notes: payments.notes,
+              isVoided: payments.isVoided,
+              voidedAt: payments.voidedAt,
+              voidedReason: payments.voidedReason,
+              receiverName: user.name,
+            })
+            .from(payments)
+            .leftJoin(user, eq(payments.receivedBy, user.id))
+            .where(eq(payments.bookingId, b.id))
+            .orderBy(asc(payments.paidAt), asc(payments.createdAt)),
+        ]);
 
-    for (const b of bookingRows) {
-      // Fetch installments
-      const instRows = await db
-        .select()
-        .from(installments)
-        .where(eq(installments.bookingId, b.id))
-        .orderBy(asc(installments.seq));
+        let nextDueDate: Date | null = null;
+        let overduePaisa = 0n;
 
-      // Fetch payments
-      const paymentRows = await db
-        .select({
-          id: payments.id,
-          receiptNo: payments.receiptNo,
-          amount: payments.amount,
-          method: payments.method,
-          chequeNo: payments.chequeNo,
-          bank: payments.bank,
-          paidAt: payments.paidAt,
-          notes: payments.notes,
-          isVoided: payments.isVoided,
-          voidedAt: payments.voidedAt,
-          voidedReason: payments.voidedReason,
-          receiverName: user.name,
-        })
-        .from(payments)
-        .leftJoin(user, eq(payments.receivedBy, user.id))
-        .where(eq(payments.bookingId, b.id))
-        .orderBy(asc(payments.paidAt), asc(payments.createdAt));
+        const schedule = instRows.map((inst) => {
+          const amtPaisa = parseDecimal(inst.amount);
+          const paidPaisa = parseDecimal(inst.paidAmount);
+          const balPaisa = amtPaisa - paidPaisa;
 
-      let nextDueDate: Date | null = null;
-      let overduePaisa = 0n;
-
-      const schedule = instRows.map((inst) => {
-        const amtPaisa = parseDecimal(inst.amount);
-        const paidPaisa = parseDecimal(inst.paidAmount);
-        const balPaisa = amtPaisa - paidPaisa;
-
-        if (balPaisa > 0n) {
-          if (!nextDueDate) {
-            nextDueDate = inst.dueDate;
+          if (balPaisa > 0n) {
+            if (!nextDueDate) {
+              nextDueDate = inst.dueDate;
+            }
+            if (inst.dueDate < now) {
+              overduePaisa += balPaisa;
+            }
           }
-          if (inst.dueDate < now) {
-            overduePaisa += balPaisa;
-          }
-        }
+
+          return {
+            id: inst.id,
+            seq: inst.seq,
+            label: inst.label,
+            type: inst.type,
+            dueDate: inst.dueDate,
+            amount: inst.amount,
+            paidAmount: inst.paidAmount,
+            balance: formatDecimal(balPaisa),
+            status: inst.status,
+            paidAt: inst.paidAt,
+            receiptNos: inst.receiptNos,
+          };
+        });
+
+        const netPaisa = parseDecimal(b.netPrice);
+        const paidPaisa = parseDecimal(b.paidTotal);
+        const balPaisa = netPaisa > paidPaisa ? netPaisa - paidPaisa : 0n;
+        const paidPercent =
+          netPaisa > 0n
+            ? Math.min(100, Math.round(Number((paidPaisa * 10_000n) / netPaisa) / 100))
+            : 0;
 
         return {
-          id: inst.id,
-          seq: inst.seq,
-          dueDate: inst.dueDate,
-          amount: inst.amount,
-          paidAmount: inst.paidAmount,
+          id: b.id,
+          bookingNo: b.bookingNo,
+          status: b.status,
+          plan: b.plan,
+          netPrice: b.netPrice,
+          downPayment: b.downPayment,
+          paidTotal: b.paidTotal,
           balance: formatDecimal(balPaisa),
-          status: inst.status,
-          paidAt: inst.paidAt,
-          receiptNos: inst.receiptNos,
+          paidPercent,
+          startDate: b.startDate,
+          nextDueDate,
+          overdueAmount: formatDecimal(overduePaisa),
+          unit: {
+            id: b.unitId,
+            unitCode: b.unitCode,
+            floorName: b.floorName,
+            blockName: b.blockName,
+            status: b.unitStatus,
+            version: b.unitVersion,
+          },
+          schedule,
+          payments: paymentRows,
         };
-      });
-
-      const netPaisa = parseDecimal(b.netPrice);
-      const paidPaisa = parseDecimal(b.paidTotal);
-      const balPaisa = netPaisa > paidPaisa ? netPaisa - paidPaisa : 0n;
-      const paidPercent =
-        netPaisa > 0n
-          ? Math.min(100, Math.round(Number((paidPaisa * 10_000n) / netPaisa) / 100))
-          : 0;
-
-      detailedBookings.push({
-        id: b.id,
-        bookingNo: b.bookingNo,
-        status: b.status,
-        plan: b.plan,
-        netPrice: b.netPrice,
-        downPayment: b.downPayment,
-        paidTotal: b.paidTotal,
-        balance: formatDecimal(balPaisa),
-        paidPercent,
-        startDate: b.startDate,
-        nextDueDate,
-        overdueAmount: formatDecimal(overduePaisa),
-        unit: {
-          id: b.unitId,
-          unitCode: b.unitCode,
-          floorName: b.floorName,
-          blockName: b.blockName,
-          status: b.unitStatus,
-          version: b.unitVersion,
-        },
-        schedule,
-        payments: paymentRows,
-      });
-    }
+      }),
+    );
 
     return {
       client: {

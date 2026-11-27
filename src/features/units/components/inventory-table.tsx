@@ -346,7 +346,7 @@ export function InventoryTable({
                       "group h-11 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                       selected
                         ? "bg-primary-soft font-medium text-ink"
-                        : "text-ink hover:bg-subtle/70",
+                        : "text-ink hover:bg-[#F8FAFC]",
                     )}
                     onClick={() => onRowClick(row.original)}
                     onKeyDown={(event) => {
@@ -366,7 +366,7 @@ export function InventoryTable({
                             numeric && "text-right",
                             cell.column.id === "actions" && "w-10 px-1",
                             cell.column.id === "unitCode" &&
-                              "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-subtle/70",
+                              "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-[#F8FAFC]",
                             columnClass(cell.column.id),
                           )}
                         >
@@ -401,7 +401,7 @@ export function InventoryTable({
                         "group h-11 cursor-pointer transition-colors duration-[120ms] ease-[var(--ease-ledger)] select-none",
                         selected
                           ? "bg-primary-soft font-medium text-ink"
-                          : "text-ink hover:bg-subtle/70",
+                          : "text-ink hover:bg-[#F8FAFC]",
                       )}
                       onClick={() => onRowClick(row.original)}
                       onKeyDown={(event) => {
@@ -421,7 +421,7 @@ export function InventoryTable({
                               numeric && "text-right",
                               cell.column.id === "actions" && "w-10 px-1",
                               cell.column.id === "unitCode" &&
-                                "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-subtle/70",
+                                "sticky left-0 z-10 bg-surface shadow-[1px_0_0_var(--line)] group-hover:bg-[#F8FAFC]",
                               columnClass(cell.column.id),
                             )}
                           >

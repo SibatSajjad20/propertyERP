@@ -4,6 +4,8 @@ import {
   setUserDisabled,
   updateUserRole,
 } from "@/features/users/actions";
+import { requireSession } from "@/lib/auth";
+import { assertCan } from "@/lib/permissions";
 import { jsonError } from "@/lib/http";
 
 export async function PATCH(
@@ -11,6 +13,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    const session = await requireSession({ redirect: false });
+    assertCan(session.user.role, "users.manage");
+
     const { id } = await context.params;
     const body = (await request.json()) as Record<string, unknown>;
     if (typeof body.role === "string") {

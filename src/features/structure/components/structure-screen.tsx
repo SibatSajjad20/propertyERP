@@ -313,7 +313,7 @@ export function StructureScreen({
                         "group flex h-10 items-center justify-between rounded-[6px] px-2.5 transition-colors duration-[120ms]",
                         selected
                           ? "bg-primary-soft font-medium text-ink"
-                          : "text-muted hover:bg-subtle/60 hover:text-ink",
+                          : "text-muted hover:bg-[#F1F3F6] hover:text-ink",
                       )}
                     >
                       <Link
@@ -342,7 +342,7 @@ export function StructureScreen({
                               <button
                                 type="button"
                                 aria-label="Block options"
-                                className="flex size-7 items-center justify-center rounded-[6px] text-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                                className="flex size-7 items-center justify-center rounded-[6px] text-muted opacity-70 group-hover:opacity-100 hover:bg-[#F1F3F6] hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                               >
                                 <DotsThree weight="bold" className="size-3.5" />
                               </button>
@@ -423,7 +423,7 @@ export function StructureScreen({
                             "group h-10 cursor-pointer transition-colors select-none",
                             isSelected
                               ? "bg-primary-soft font-medium text-ink"
-                              : "text-ink hover:bg-subtle/50",
+                              : "text-ink hover:bg-[#F8FAFC]",
                           )}
                         >
                           <td className="px-3 text-right font-sans text-muted tabular-nums">
@@ -449,7 +449,7 @@ export function StructureScreen({
                                   <button
                                     type="button"
                                     aria-label="Floor actions"
-                                    className="flex size-7 items-center justify-center rounded-[6px] text-muted opacity-70 group-hover:opacity-100 hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                                    className="flex size-7 items-center justify-center rounded-[6px] text-muted opacity-70 group-hover:opacity-100 hover:bg-[#F1F3F6] hover:text-ink focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                                   >
                                     <DotsThree weight="bold" className="size-3.5" />
                                   </button>

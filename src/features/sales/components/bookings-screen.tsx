@@ -199,7 +199,7 @@ export function BookingsScreen({ initialData }: BookingsScreenProps) {
                   <tr
                     key={row.id}
                     onClick={() => router.push(`/bookings/${row.id}` as never)}
-                    className="h-11 cursor-pointer transition-colors hover:bg-subtle/50"
+                    className="h-11 cursor-pointer transition-colors hover:bg-[#F8FAFC]"
                   >
                     <td className="px-4 py-2">
                       <span className="font-sans text-[13px] font-semibold text-primary tabular-nums">

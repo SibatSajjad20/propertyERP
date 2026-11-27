@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MoneyInput } from "@/components/ui/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -138,13 +139,9 @@ function EditPaymentDialogForm({
             <label className="text-[11px] font-medium text-ink-muted uppercase">
               Payment Date *
             </label>
-            <input
-              type="date"
-              value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
-              className="mt-1 h-9 w-full rounded-[8px] border border-line bg-surface px-3 text-[13px] text-ink focus:outline-primary"
-              required
-            />
+            <div className="mt-1">
+              <DatePicker value={paidAt} onChange={(val) => setPaidAt(val)} />
+            </div>
           </div>
         </div>
 
