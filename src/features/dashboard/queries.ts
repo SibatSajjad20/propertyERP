@@ -541,85 +541,12 @@ export async function getDashboardBundle(filter?: {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     ).toISOString();
 
-    const [
-      floorsData,
-      salesOverTime,
-      collectionsByMonth,
-      recentBookingRows,
-      overdueInstallmentRows,
-      dueNext7DaysRows,
-      sumsRows,
-    ] = await Promise.all([
+    // Run in two bounded waves so cold-start requests never saturate the
+    // postgres-js pool (max 10 connections) alongside layout/session queries.
+    const [floorsData, salesOverTime, collectionsByMonth, sumsRows] = await Promise.all([
       getFloorsLedger(filter),
       getSalesOverTime(filter),
       getCollectionsOverTime(),
-      db
-        .select({
-          id: bookings.id,
-          bookingNo: bookings.bookingNo,
-          clientName: clients.fullName,
-          unitCode: units.unitCode,
-          netPrice: bookings.netPrice,
-          paidTotal: bookings.paidTotal,
-          createdAt: bookings.createdAt,
-        })
-        .from(bookings)
-        .innerJoin(units, eq(bookings.unitId, units.id))
-        .innerJoin(clients, eq(bookings.clientId, clients.id))
-        .where(eq(bookings.status, "ACTIVE"))
-        .orderBy(desc(bookings.createdAt))
-        .limit(5),
-      db
-        .select({
-          id: installments.id,
-          bookingId: bookings.id,
-          bookingNo: bookings.bookingNo,
-          seq: installments.seq,
-          dueDate: installments.dueDate,
-          amount: installments.amount,
-          paidAmount: installments.paidAmount,
-          unitCode: units.unitCode,
-          clientName: clients.fullName,
-        })
-        .from(installments)
-        .innerJoin(bookings, eq(installments.bookingId, bookings.id))
-        .innerJoin(units, eq(bookings.unitId, units.id))
-        .innerJoin(clients, eq(bookings.clientId, clients.id))
-        .where(
-          and(
-            eq(bookings.status, "ACTIVE"),
-            sql`${installments.paidAmount} < ${installments.amount}`,
-            sql`${installments.dueDate} < now()`,
-          ),
-        )
-        .orderBy(asc(installments.dueDate), asc(installments.seq))
-        .limit(5),
-      db
-        .select({
-          id: installments.id,
-          bookingId: bookings.id,
-          bookingNo: bookings.bookingNo,
-          seq: installments.seq,
-          dueDate: installments.dueDate,
-          amount: installments.amount,
-          paidAmount: installments.paidAmount,
-          unitCode: units.unitCode,
-          clientName: clients.fullName,
-        })
-        .from(installments)
-        .innerJoin(bookings, eq(installments.bookingId, bookings.id))
-        .innerJoin(units, eq(bookings.unitId, units.id))
-        .innerJoin(clients, eq(bookings.clientId, clients.id))
-        .where(
-          and(
-            eq(bookings.status, "ACTIVE"),
-            sql`${installments.paidAmount} < ${installments.amount}`,
-            sql`${installments.dueDate} >= now()`,
-            sql`${installments.dueDate} <= now() + interval '7 days'`,
-          ),
-        )
-        .orderBy(asc(installments.dueDate), asc(installments.seq))
-        .limit(5),
       db.execute(sql`
         with p as (
           select
@@ -687,6 +614,77 @@ export async function getDashboardBundle(filter?: {
         from p, s, r, bb, inst, res, b
       `),
     ]);
+
+    const [recentBookingRows, overdueInstallmentRows, dueNext7DaysRows] =
+      await Promise.all([
+        db
+          .select({
+            id: bookings.id,
+            bookingNo: bookings.bookingNo,
+            clientName: clients.fullName,
+            unitCode: units.unitCode,
+            netPrice: bookings.netPrice,
+            paidTotal: bookings.paidTotal,
+            createdAt: bookings.createdAt,
+          })
+          .from(bookings)
+          .innerJoin(units, eq(bookings.unitId, units.id))
+          .innerJoin(clients, eq(bookings.clientId, clients.id))
+          .where(eq(bookings.status, "ACTIVE"))
+          .orderBy(desc(bookings.createdAt))
+          .limit(5),
+        db
+          .select({
+            id: installments.id,
+            bookingId: bookings.id,
+            bookingNo: bookings.bookingNo,
+            seq: installments.seq,
+            dueDate: installments.dueDate,
+            amount: installments.amount,
+            paidAmount: installments.paidAmount,
+            unitCode: units.unitCode,
+            clientName: clients.fullName,
+          })
+          .from(installments)
+          .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+          .innerJoin(units, eq(bookings.unitId, units.id))
+          .innerJoin(clients, eq(bookings.clientId, clients.id))
+          .where(
+            and(
+              eq(bookings.status, "ACTIVE"),
+              sql`${installments.paidAmount} < ${installments.amount}`,
+              sql`${installments.dueDate} < now()`,
+            ),
+          )
+          .orderBy(asc(installments.dueDate), asc(installments.seq))
+          .limit(5),
+        db
+          .select({
+            id: installments.id,
+            bookingId: bookings.id,
+            bookingNo: bookings.bookingNo,
+            seq: installments.seq,
+            dueDate: installments.dueDate,
+            amount: installments.amount,
+            paidAmount: installments.paidAmount,
+            unitCode: units.unitCode,
+            clientName: clients.fullName,
+          })
+          .from(installments)
+          .innerJoin(bookings, eq(installments.bookingId, bookings.id))
+          .innerJoin(units, eq(bookings.unitId, units.id))
+          .innerJoin(clients, eq(bookings.clientId, clients.id))
+          .where(
+            and(
+              eq(bookings.status, "ACTIVE"),
+              sql`${installments.paidAmount} < ${installments.amount}`,
+              sql`${installments.dueDate} >= now()`,
+              sql`${installments.dueDate} <= now() + interval '7 days'`,
+            ),
+          )
+          .orderBy(asc(installments.dueDate), asc(installments.seq))
+          .limit(5),
+      ]);
 
     const sumsRow = ((sumsRows as unknown as Record<string, unknown>[])[0] ??
       {}) as Record<string, unknown>;
